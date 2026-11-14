@@ -662,3 +662,13 @@ GraphQL 結構以 [Cloudflare 官方 D1 Metrics and Analytics](https://developer
 新增ITEMS_COST_MARGIN（商品－成本及毛利分析），route:null且依附ITEMS，授權／群組勾選及連動取消比照ORDERING_CN_PURCHASE。SUPER_ADMIN依既有全授權；USER／ADMIN不自動取得。僅ITEMS者成本及稅別兩欄保留位置、內容空白（非破折號或待補），毛利入口及內容完全不顯示。商品列表／詳情／修改／改號回應的cost與costTaxMode為null，margin回403，成本歷史及全域Audit的成本事件不提供（含搜尋）。
 
 無次級權限的一般商品PATCH不得提供cost／costTaxMode（即使null）；由server保留現存值，舊待補NULL亦不猜測，其他欄位／售價仍可更新。具權限者成本稅別維持三選一必填。新增商品需選成本稅別，故無成本權限者新增停用、POST403，交具權限者建立。0070擴充既有授權表CHECK且保留原授權，不自動替員工加授權；由既有權限管理者自行設定。
+
+## V0.20.0 商品網路毛利與手動設定（待審查，未合併／部署）
+
+GET `/api/business/items/:id` 在具有ITEMS及ITEMS_COST_MARGIN時附加`margin`（原非網路結果＋`online`）；同一商品aggregate只讀一次。`online`各平台含主檔price、rules及revision、basic／activity、basicShipping／shipping、basicTiers／tiers。兩tiers陣列分別對應基本、基本＋活動；每列含minimum／maximum及各券coupons端點，端點含門檻orderAmount、折讓比例discountRatio、商品折抵itemDiscount、result及theoretical。金額／百分比為兩位小數字串，零收入比率null。沒有設定或成本時不虛構結果。舊GET `/:id/margin`保留相同後端核心，前端不再另呼叫。
+
+GET／PUT `/api/business/items/platform-margin-rules/:platformId`：GET要求商品＋成本權限；PUT另要求SUPER_ADMIN，使用既有Session，沒有AI委派入口。規則schema以`shared/item-online-margin.ts`為準，只有基本／活動費目、shipping、tiers、coupons及platformId／revision。未建規則GET回revision0空草稿，實際分析標待設定；PUT須明確填基本／活動費目，無費用填0。revision為必要版本，成功＋1；落後409且current／versions／Audit全部不寫。費目／滿件每類最多100筆、券最多500張，所有數值後端驗證。
+
+券互斥、與滿件並用；每券比較本門檻至下一不同門檻減1的比例分攤，最後固定／封頂券理論上界與無上限折數券區分。百分比費用按優惠後含稅價、固定費與運費按單件、支出額直接扣除。詳見[實作規格](../development/ITEM_MARGIN_PHASE2_DESIGN.md)。無成本權限詳情不帶margin、cost及costTaxMode為null、兩接口403；泛用Audit不含毛利正文。
+
+網路費用後結果型別為`ContributionValue`（`contributionAmount`／`contributionMarginPercent`），與原商品基本毛利`MarginValue`（`grossProfit`／`grossMarginPercent`）明確區分，畫面仍以「毛利」方便閱讀；兩者共用同一精確計算核心。

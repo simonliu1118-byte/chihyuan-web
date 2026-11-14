@@ -4,18 +4,18 @@ import { parseScaled4 } from "../../shared/fixed-point";
 import { unitFactorToBase } from "../../shared/unit-conversion";
 
 // Exact fractions retain tax and unit-conversion precision until the API display boundary.
-type Rational = { numerator: bigint; denominator: bigint };
-const value = (text: string): Rational => ({ numerator: BigInt(parseScaled4(text)), denominator: 10000n });
-const multiply = (a: Rational, n: bigint, d = 1n): Rational => ({ numerator: a.numerator * n, denominator: a.denominator * d });
-const subtract = (a: Rational, b: Rational): Rational => ({ numerator: a.numerator * b.denominator - b.numerator * a.denominator, denominator: a.denominator * b.denominator });
+export type Rational = { numerator: bigint; denominator: bigint };
+export const value = (text: string): Rational => ({ numerator: BigInt(parseScaled4(text)), denominator: 10000n });
+export const multiply = (a: Rational, n: bigint, d = 1n): Rational => ({ numerator: a.numerator * n, denominator: a.denominator * d });
+export const subtract = (a: Rational, b: Rational): Rational => ({ numerator: a.numerator * b.denominator - b.numerator * a.denominator, denominator: a.denominator * b.denominator });
 // Round halves away from zero, including negative profit. Decimal strings are JSON-safe.
-function display(a: Rational): string {
+export function display(a: Rational): string {
   const negative = a.numerator < 0n;
   const absolute = negative ? -a.numerator : a.numerator;
   const cents = (absolute * 200n + a.denominator) / (a.denominator * 2n);
   return `${negative && cents !== 0n ? "-" : ""}${cents / 100n}.${String(cents % 100n).padStart(2, "0")}`;
 }
-function margin(revenue: Rational, cost: Rational): MarginValue {
+export function margin(revenue: Rational, cost: Rational): MarginValue {
   const profit = subtract(revenue, cost);
   return {
     netSales: display(revenue), grossProfit: display(profit), negative: profit.numerator < 0n,
@@ -26,11 +26,17 @@ function margin(revenue: Rational, cost: Rational): MarginValue {
   };
 }
 
+export function itemNetCost(item: Pick<ItemDetail, "cost"|"costTaxMode">): Rational|null {
+  if (item.cost == null || item.costTaxMode == null) return null;
+  const original=value(item.cost);
+  return item.costTaxMode === "inclusive" ? multiply(original,100n,105n) : original;
+}
+
 /** Saved Item aggregate only. No client cost/price overrides, persistence or online analysis. */
 export function calculateItemMargin(item: ItemDetail): ItemMarginResult {
   const costStatus = item.cost == null ? "待補成本" : item.costTaxMode == null ? "待補成本稅別" : null;
   const original = item.cost == null ? null : value(item.cost);
-  const netCost = original && !costStatus ? item.costTaxMode === "inclusive" ? multiply(original, 100n, 105n) : original : null;
+  const netCost = itemNetCost(item);
   const payment = original && !costStatus ? item.costTaxMode === "exclusive" ? multiply(original, 105n, 100n) : original : null;
   const edges = item.unitConversions.map(row => ({ fromUnit: row.fromUnit, toUnit: row.toUnit, quantityScaled4: parseScaled4(row.quantity) }));
   const row = (channel: ItemMarginRow["channel"], unit: string, price: string | null): ItemMarginRow => {

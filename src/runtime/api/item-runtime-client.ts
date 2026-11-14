@@ -72,3 +72,10 @@ export function loadItemPriceHistory(itemId:number):Promise<readonly ItemPriceHi
 export function loadItemMargin(itemId: number): Promise<ItemMarginResult> {
   return apiRequest<ItemMarginResult>(`/api/business/items/${encodeURIComponent(String(itemId))}/margin`, { method: "GET" });
 }
+
+export function loadPlatformMarginRules(platformId:number):Promise<import('../../../shared/item-online-margin').PlatformMarginRules>{
+ return apiRequest(`/api/business/items/platform-margin-rules/${platformId}`,{method:'GET'});
+}
+export function savePlatformMarginRules(rules:import('../../../shared/item-online-margin').PlatformMarginRules):Promise<import('../../../shared/item-online-margin').PlatformMarginRules>{
+ return apiRequest(`/api/business/items/platform-margin-rules/${rules.platformId}`,{method:'PUT',json:rules});
+}

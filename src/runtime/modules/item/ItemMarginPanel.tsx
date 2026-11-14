@@ -1,9 +1,6 @@
-import { useEffect, useState } from "react";
+import { OnlineMarginTables } from "./OnlineMarginTables";
 import type { ItemMarginResult, MarginValue } from "../../../../shared/item-margin";
-import { loadItemMargin } from "../../api/item-runtime-client";
 import { RecordSheet } from "../../../ui/forms/RecordSheet";
-import { Loading } from "../../../ui/feedback/Loading";
-import { FeedbackBanner, useFeedbackMessage } from "../../../ui/feedback/FeedbackProvider";
 import { StatusChip } from "../../../ui/primitives/StatusChip";
 
 const money = (value: string | null) => {
@@ -21,24 +18,8 @@ function Profit({ value }: { value: MarginValue | null }) {
     <div><small>未稅銷售額 {money(value.netSales)}</small></div></div>;
 }
 
-/** Owns only the requested saved-item result; no price/cost draft or browser calculation. */
-export function ItemMarginPanel({ itemId, revision, onEdit }: { itemId: number; revision: number; onEdit: () => void }) {
-  const [result, setResult] = useState<ItemMarginResult | null>(null);
-  const [epoch, setEpoch] = useState(0);
-  const [loading, setLoading] = useState(true);
-  const [message, , reportError, tone] = useFeedbackMessage<string | null>(null);
-  useEffect(() => {
-    let active = true;
-    setLoading(true);
-    setResult(null);
-    void loadItemMargin(itemId).then(data => { if (active) setResult(data); })
-      .catch(error => { if (active) reportError(error instanceof Error ? error.message : "毛利分析載入失敗"); })
-      .finally(() => { if (active) setLoading(false); });
-    return () => { active = false; };
-  }, [itemId, revision, epoch]);
-  if (loading) return <Loading />;
-  if (!result) return <div><FeedbackBanner message={message} tone={tone} />
-    <button className="cy-op-button compact soft" type="button" onClick={() => setEpoch(v => v + 1)}>重新載入</button></div>;
+/** Presentation only: the parent owns the same saved item and derived margin response. */
+export function ItemMarginPanel({ result, onEdit }: { result: ItemMarginResult; onEdit: () => void }) {
   return <section aria-label="商品毛利分析">
     <div className="cy-record-header"><h3>成本摘要</h3>
       <button className="cy-op-button compact soft" type="button" onClick={onEdit}>修改商品主檔</button></div>
@@ -55,7 +36,7 @@ export function ItemMarginPanel({ itemId, revision, onEdit }: { itemId: number; 
       ] },
     ]} />
     {result.costStatus ? <StatusChip tone="warning">{result.costStatus}</StatusChip> : null}
-    <p>依一般應稅交易、營業稅 5% 且進項可扣抵的前提試算；不計稅不拆進項稅。特殊或不可扣抵情況需另行處理。</p>
+    <p>依一般應稅交易、營業稅 5% 且進項可扣抵的前提計算；不計稅不拆進項稅。特殊或不可扣抵情況需另行處理。</p>
     <h3>通路毛利比較</h3>
     <table className="cy-op-table cy-rt"><thead><tr>
       <th>通路／單位</th><th className="is-number">主檔售價</th><th className="is-number">該單位淨成本</th>
@@ -68,6 +49,7 @@ export function ItemMarginPanel({ itemId, revision, onEdit }: { itemId: number; 
       <td data-label="含稅價解讀：毛利額／率" className="is-number"><Profit value={row.inclusive} /></td>
       <td data-label="資料狀態">{row.status ? <StatusChip tone="warning">{row.status}</StatusChip> : <StatusChip tone="success">完整</StatusChip>}</td>
     </tr>)}</tbody></table>
+    <OnlineMarginTables platforms={result.online??[]}/>
     <p>門市售價固定含稅；診所與批發同一售價分別作含稅、未稅解讀。毛利率以未稅銷售額為分母，金額與比例於最後顯示時取兩位小數。</p>
   </section>;
 }

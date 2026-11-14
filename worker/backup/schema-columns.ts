@@ -1,5 +1,7 @@
 // Durable portable-backup columns; regenerated from the forward migration chain.
 export const BACKUP_COLUMNS: Record<string, string[]> = {
+  "item_platform_margin_rules": ["platform_id","revision","rules_json","updated_at","updated_by"],
+  "item_platform_margin_rule_versions": ["platform_id","revision","rules_json","updated_at","updated_by"],
   "personal_todos": ["completed_at","created_at","detail","due_date","due_time","id","member_id","priority","title","updated_at"],
   "hub_notices": ["author_name","body","created_at","created_by","id","kind","revoked_at","revoked_by","title"],
   "hub_notice_recipients": ["member_id","notice_id"],

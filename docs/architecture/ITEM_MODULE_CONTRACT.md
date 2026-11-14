@@ -191,3 +191,11 @@ This foundation does not yet expose protected Item HTTP routes and does not writ
 新增ITEMS_COST_MARGIN（商品－成本及毛利分析），route:null且依附ITEMS，授權／群組勾選及連動取消比照ORDERING_CN_PURCHASE。SUPER_ADMIN依既有全授權；USER／ADMIN不自動取得。僅ITEMS者成本及稅別兩欄保留位置、內容空白（非破折號或待補），毛利入口及內容完全不顯示。商品列表／詳情／修改／改號回應的cost與costTaxMode為null，margin回403，成本歷史及全域Audit的成本事件不提供（含搜尋）。
 
 無次級權限的一般商品PATCH不得提供cost／costTaxMode（即使null）；由server保留現存值，舊待補NULL亦不猜測，其他欄位／售價仍可更新。具權限者成本稅別維持三選一必填。新增商品需選成本稅別，故無成本權限者新增停用、POST403，交具權限者建立。0070擴充既有授權表CHECK且保留原授權，不自動替員工加授權；由既有權限管理者自行設定。
+
+## V0.20.0 網路毛利與同頁閱讀（待Claude審查，未合併／部署）
+
+本節取代V0.19.0的商品資料／毛利子頁切換：詳情下方同頁顯示毛利，瑕疵獨立。詳情GET同次回應包含Worker權威計算，不額外查商品；無ITEMS_COST_MARGIN仍成本及稅別留白、毛利完全隱藏。
+
+網路每平台以共用表格並排基本與基本＋活動兩費率，無折扣與每個滿件折數分列，全部互斥券各算後取整體最低／最高；展開逐券分欄加粗顯示。商品設定的簡化平台費用與優惠限SUPER_ADMIN管理，設定儲存立即生效並重讀商品owner。主檔售價／成本維持唯一來源，不增加試算、搭購或AI接口。
+
+0071新增共用規則及歷史版本，revision／Audit原子寫入。費率基礎、門檻比例、最後理論界及運費約定完整見[當前規格](../development/ITEM_MARGIN_PHASE2_DESIGN.md)；原第一階段「全部網路留下一階段」現在由本節接續，AI仍延後。

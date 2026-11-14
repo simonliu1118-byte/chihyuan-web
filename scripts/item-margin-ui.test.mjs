@@ -9,27 +9,24 @@ const stubs={
  '../../api/item-runtime-client':'export const loadItemMargin=(...a)=>globalThis.marginLoad(...a);',
  '../../../ui/feedback/FeedbackProvider':'export const FeedbackBanner=()=>null;export const useFeedbackMessage=()=>[null,()=>{},()=>{},"danger"];',
 };
-let ItemMarginPanel,ItemSheet;
+let ItemMarginPanel,ItemSheet,OnlineMarginTables;
 try{
- await build({entryPoints:['src/runtime/modules/item/ItemMarginPanel.tsx','src/runtime/modules/item/ItemSheet.tsx'],outdir:folder,bundle:true,platform:'node',format:'esm',outExtension:{'.js':'.mjs'},packages:'external',loader:{'.css':'empty'},plugins:[{name:'margin-ui-boundaries',setup(b){b.onResolve({filter:/.*/},a=>a.path in stubs?{path:a.path,namespace:'stub'}:undefined);b.onLoad({filter:/.*/,namespace:'stub'},a=>({contents:stubs[a.path]}));}}]});
+ await build({entryPoints:['src/runtime/modules/item/ItemMarginPanel.tsx','src/runtime/modules/item/ItemSheet.tsx','src/runtime/modules/item/OnlineMarginTables.tsx'],outdir:folder,bundle:true,platform:'node',format:'esm',outExtension:{'.js':'.mjs'},packages:'external',loader:{'.css':'empty'},plugins:[{name:'margin-ui-boundaries',setup(b){b.onResolve({filter:/.*/},a=>a.path in stubs?{path:a.path,namespace:'stub'}:undefined);b.onLoad({filter:/.*/,namespace:'stub'},a=>({contents:stubs[a.path]}));}}]});
  ({ItemMarginPanel}=await import(pathToFileURL(process.cwd()+'/'+folder+'/ItemMarginPanel.mjs')));
  ({ItemSheet}=await import(pathToFileURL(process.cwd()+'/'+folder+'/ItemSheet.mjs')));
+ ({OnlineMarginTables}=await import(pathToFileURL(process.cwd()+'/'+folder+'/OnlineMarginTables.mjs')));
 }finally{rmSync(folder,{recursive:true,force:true})}
 const walk=n=>Array.isArray(n)?n.flatMap(walk):!n||typeof n!=='object'?[]:[n,...walk(n.props?.children)];
 const result=(id,revision=1)=>({itemId:id,revision,baseUnit:'個',originalCost:'100',costTaxMode:'exclusive',payment:'105.00',inputTax:'5.00',netCost:'100.00',costStatus:null,rows:[]});
 
-test('saved-item panel ignores late results after item/revision changes and never offers price inputs',async()=>{
- let cursor=0,slots=[],effects=[],tree;const requests=[];
- globalThis.marginLoad=(id)=>new Promise(resolve=>requests.push({id,resolve}));
- globalThis.marginHost={useState(initial){const i=cursor++;slots[i]??={value:initial};return[slots[i].value,next=>{slots[i].value=typeof next==='function'?next(slots[i].value):next}]},useEffect(fn,deps){const i=cursor++;if(!slots[i]||deps.some((v,n)=>v!==slots[i].deps[n])){slots[i]?.cleanup?.();slots[i]={deps};effects.push(()=>slots[i].cleanup=fn());}}};
- const render=(id,revision=1)=>{cursor=0;effects=[];tree=ItemMarginPanel({itemId:id,revision,onEdit:()=>{}});effects.forEach(f=>f());return tree};
- try{
- render(1);render(2);requests[1].resolve({...result(2),netCost:"150.00"});await new Promise(setImmediate);render(2);
- requests[0].resolve(result(1));await new Promise(setImmediate);render(2);
- let sheet=walk(tree).find(n=>n.props.label==='毛利成本摘要');assert.ok(sheet);assert.equal(sheet.props.rows[1].cells[2].view,"$150.00");assert.equal(walk(tree).filter(n=>['input','select','textarea'].includes(n.type)).length,0);
- assert.equal(requests.length,2);render(2,2);assert.equal(requests.length,3);requests[2].resolve({...result(2,2),netCost:'200.00'});await new Promise(setImmediate);render(2,2);
- sheet=walk(tree).find(n=>n.props.label==='毛利成本摘要');assert.equal(sheet.props.rows[1].cells[2].view,'$200.00');
- }finally{slots.forEach(s=>s?.cleanup?.());delete globalThis.marginHost;delete globalThis.marginLoad;}
+test('margin panel renders the parent saved-item response without another transport or editable inputs',()=>{
+ globalThis.marginLoad=()=>{throw Error('duplicate product read')};
+ try {
+  const tree=ItemMarginPanel({result:{...result(2,2),netCost:'150.00'},onEdit:()=>{}});
+  const sheet=walk(tree).find(n=>n.props.label==='毛利成本摘要');
+  assert.equal(sheet.props.rows[1].cells[2].view,'$150.00');
+  assert.equal(walk(tree).filter(n=>['input','select','textarea'].includes(n.type)).length,0);
+ } finally {delete globalThis.marginLoad;}
 });
 
 test('master tax field has three explicit choices, required and no default; pending is only a placeholder',()=>{
@@ -50,4 +47,20 @@ test('without cost permission both master cells are blank, not editable or marke
    assert.equal(cell.view.type,'span');assert.equal(cell.view.props.children,undefined);assert.equal(cell.edit,undefined);assert.ok(!cell.required);
   }
  }
+});
+
+test('comparison is one matrix; collapsed tiers aggregate all coupons and expanded rows label both minima/maxima',()=>{
+ let expanded=false;globalThis.marginHost={useState:()=>[expanded,next=>{expanded=next(expanded)}]};
+ const point=(n)=>({coupon:'合成券',orderAmount:'600',discountRatio:'3.33',itemDiscount:'10.00',theoretical:false,result:{netSales:'200.00',contributionAmount:n,contributionMarginPercent:'50.00',negative:false}});
+ const range={quantity:2,discount:'9.9',minimum:point('100.00'),maximum:point('120.00'),coupons:[{name:'600折20',minimum:point('100.00'),maximum:point('120.00')},{name:'800折25',minimum:point('105.00'),maximum:point('115.00')}]};
+ const p={platformId:1,name:'合成平台',price:'300',status:null,basic:point('130.00').result,activity:point('120.00').result,basicShipping:null,shipping:null,basicTiers:[range],tiers:[range],rules:{basicFees:[],activityFees:[],shipping:{enabled:false},tiers:[range],coupons:[]}};
+ try{
+ const tree=OnlineMarginTables({platforms:[p]});const nodes=walk(tree);const matrix=nodes.find(n=>n.type==='table'&&n.props['aria-label']==='合成平台毛利比較');assert.ok(matrix);
+ assert.deepEqual(walk(matrix).filter(n=>n.type==='th').map(n=>n.props.children),['條件','基本費率','基本＋活動費率']);
+ const tier=walk(matrix).find(n=>n.type?.name==='Tier');let content=tier.type(tier.props);
+ assert.equal(walk(content).filter(n=>n.props['data-label']==='各券區間'||n.props['data-label']==='逐券明細').length,0);
+ const toggle=walk(content).find(n=>n.type?.name==='ExpandToggle');toggle.props.onToggle();content=tier.type(tier.props);
+ const labels=walk(content).filter(n=>n.type==='th').map(n=>n.props.children);for(const name of ['基本費率－最低毛利','基本費率－最高毛利','基本＋活動－最低毛利','基本＋活動－最高毛利'])assert.ok(labels.includes(name));
+ assert.equal(walk(content).filter(n=>n.props['data-label']==='優惠券').length,2);
+ }finally{delete globalThis.marginHost;}
 });

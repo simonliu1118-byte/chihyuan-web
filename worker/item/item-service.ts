@@ -1,3 +1,5 @@
+import { onlineMargins } from "./item-online-margin";
+import { ItemPlatformMarginRulesService } from "./item-platform-margin-rules";
 import { parseScaled4 } from "../../shared/fixed-point";
 import { calculateItemMargin } from "./item-margin-service";
 import type {
@@ -53,12 +55,16 @@ export class ItemService {
   private readonly repository: ItemRepository;
   private readonly persistence: ItemPersistence;
 
-  constructor(db: D1Database) {
+  constructor(private readonly db: D1Database) {
     this.repository = new ItemRepository(db);
     this.persistence = new ItemPersistence(db);
   }
 
-  async getMargin(itemId: number) { return calculateItemMargin(await this.getDetail(itemId)); }
+  async marginFor(item: ItemDetail) {
+    const rules = await new ItemPlatformMarginRulesService(this.db).list(item.onlinePrices.map(row=>row.platformId));
+    return {...calculateItemMargin(item),online:onlineMargins(item,await this.repository.getPlatforms(),rules)};
+  }
+  async getMargin(itemId: number) { return this.marginFor(await this.getDetail(itemId)); }
 
   async getPlatforms():Promise<readonly ItemWebPlatform[]> {return this.repository.getPlatforms()}
   async listPriceHistory(itemId:number):Promise<readonly ItemPriceHistoryRecord[]> {

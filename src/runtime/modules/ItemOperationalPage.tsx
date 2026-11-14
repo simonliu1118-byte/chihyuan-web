@@ -1,4 +1,3 @@
-import { ModuleSections } from "../../ui/mobile/ModuleSections";
 import { ItemMarginPanel } from "./item/ItemMarginPanel";
 import { IconButton } from "../../ui/actions/IconButton";
 import { Icons } from "../../ui/actions/icons";
@@ -202,7 +201,6 @@ export function ItemOperationalPage({ canViewDefects = false, canViewCustomers =
   const [selected, setSelected] = useState<ItemDetail | null>(null);
   const [numberHistory, setNumberHistory] = useState<Awaited<ReturnType<typeof loadItemNumberHistory>>>([]);
   const [priceHistory,setPriceHistory]=useState<Awaited<ReturnType<typeof loadItemPriceHistory>>>([]);
-  const [detailSection, setDetailSection] = useState<"profile" | "margin">("profile");
   const [historyOpen,setHistoryOpen]=useState(false);
   const [platforms,setPlatforms]=useState<Awaited<ReturnType<typeof loadItemPlatforms>>>([]);
   const [query, setQuery] = useState("");
@@ -293,7 +291,7 @@ export function ItemOperationalPage({ canViewDefects = false, canViewCustomers =
 
 
   const [lookupEpoch, setLookupEpoch] = useState(0);
-  useSettingsSaved(useCallback(() => setLookupEpoch(value => value + 1), []));
+  useSettingsSaved(useCallback(() => { setLookupEpoch(value => value + 1); setRefreshEpoch(value => value + 1); }, []));
   useEffect(()=>{
     let active=true;
     void loadItemPlatforms().then(p=>{if(active)setPlatforms(p)}).catch(error=>{if(active)reportError(errorMessage(error))});
@@ -737,10 +735,7 @@ export function ItemOperationalPage({ canViewDefects = false, canViewCustomers =
                </div>}
             </div>
             {compact?<ActionBar><button type="button" className="cy-op-button primary" disabled={busy} onClick={startEdit}>修改</button></ActionBar>:null}
-            <ModuleSections label="商品詳情" sections={[{key:"profile",label:"商品資料"},...(canViewCost?[{key:"margin" as const,label:"毛利分析"}]:[])]}
-              value={canViewCost?detailSection:"profile"} onChange={setDetailSection}/>
-            {canViewCost && detailSection === "margin" ? <ItemMarginPanel key={selected.id} itemId={selected.id} revision={selected.revision}
-              onEdit={() => { setDetailSection("profile"); startEdit(); }}/>:<div className="cy-item-detail-body">
+            <div className="cy-item-detail-body">
               <ItemSheet editing={false} creating={false} item={selected} draft={null}
                 busy={busy} canViewCost={canViewCost} categories={categories} platforms={platforms}
                 onPatch={patch} onAddConversion={addConversion} onUpdateConversion={updateConversion}/>
@@ -765,7 +760,8 @@ export function ItemOperationalPage({ canViewDefects = false, canViewCustomers =
                     {quoteGroupText(group)}
                   </span>)} /> : null}
               </section> : null}
-            </div>}
+              {canViewCost && selected.margin ? <ItemMarginPanel result={selected.margin} onEdit={startEdit}/>:null}
+            </div>
           </div>
         ) : (
           <MasterDetailEmpty title="尚未選擇商品" />

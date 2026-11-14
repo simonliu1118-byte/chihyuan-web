@@ -334,3 +334,9 @@ Current per-application implementation progress is intentionally excluded from t
 CURRENT_MIGRATION 為 0069_item_cost_tax_modes；資料表／備份欄位名稱未變，無新增成本主檔。restore 的既有版本升級鏈將 0069 之前 items.cost_tax_mode 的 none 轉 NULL（待補），不猜為 no_tax；inclusive／exclusive 保留。當前版本明確 no_tax 可完整往返。校驗仍先驗來源 hash／count，再升級並依欄位名還原及對帳。舊 Worker 不認 no_tax，未來回退部署須另核對 schema 相容性，不能只退版本。未執行正式備份／還原或正式 migration。
 
 V0.19.0 Build1的CURRENT_MIGRATION更新為0070_item_cost_margin_permission，授權表欄位及備份表集不變；0069之前none轉NULL的升級仍有效。0070只擴充可接受權限碼，完整保留原授權，不自動產生ITEMS_COST_MARGIN。
+
+### 平台費用與優惠版本（0071，V0.20.0待審查）
+
+CURRENT_MIGRATION為`0071_item_platform_margin_rules`。`item_platform_margin_rules`及`item_platform_margin_rule_versions`均納入可攜備份，欄位platform_id、revision、rules_json、updated_at、updated_by；先還原平台及成員，再還原兩表。完整規則快照保留每版，Audit只記版號。不含AI憑證、第二份商品價格或試算收據。
+
+0070及更早備份升級時兩張新表為空（沿用按欄位補表機制），不補猜費率。測試涵蓋當前完整備份往返及0070備份升級。只新增migration檔及本機驗證，未對正式D1執行。

@@ -1,3 +1,4 @@
+import type { OnlinePlatformMargin } from "./item-online-margin";
 import type { ItemCostTaxMode } from "./item";
 
 export interface MarginValue {
@@ -26,4 +27,5 @@ export interface ItemMarginResult {
   netCost: string | null;
   costStatus: string | null;
   rows: ItemMarginRow[];
+  online?: OnlinePlatformMargin[];
 }

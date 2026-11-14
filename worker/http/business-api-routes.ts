@@ -1,3 +1,4 @@
+import { ItemPlatformMarginRulesService } from "../item/item-platform-margin-rules";
 import { checkModuleAccess } from "../auth/app-access";
 import type { CustomerSearchQuery } from "../../shared/customer";
 import type { DefectSearchQuery, DefectStatusCode } from "../../shared/defect";
@@ -352,6 +353,17 @@ async function handleItems(
   const costDenied = () => failure({code:"ACCESS_DENIED",message:"沒有商品成本及毛利分析權限"}, requestId, 403);
   const visibleItem = <T extends {cost:string|null;costTaxMode:unknown}>(item:T):T => canCost ? item : {...item,cost:null,costTaxMode:null};
 
+  const platformRules = /^\/api\/business\/items\/platform-margin-rules\/(\d+)$/.exec(url.pathname);
+  if (platformRules) {
+    if (!canCost) return costDenied();
+    const platformId=routeId(platformRules[1],"platformId"),rules=new ItemPlatformMarginRulesService(env.DB);
+    if (request.method==="GET") return success(await rules.get(platformId),requestId);
+    if (request.method==="PUT") {
+      if (guarded.gate.principal.workspaceRole!=="SUPER_ADMIN") return failure({code:"ACCESS_DENIED",message:"僅超級管理員可修改平台費用"},requestId,403);
+      return success(await rules.save(platformId,await jsonBody(request),context),requestId);
+    }
+  }
+
   if (request.method === "GET" && url.pathname === "/api/business/items/lookups") {
     return success(await lookups.itemLookups(actorRef(guarded.gate)), requestId);
   }
@@ -400,7 +412,10 @@ async function handleItems(
   match = /^\/api\/business\/items\/(\d+)$/.exec(url.pathname);
   if (!match) return null;
   const itemId = routeId(match[1], "itemId");
-  if (request.method === "GET") return success(visibleItem(await service.getDetail(itemId)), requestId);
+  if (request.method === "GET") {
+    const item=await service.getDetail(itemId);
+    return success(canCost?{...item,margin:await service.marginFor(item)}:visibleItem(item),requestId);
+  }
   if (request.method === "PATCH") {
     const raw = await jsonBody(request);
     if (!canCost && raw && typeof raw === "object" && (Object.hasOwn(raw,"cost") || Object.hasOwn(raw,"costTaxMode"))) return costDenied();

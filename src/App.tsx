@@ -459,7 +459,7 @@ function OperationalApp({
         : route === "erp-item-query"
         ? <ErpAgentCredentialControl isSuperAdmin={session.user.workspaceRole === "SUPER_ADMIN"} />
         : route === "customers" ? <ModuleSettingsButton key={route} role={role} label="客戶" only={["customer_category","customer_status","department"]} />
-        : route === "items" ? <ModuleSettingsButton key={route} role={role} label="商品" only={["item_category","item_platform"]} />
+        : route === "items" ? <ModuleSettingsButton key={route} role={role} label="商品" only={["item_category","item_platform",...(role==="SUPER_ADMIN"?["item_margin" as const]:[])]} />
         : route === "worklogs" ? <ModuleSettingsButton key={route} role={role} label="工作日誌" only={["worklog-categories","worklog-platforms","scoring"]} />
         : undefined}
       subtitle="志遠企業管理系統"

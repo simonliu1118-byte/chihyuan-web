@@ -1,3 +1,4 @@
+import type { ItemMarginResult } from "./item-margin";
 export type ItemCostTaxMode = "no_tax" | "inclusive" | "exclusive";
 
 export interface ItemCategoryRef {
@@ -37,6 +38,7 @@ export interface ItemWebPlatform { id: number; name: string; sortOrder: number; 
 export interface ItemPriceHistoryRecord { id: number; occurredAt: string; action: string; before: Record<string,string|null>; after: Record<string,string|null>; }
 
 export interface ItemDetail extends ItemSummary {
+  margin?: ItemMarginResult;
   notes: string | null;
   createdAt: string;
   unitConversions: readonly ItemUnitConversion[];
