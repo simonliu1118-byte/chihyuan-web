@@ -16,7 +16,7 @@ const DEFAULT_MESSAGE = "尚有未儲存的變更，確定要離開嗎？";
 type GuardState = Required<UnsavedChangesGuardOptions>;
 const NavigationGuardContext = createContext<{
   guards: Map<symbol, GuardState>;
-  canLeave: () => Promise<boolean>;
+  canLeave: (options?: {title:string;description:string}) => Promise<boolean>;
   cancel: () => void;
 } | null>(null);
 
@@ -24,7 +24,7 @@ const NavigationGuardContext = createContext<{
 export function UnsavedChangesBoundary({ children }: PropsWithChildren) {
   const guards = useRef(new Map<symbol, GuardState>()).current;
   const { confirm, confirmationDialog, cancel } = useConfirmation();
-  const canLeave = useCallback(async () => {
+  const canLeave = useCallback(async (options?: {title:string;description:string}) => {
     const states = [...guards.values()];
     if (states.some(state => state.blocked)) {
       await confirm({ title: "操作處理中", description: "請等待目前操作完成後再切換頁面。", confirmLabel: "知道了" });
@@ -32,7 +32,7 @@ export function UnsavedChangesBoundary({ children }: PropsWithChildren) {
     }
     const dirty = states.find(state => state.active);
     if (!dirty) return true;
-    const accepted = await confirm({ title: "切換模組？", description: "切換模組會放棄目前尚未儲存的內容。你也可以留在目前模組繼續編輯。",
+    const accepted = await confirm({ title: options?.title ?? "切換模組？", description: options?.description ?? "切換模組會放棄目前尚未儲存的內容。你也可以留在目前模組繼續編輯。",
       confirmLabel: "確定切換", cancelLabel: "放棄切換，繼續編輯", confirmTone: "danger" });
     return accepted && ![...guards.values()].some(state => state.blocked);
   }, [guards, confirm]);

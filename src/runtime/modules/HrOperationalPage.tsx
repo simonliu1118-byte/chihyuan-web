@@ -1,3 +1,4 @@
+import {useLatestRequest} from '../../ui/foundation/useLatestRequest';
 import { DateInput } from "../../ui/forms/DateInput";
 import { useEffect, useState, type FormEvent } from "react";
 import { apiRequest } from "../../api/client";
@@ -9,7 +10,7 @@ import { Loading } from "../../ui/feedback/Loading";
 import { formatDate } from "../../ui/foundation/format";
 import { enterAdvancesFields, enterAdvancesThenSubmits } from "../../ui/foundation/enter-advance";
 import { CheckField, Field, FormSection } from "../../ui/forms/Field";
-import { useUnsavedChangesGuard } from "../../ui/foundation/useUnsavedChangesGuard";
+import { useUnsavedChangesGuard, useNavigationGuard } from "../../ui/foundation/useUnsavedChangesGuard";
 import { MasterDetailBack, MasterDetailEmpty, useMasterDetailPane } from "../../ui/layout/MasterDetail";
 import { useCompactLayout } from "../../ui/foundation/useCompactLayout";
 import { ModuleSections } from "../../ui/mobile/ModuleSections";
@@ -156,7 +157,15 @@ export function HrOperationalPage() {
     title: "放棄尚未儲存的修改", description, confirmLabel: "放棄修改", cancelLabel: "繼續編輯", confirmTone: "danger",
   }))).allowed;
 
+  const listRequest=useLatestRequest(query+'|'+statusFilter),detailRequest=useLatestRequest(selectedId),revealRequest=useLatestRequest(selectedId+"|"+tab);
+  const navigation=useNavigationGuard();
+  async function switchTab(next:typeof tab){
+    if(next===tab)return;
+    if(!(await navigation.canLeave({title:'切換人事頁籤？',description:'切換會放棄尚未儲存的內容，確定繼續？'})))return;
+    setDraft(null);setCreating(false);setAction(null);setActionEmployeeId(null);setTab(next);
+  }
   async function loadList(append = false) {
+    const request=listRequest.begin();
     const params = new URLSearchParams({ limit: "40" });
     if (query.trim()) params.set("q", query.trim());
     if (statusFilter) params.set("status", statusFilter);
@@ -164,22 +173,24 @@ export function HrOperationalPage() {
     setLoadingList(true);
     try {
       const page = await apiRequest<{ items: EmployeeRow[]; nextCursor: number | null }>(`${ROOT}/employees?${params}`);
+      if(!request.current())return;
       setRows(current => append ? [...current, ...page.items] : page.items);
       setNextCursor(page.nextCursor);
-    } catch (error) { reportError(errorText(error)); }
-    finally { setLoadingList(false); }
+    } catch (error) { if(request.current())reportError(errorText(error)); }
+    finally { if(request.current())setLoadingList(false); }
   }
 
   async function loadDetail(id: number) {
-    setLoadingDetail(true);
+    const request=detailRequest.begin();
+    setDetail(null);setLeave([]);setLoadingDetail(true);
     try {
       const [employee, periods] = await Promise.all([
         apiRequest<EmployeeDetail>(`${ROOT}/employees/${id}`),
         apiRequest<AnnualLeavePeriod[]>(`${ROOT}/employees/${id}/annual-leave`),
       ]);
-      setDetail(employee); setLeave(periods);
-    } catch (error) { reportError(errorText(error)); }
-    finally { setLoadingDetail(false); }
+      if(request.current()){setDetail(employee); setLeave(periods);}
+    } catch (error) { if(request.current())reportError(errorText(error)); }
+    finally { if(request.current())setLoadingDetail(false); }
   }
 
   useEffect(() => {
@@ -194,7 +205,7 @@ export function HrOperationalPage() {
   async function select(id: number) {
     if (id === selectedId && !editing) { pane.open(); return; }
     if (editing && !(await canLeave())) return;
-    setDraft(null); setCreating(false); setSelectedId(id); pane.open();
+    setDraft(null); setCreating(false);setDetail(null);setLeave([]); setSelectedId(id); pane.open();
   }
 
   async function startCreate() {
@@ -310,11 +321,11 @@ export function HrOperationalPage() {
   }
 
   async function reveal() {
-    if (!detail) return;
+    if (!detail) return;const request=revealRequest.begin();
     try {
       const result = await apiRequest<{ nationalId: string | null }>(`${ROOT}/employees/${detail.id}/national-id/reveal`, { method: "POST", json: {} });
-      setRevealed(result.nationalId ?? "未填寫");
-    } catch (error) { reportError(errorText(error)); }
+      if(request.current())setRevealed(result.nationalId ?? "未填寫");
+    } catch (error) { if(request.current())reportError(errorText(error)); }
   }
 
   const today = taipeiToday();
@@ -323,13 +334,13 @@ export function HrOperationalPage() {
 
   return <>
     {compact?<ModuleSections label="人事頁籤" sections={[{key:"people",label:"人員"},{key:"roster",label:"排班"},{key:"attendance",label:"出勤"},{key:"leave",label:"請假"},{key:"salary",label:"薪資"}] as const}
-      value={tab} onChange={setTab}/>
+      value={tab} onChange={key=>void switchTab(key)}/>
     :    <nav className="cy-op-tabs cy-hr-top-tabs" aria-label="人事頁籤">
-      <button type="button" className={tab==="people"?"active":""} onClick={()=>setTab("people")}>人員</button>
-      <button type="button" className={tab==="roster"?"active":""} onClick={()=>setTab("roster")}>排班</button>
-      <button type="button" className={tab==="attendance"?"active":""} onClick={()=>setTab("attendance")}>出勤</button>
-      <button type="button" className={tab==="leave"?"active":""} onClick={()=>setTab("leave")}>請假</button>
-      <button type="button" className={tab==="salary"?"active":""} onClick={()=>setTab("salary")}>薪資</button>
+      <button type="button" className={tab==="people"?"active":""} onClick={()=>void switchTab("people")}>人員</button>
+      <button type="button" className={tab==="roster"?"active":""} onClick={()=>void switchTab("roster")}>排班</button>
+      <button type="button" className={tab==="attendance"?"active":""} onClick={()=>void switchTab("attendance")}>出勤</button>
+      <button type="button" className={tab==="leave"?"active":""} onClick={()=>void switchTab("leave")}>請假</button>
+      <button type="button" className={tab==="salary"?"active":""} onClick={()=>void switchTab("salary")}>薪資</button>
     </nav>}
     {tab==="people"?<div className="cy-op-module">
     {confirmationDialog}
@@ -393,7 +404,7 @@ export function HrOperationalPage() {
               <HrEmployeeSheet value={draftFrom(detail)} detail={detail} editing={false} creating={false} busy={busy}
                 members={members} stores={stores} jobTitles={jobTitles} patch={patch} onReveal={()=>void reveal()}/>
               <section className="cy-customer-cards" aria-label="人事紀錄">
-                <HrEmployeeLeaveOverview employeeId={detail.id} onManage={()=>{setInitialLeaveEmployeeId(detail.id);setTab("leave")}} />
+                <HrEmployeeLeaveOverview employeeId={detail.id} onManage={()=>{setInitialLeaveEmployeeId(detail.id);void switchTab("leave")}} />
                 <RelatedCard title="薪資" count={detail.salaryRecords.length} empty="尚無薪資異動。"
                   summary={currentSalary ? <strong>目前 {salaryText(currentSalary)}</strong> : null}
                   rows={detail.salaryRecords.slice(0, 3).map(row => <span key={row.id}>{date(row.effective_date)}　{salaryText(row)}　{row.reason}</span>)}
