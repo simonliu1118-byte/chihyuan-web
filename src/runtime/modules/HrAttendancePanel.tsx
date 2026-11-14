@@ -1,7 +1,8 @@
-import {useCallback,useEffect,useState,type KeyboardEvent} from "react";
+import {useLatestRequest} from '../../ui/foundation/useLatestRequest';
+import {useCallback,useEffect,useRef,useState,type KeyboardEvent} from "react";
 import {apiRequest} from "../../api/client";
 import {taipeiToday} from "../../../shared/erp-query-history";
-import {normalizePunchTime} from "../../../shared/hr-attendance";
+import {normalizePunchTime,formatWorkedMinutes} from "../../../shared/hr-attendance";
 import {useUnsavedChangesGuard} from "../../ui/foundation/useUnsavedChangesGuard";
 import {Dialog} from "../../ui/overlays/Dialog";
 import {useConfirmation} from "../../ui/overlays/useConfirmation";
@@ -22,17 +23,28 @@ export function HrAttendancePanel(){
  const [data,setData]=useState<Report|null>(null),[changes,setChanges]=useState<Record<string,Change>>({}),[otChanges,setOtChanges]=useState<Record<string,OvertimeEdit>>({});
  const [error,setError]=useState(""),[notice,setNotice]=useState(""),[busy,setBusy]=useState(false);
  const [exceptions,setExceptions]=useState<Exception[]|null>(null),[filter,setFilter]=useState("");
+ const request=useLatestRequest(selected+"|"+month),saving=useRef(false);
  const dirty=Object.keys(changes).length>0||Object.keys(otChanges).length>0;
  const {confirm,confirmationDialog}=useConfirmation();
  const discard=async()=>!dirty||await confirm({title:"放棄未儲存的打卡",description:"切換後，尚未儲存的打卡輸入會遺失。",confirmLabel:"放棄",cancelLabel:"繼續編輯",confirmTone:"danger"});
  useUnsavedChangesGuard({active:dirty,blocked:busy,message:"出勤輸入尚未儲存，確定離開？"});
- useEffect(()=>{void apiRequest<{items:Employee[]}>(ROOT+"/employees?limit=100").then(x=>{setEmployees(x.items);setSelected(x.items[0]?.id??0)}).catch(e=>setError(String(e)))},[]);
+ const [employeeCursor,setEmployeeCursor]=useState<number|null>(null),[employeeLoading,setEmployeeLoading]=useState(false);
+ const employeeRequest=useLatestRequest('attendance-employees');
+ const loadEmployees=useCallback(async(cursor?:number)=>{
+  const ticket=employeeRequest.begin();setEmployeeLoading(true);
+  try{const page=await apiRequest<{items:Employee[];nextCursor:number|null}>(ROOT+'/employees?limit=100'+(cursor?'&cursor='+cursor:''));
+   if(!ticket.current())return;setEmployees(old=>cursor?[...old,...page.items]:page.items);setEmployeeCursor(page.nextCursor);
+   if(!cursor)setSelected(page.items[0]?.id??0);
+  }catch(e){if(ticket.current())setError(e instanceof Error?e.message:'員工查詢失敗')}finally{if(ticket.current())setEmployeeLoading(false)}
+ },[employeeRequest]);
+ useEffect(()=>{void loadEmployees()},[loadEmployees]);
  const reload=useCallback(async()=>{
-  if(!selected)return;setBusy(true);
-  try{const x=await apiRequest<Report>(ROOT+"/employees/"+selected+"/attendance?month="+month);setData(x);setChanges({});setOtChanges({});setError("");}
-  catch(e){setError(e instanceof Error?e.message:"出勤查詢失敗")}finally{setBusy(false)}
- },[selected,month]);
+  const ticket=request.begin();if(!selected)return;setBusy(true);setData(null);
+  try{const x=await apiRequest<Report>(ROOT+"/employees/"+selected+"/attendance?month="+month);if(!ticket.current())return;setData(x);setChanges({});setOtChanges({});setError("");}
+  catch(e){if(ticket.current())setError(e instanceof Error?e.message:"出勤查詢失敗")}finally{if(ticket.current())setBusy(false)}
+ },[selected,month,request]);
  useEffect(()=>{void reload()},[reload]);
+
  function change(day:Day,key:keyof Punch,value:string){
   const before=changes[day.date]??{date:day.date,in1:day.punches?.in1??null,out1:day.punches?.out1??null,in2:day.punches?.in2??null,out2:day.punches?.out2??null,revision:day.punches?.revision??0,note:day.punches?.note??""};
   setChanges(old=>({...old,[day.date]:{...before,[key]:value}}));
@@ -40,25 +52,28 @@ export function HrAttendancePanel(){
  function changeOvertime(day:Day,patch:Partial<OvertimeEdit>){setOtChanges(prev=>{const original:OvertimeEdit=prev[day.date]??{date:day.date,minutes:day.overtime?.minutes??0,settlement:day.overtime?.settlement??"pay",revision:day.overtime?.revision??0};return {...prev,[day.date]:{...original,...patch}}})}
  function enter(e:KeyboardEvent<HTMLInputElement>){if(e.key!=="Enter")return;e.preventDefault();const inputs=[...document.querySelectorAll<HTMLInputElement>(".hr-attendance-table input[data-clock]")];inputs[inputs.indexOf(e.currentTarget)+1]?.focus()}
  async function save(){
+  if(saving.current||busy||!data||data.employeeId!==selected)return;saving.current=true;
   setBusy(true);setError("");
   try{const entries=Object.values(changes).map(x=>({...x,...Object.fromEntries(punchFields.map(key=>[key,x[key]?normalizePunchTime(x[key]!):null]))}));
-   const response=await apiRequest<{changedDays:number}>(ROOT+"/employees/"+selected+"/attendance?month="+month,{method:"PUT",json:{days:entries,overtime:Object.values(otChanges)}});
-   setNotice("已儲存 "+response.changedDays+" 天出勤");await reload();
-  }catch(e){setError(e instanceof Error?e.message:"儲存失敗")}finally{setBusy(false)}
+   const response=await apiRequest<{changedDays:number;attendance:Report}>(ROOT+"/employees/"+selected+"/attendance?month="+month,{method:"PUT",json:{days:entries,overtime:Object.values(otChanges)}});
+   setData(response.attendance);setChanges({});setOtChanges({});setNotice("已儲存 "+response.changedDays+" 天出勤");
+  }catch(e){setError(e instanceof Error?e.message:"儲存失敗")}finally{saving.current=false;setBusy(false)}
  }
  async function anomalyList(){
+  if(busy||saving.current)return;const ticket=request.begin();
   const storeId=employees.find(x=>x.id===selected)?.store_id;
   if(!storeId){setError("請選擇已設定門市的員工");return}
-  setBusy(true);try{setExceptions(await apiRequest<Exception[]>(ROOT+"/attendance/anomalies?storeId="+storeId+"&month="+month))}
-  catch(e){setError(e instanceof Error?e.message:"無法取得異常清單")}finally{setBusy(false)}
+  setBusy(true);try{const result=await apiRequest<Exception[]>(ROOT+"/attendance/anomalies?storeId="+storeId+"&month="+month);if(ticket.current())setExceptions(result)}
+  catch(e){if(ticket.current())setError(e instanceof Error?e.message:"無法取得異常清單")}finally{if(ticket.current())setBusy(false)}
  }
- async function switchMonth(n:number){if(await discard())setMonth(x=>adjacent(x,n))}
- async function switchEmployee(id:number){if(await discard())setSelected(id)}
+ async function switchMonth(n:number){if(!busy&&!saving.current&&await discard()){setData(null);setChanges({});setOtChanges({});setNotice("");setMonth(x=>adjacent(x,n))}}
+ async function switchEmployee(id:number){if(!busy&&!saving.current&&await discard()){setData(null);setChanges({});setOtChanges({});setNotice("");setSelected(id)}}
  return <section className="cy-op-module cy-hr-phase2a" aria-label="出勤輸入">
   <div className="cy-op-panel hr-roster-toolbar">
-   <label>員工<select className="cy-op-input" value={selected} onChange={e=>void switchEmployee(Number(e.target.value))}>{employees.map(e=><option key={e.id} value={e.id}>{e.employee_no} {e.name}</option>)}</select></label>
-   <button type="button" className="cy-op-button" onClick={()=>void switchMonth(-1)}>上個月</button><strong>{month.replace("-"," 年 ")} 月</strong><button type="button" className="cy-op-button" onClick={()=>void switchMonth(1)}>下個月</button>
-   <button type="button" className="cy-op-button" onClick={()=>void anomalyList()}>異常清單</button>
+   <label>員工<select disabled={busy} className="cy-op-input" value={selected} onChange={e=>void switchEmployee(Number(e.target.value))}>{employees.map(e=><option key={e.id} value={e.id}>{e.employee_no} {e.name}</option>)}</select></label>
+   <button type="button" disabled={busy} className="cy-op-button" onClick={()=>void switchMonth(-1)}>上個月</button><strong>{month.replace("-"," 年 ")} 月</strong><button type="button" disabled={busy} className="cy-op-button" onClick={()=>void switchMonth(1)}>下個月</button>
+   {employeeCursor?<button type="button" className="cy-op-button" disabled={employeeLoading||busy} onClick={()=>void loadEmployees(employeeCursor)}>載入更多員工</button>:null}
+   <button type="button" disabled={busy||!data} className="cy-op-button" onClick={()=>void anomalyList()}>異常清單</button>
    {dirty?<><button type="button" className="cy-op-button primary" disabled={busy} onClick={()=>void save()}>儲存</button><button type="button" className="cy-op-button" disabled={busy} onClick={()=>void reload()}>取消</button></>:null}
   </div>
   {error?<p role="alert" className="cy-notice cy-notice-danger">{error}</p>:null}{notice?<p role="status" className="cy-notice">{notice}</p>:null}
@@ -66,21 +81,21 @@ export function HrAttendancePanel(){
    <tbody>{data?.days.map(row=>{const punch=changes[row.date]??row.punches;return <tr key={row.date}>
     <th scope="row">{row.date.replaceAll("-","/")}</th><td>{weekdays[new Date(row.date+"T00:00:00Z").getUTCDay()]}</td>
     <td>{row.schedule?.kind==="off"?row.schedule.off_mark==="x"?"X":row.schedule.rest_label==="regular"?"例":"/":row.schedule?.kind==="shift"?row.schedule.code??"班":row.schedule?.kind==="hours"?String(row.schedule.hours)+"h":row.schedule?.kind==="leave"?row.schedule.code??"假":"—"}</td>
-    {punchFields.map(k=><td key={k}><input data-clock={k} className="cy-op-input hr-attendance-clock" placeholder="HH:mm" aria-label={row.date+" "+k} value={punch?.[k]??""}
+    {punchFields.map(k=><td key={k}><input disabled={busy} data-clock={k} className="cy-op-input hr-attendance-clock" placeholder="HH:mm" aria-label={row.date+" "+k} value={punch?.[k]??""}
       onChange={e=>change(row,k,e.target.value)} onBlur={e=>{if(e.target.value.trim())try{change(row,k,normalizePunchTime(e.target.value))}catch{/* Preserve invalid entry for correction */}}} onKeyDown={enter}/></td>)}
-    <td>{hrs(row.workedMinutes)}h</td>
+    <td>{formatWorkedMinutes(row.workedMinutes)}</td>
     <td className="hr-overtime-cell">{(()=>{const minutes=otChanges[row.date]?.minutes??row.overtime?.minutes??0;return <>
-     <select className="cy-op-input" aria-label={row.date+" 加班時數"} value={minutes} onChange={e=>changeOvertime(row,{minutes:Number(e.target.value)})}>
+     <select disabled={busy} className="cy-op-input" aria-label={row.date+" 加班時數"} value={minutes} onChange={e=>changeOvertime(row,{minutes:Number(e.target.value)})}>
       {Array.from({length:25},(_,i)=><option value={i*30} key={i}>{i?hrs(i*30)+"h":"—"}</option>)}</select>
-     {minutes>0?<select className="cy-op-input" aria-label={row.date+" 加班結算"} value={otChanges[row.date]?.settlement??row.overtime?.settlement??"pay"} onChange={e=>changeOvertime(row,{settlement:e.target.value as "pay"|"comp"})}><option value="pay">加班費</option><option value="comp">補休</option></select>:null}
+     {minutes>0?<select disabled={busy} className="cy-op-input" aria-label={row.date+" 加班結算"} value={otChanges[row.date]?.settlement??row.overtime?.settlement??"pay"} onChange={e=>changeOvertime(row,{settlement:e.target.value as "pay"|"comp"})}><option value="pay">加班費</option><option value="comp">補休</option></select>:null}
      {row.overtimeSuggestion.minutes>0&&minutes!==row.overtimeSuggestion.minutes?<button type="button" title={row.overtimeSuggestion.reason} className="cy-op-button compact soft" onClick={()=>changeOvertime(row,{minutes:row.overtimeSuggestion.minutes})}>建議 {hrs(row.overtimeSuggestion.minutes)}h</button>:null}
     </>})()}</td>
     <td>{row.lateMinutes||"—"}</td><td>{row.earlyMinutes||"—"}</td><td>{row.anomalies.join("、")||"—"}</td>
-    <td><input className="cy-op-input" aria-label={row.date+" 備註"} value={punch?.note??""} onChange={e=>change(row,"note",e.target.value)}/></td>
+    <td><input disabled={busy} className="cy-op-input" aria-label={row.date+" 備註"} value={punch?.note??""} onChange={e=>change(row,"note",e.target.value)}/></td>
    </tr>})}</tbody></table></div>
-  {data?<div className="cy-op-panel hr-attendance-totals"><strong>當月合計</strong><span>工時 {hrs(data.totals.workedMinutes)}h</span><span>遲到 {data.totals.lateCount} 次／{data.totals.lateMinutes} 分鐘</span><span>缺卡 {data.totals.missingCard}</span><span>曠職 {data.totals.absent}</span><span>延長工時 {hrs(data.totals.overtimeMinutes)}h</span>{data.overtimeWarnings.map(x=><span key={x} className="cy-notice cy-notice-warning">{x}（僅警示）</span>)}</div>:null}
+  {data?<div className="cy-op-panel hr-attendance-totals"><strong>當月合計</strong><span>工時 {formatWorkedMinutes(data.totals.workedMinutes)}</span><span>遲到 {data.totals.lateCount} 次／{data.totals.lateMinutes} 分鐘</span><span>缺卡 {data.totals.missingCard}</span><span>曠職 {data.totals.absent}</span><span>延長工時 {hrs(data.totals.overtimeMinutes)}h</span>{data.overtimeWarnings.map(x=><span key={x} className="cy-notice cy-notice-warning">{x}（僅警示）</span>)}</div>:null}
   <Dialog open={exceptions!==null} title="出勤異常清單" onClose={()=>setExceptions(null)} size="large">
-   <label>員工<select className="cy-op-input" value={filter} onChange={e=>setFilter(e.target.value)}><option value="">全部</option>{employees.map(x=><option key={x.id} value={x.id}>{x.name}</option>)}</select></label>
+   <label>員工<select disabled={busy} className="cy-op-input" value={filter} onChange={e=>setFilter(e.target.value)}><option value="">全部</option>{employees.map(x=><option key={x.id} value={x.id}>{x.name}</option>)}</select></label>
    {exceptions?.filter(x=>!filter||String(x.employeeId)===filter).map((x,i)=><p key={i}>{x.date.replaceAll("-","/")}　{x.name}　{x.anomalies.join("、")}</p>)}
    {exceptions?.length===0?<p>目前沒有異常紀錄</p>:null}
   </Dialog>

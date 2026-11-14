@@ -1,6 +1,8 @@
+import {useLatestRequest} from '../../ui/foundation/useLatestRequest';
+import {useUnsavedChangesGuard} from '../../ui/foundation/useUnsavedChangesGuard';
 import { DateInput } from "../../ui/forms/DateInput";
 import {EntryFields} from "../../ui/forms/EntryFields";
-import {useCallback,useEffect,useState} from "react";
+import {useCallback,useEffect,useRef,useState} from "react";
 import {apiRequest} from "../../api/client";
 import {taipeiToday} from "../../../shared/erp-query-history";
 import {HrLeaveDialog,type LeaveTypeOption,type LeavePerson,type CompletedLeaveInfo} from "./HrLeaveDialog";
@@ -36,42 +38,52 @@ export function HrLeavePanel({initialEmployeeId}:{initialEmployeeId?:number|null
  const [holidays,setHolidays]=useState<{date:string;name:string}[]>([]);
  const [adjust,setAdjust]=useState<Annual|null>(null),[adjustHours,setAdjustHours]=useState("");
  const [printYear,setPrintYear]=useState<Annual|null>(null);
+ const [mutationBusy,setMutationBusy]=useState(false),[mutationError,setMutationError]=useState('');
+ const writing=useRef(false),listRequest=useLatestRequest(year+'|'+store),detailRequest=useLatestRequest(person?.id+'|'+year);
+ useUnsavedChangesGuard({active:grantOpen||adjust!==null,blocked:mutationBusy});
+
  useEffect(()=>{void apiRequest<{id:number;name:string}[]>("/api/business/hr/settings/stores").then(setStores).catch(()=>{})},[]);
- useEffect(()=>{void Promise.all([year-1,year,year+1].map(y=>apiRequest<{date:string;name:string}[]>("/api/business/hr/settings/holidays?year="+y)))
-  .then(x=>setHolidays(x.flat().sort((a,b)=>a.date.localeCompare(b.date)))).catch(()=>setHolidays([]))},[year]);
- const refresh=useCallback(async()=>{setLoading(true);try{setSummary(await apiRequest<Summary>("/api/business/hr/leave/summary?year="+year+(store?"&storeId="+store:"")));setError("")}
-  catch(e){setError(e instanceof Error?e.message:"無法讀取請假總表")}finally{setLoading(false)}},[year,store]);
- const detailRefresh=useCallback(async()=>{if(!person)return;try{setDetail(await apiRequest<Detail>("/api/business/hr/employees/"+person.id+"/leave?year="+year));setError("")}
-  catch(e){setError(e instanceof Error?e.message:"無法讀取假單")}},[person,year]);
+ useEffect(()=>{let active=true;void Promise.all([year-1,year,year+1].map(y=>apiRequest<{date:string;name:string}[]>("/api/business/hr/settings/holidays?year="+y)))
+  .then(x=>{if(active)setHolidays(x.flat().sort((a,b)=>a.date.localeCompare(b.date)))}).catch(()=>{if(active)setHolidays([])});return()=>{active=false}},[year]);
+ const refresh=useCallback(async()=>{const ticket=listRequest.begin();setLoading(true);setSummary(null);try{const result=await apiRequest<Summary>("/api/business/hr/leave/summary?year="+year+(store?"&storeId="+store:""));if(ticket.current()){setSummary(result);setError("")}}
+  catch(e){if(ticket.current())setError(e instanceof Error?e.message:"無法讀取請假總表")}finally{if(ticket.current())setLoading(false)}},[year,store,listRequest]);
+ const detailRefresh=useCallback(async()=>{const ticket=detailRequest.begin();if(!person){setDetail(null);return}setDetail(null);try{const result=await apiRequest<Detail>("/api/business/hr/employees/"+person.id+"/leave?year="+year);if(ticket.current()){setDetail(result);setError("")}}
+  catch(e){if(ticket.current())setError(e instanceof Error?e.message:"無法讀取假單")}},[person,year,detailRequest]);
+
  useEffect(()=>{void refresh()},[refresh]);useEffect(()=>{void detailRefresh()},[detailRefresh]);
  useEffect(()=>{if(initialEmployeeId==null||!summary)return;const match=summary.employees.find(x=>x.id===initialEmployeeId);
   if(match)setPerson({id:match.id,employee_no:match.employeeNo,name:match.name,employment_type:match.employmentType})},[initialEmployeeId,summary]);
  const people:LeavePerson[]=(summary?.employees??[]).map(x=>({id:x.id,name:x.name,employee_no:x.employeeNo,employment_type:x.employmentType}));
  const partTime=person?.employment_type!=="full";
- const act=async(work:()=>Promise<unknown>,fallback:string)=>{try{await work();await Promise.all([refresh(),detailRefresh()])}catch(e){setError(e instanceof Error?e.message:fallback)}};
+ const act=async(work:()=>Promise<unknown>,fallback:string)=>{
+  if(writing.current)return false;writing.current=true;setMutationBusy(true);setMutationError('');
+  try{await work();await Promise.all([refresh(),detailRefresh()]);return true}
+  catch(e){const message=e instanceof Error?e.message:fallback;setError(message);setMutationError(message);return false}
+  finally{writing.current=false;setMutationBusy(false)}
+ };
  async function submitGrant(){
   if(!person)return;
-  await act(()=>apiRequest("/api/business/hr/employees/"+person.id+"/comp-time",{method:"POST",json:{kind:grantKind,minutes:Math.round(Number(grantHours)*60),holidayDate:grantKind==="holiday"?holidayDate:undefined}}),"給予補休失敗");
-  setGrantOpen(false);
+  const saved=await act(()=>apiRequest("/api/business/hr/employees/"+person.id+"/comp-time",{method:"POST",json:{kind:grantKind,minutes:Math.round(Number(grantHours)*60),holidayDate:grantKind==="holiday"?holidayDate:undefined}}),"給予補休失敗");
+  if(saved)setGrantOpen(false);
  }
  async function submitAdjust(){
   if(!adjust)return;
-  await act(()=>apiRequest("/api/business/hr/annual-leave-years/"+adjust.id+"/entitlement",{method:"PATCH",json:{minutes:adjustHours.trim()===""?null:Math.round(Number(adjustHours)*60)}}),"調整失敗");
-  setAdjust(null);
+  const saved=await act(()=>apiRequest("/api/business/hr/annual-leave-years/"+adjust.id+"/entitlement",{method:"PATCH",json:{minutes:adjustHours.trim()===""?null:Math.round(Number(adjustHours)*60)}}),"調整失敗");
+  if(saved)setAdjust(null);
  }
  function printNotice(){document.body.classList.add("hr-printing-notice");window.addEventListener("afterprint",()=>document.body.classList.remove("hr-printing-notice"),{once:true});window.print()}
  const owed=detail?.comp.advances.filter(a=>a.outstandingMinutes>0)??[];
  return <section className="cy-op-module cy-hr-leave">
   <div className="cy-op-panel hr-leave-toolbar">
-   <button type="button" className="cy-op-button" onClick={()=>setYear(y=>y-1)}>上一年</button><strong>{year} 年</strong><button type="button" className="cy-op-button" onClick={()=>setYear(y=>y+1)}>下一年</button>
-   <label>門市<select className="cy-op-input" value={store} onChange={e=>setStore(e.target.value)}><option value="">全部</option>{stores.map(x=><option key={x.id} value={x.id}>{x.name}</option>)}</select></label>
+   <button type="button" className="cy-op-button" disabled={mutationBusy} onClick={()=>{setDetail(null);setYear(y=>y-1)}}>上一年</button><strong>{year} 年</strong><button type="button" className="cy-op-button" disabled={mutationBusy} onClick={()=>{setDetail(null);setYear(y=>y+1)}}>下一年</button>
+   <label>門市<select disabled={mutationBusy} className="cy-op-input" value={store} onChange={e=>{setPerson(null);setDetail(null);setStore(e.target.value)}}><option value="">全部</option>{stores.map(x=><option key={x.id} value={x.id}>{x.name}</option>)}</select></label>
    <button type="button" className="cy-op-button primary" disabled={!people.length} onClick={()=>setRequest({person:person??people[0],choose:true})}>＋ 請假</button>
   </div>
   {error?<p role="alert" className="cy-notice cy-notice-danger">{error}</p>:null}
   <div className="cy-md cy-hr-leave-md" data-pane={person?"detail":"list"}>
    <div className="cy-op-panel cy-md-list"><h3>{year} 年請假總表</h3>
     <div className="cy-op-table-wrap"><table className="cy-op-table hr-leave-summary"><thead><tr><th>員工</th>{MAIN.map(c=><th key={c}>{c}（時）</th>)}<th>其他</th><th>待補假單</th><th>特休剩餘</th><th>補休餘額</th></tr></thead><tbody>
-     {summary?.employees.map(e=><tr key={e.id} className={"hr-leave-row"+(person?.id===e.id?" active":"")} onClick={()=>{setPerson(people.find(x=>x.id===e.id)!);setDetail(null)}}>
+     {summary?.employees.map(e=><tr key={e.id} className={"hr-leave-row"+(person?.id===e.id?" active":"")} onClick={()=>{if(mutationBusy)return;setPerson(people.find(x=>x.id===e.id)!);setDetail(null)}}>
       <th scope="row">{e.employeeNo} {e.name}</th>
       {MAIN.map(c=><td key={c}>{quota(e.used[c]??0,c,summary.types)}</td>)}
       <td title={summary.types.filter(t=>!MAIN.includes(t.code)&&(e.used[t.code]??0)>0).map(t=>t.name+" "+hrs(e.used[t.code])+" 小時").join("、")}>{hrs(Object.entries(e.used).filter(([k])=>!MAIN.includes(k)).reduce((n,[,v])=>n+v,0))}</td>
@@ -99,7 +111,7 @@ export function HrLeavePanel({initialEmployeeId}:{initialEmployeeId?:number|null
      <h4>特休年度</h4>
      <div className="cy-op-table-wrap"><table className="cy-op-table"><thead><tr><th>特休年度</th><th>應給</th><th>遞延進來</th><th>剩餘</th><th>到期未休</th><th>書面通知</th></tr></thead><tbody>
       {detail?.annual.map(x=><tr key={x.periodStart}><td>{ymd(x.periodStart)}～{ymd(x.periodEnd)}</td>
-       <td>{amount(x.entitledMinutes,partTime)}{x.partTime?<button type="button" className="cy-op-button compact soft" title={basisText(x)} onClick={()=>{setAdjust(x);setAdjustHours(x.overridden?hrs(x.entitledMinutes):"")}}>{x.overridden?"已調整":"依工時比例"}</button>:null}</td>
+       <td>{amount(x.entitledMinutes,partTime)}{x.partTime?<button type="button" className="cy-op-button compact soft" title={basisText(x)} onClick={()=>{setMutationError('');setAdjust(x);setAdjustHours(x.overridden?hrs(x.entitledMinutes):"")}}>{x.overridden?"已調整":"依工時比例"}</button>:null}</td>
        <td>{amount(x.carriedInDays*480,partTime)}</td><td>{amount(x.remainingMinutes,partTime)}</td><td>{x.expiredUnpaidMinutes?amount(x.expiredUnpaidMinutes,partTime):"—"}</td>
        <td><button type="button" className="cy-op-button compact" onClick={()=>setPrintYear(x)}>列印通知</button> <small>{x.notifiedOn?ymd(x.notifiedOn):"未通知"}</small></td></tr>)}</tbody></table></div>
      <h4>補休帳戶</h4>
@@ -110,31 +122,33 @@ export function HrLeavePanel({initialEmployeeId}:{initialEmployeeId?:number|null
       <span>{x.remainingMinutes>0?<button type="button" className="cy-op-button compact" onClick={()=>void act(()=>apiRequest("/api/business/hr/comp-time/"+(x.kind==="overtime"?"overtime/"+x.id:"grant/"+(x.id-100000000))+"/extend",{method:"POST"}),"延期失敗")}>再延一個月</button>:null}
        {x.kind==="overtime"&&x.expired&&x.remainingMinutes>0?<button type="button" className="cy-op-button compact" onClick={()=>void act(()=>apiRequest("/api/business/hr/comp-time/overtime/"+x.id+"/settle",{method:"POST"}),"結清失敗")}>轉加班費</button>:null}</span>
      </div>)}
-     <button type="button" className="cy-op-button" onClick={()=>{setGrantKind("holiday");setHolidayDate(owed[0]?.holidayDate??"");setGrantHours(partTime?"4":"8");setGrantOpen(true)}}>＋ 給予補休</button>
+     <button type="button" className="cy-op-button" onClick={()=>{setGrantKind("holiday");setHolidayDate(owed[0]?.holidayDate??"");setGrantHours(partTime?"4":"8");setMutationError('');setGrantOpen(true)}}>＋ 給予補休</button>
    </div>:null}
   </div>
-  <Dialog showCloseButton={false} open={grantOpen} title="給予補休" onClose={()=>setGrantOpen(false)} size="small">
+  <Dialog showCloseButton={false} dismissible={!mutationBusy} open={grantOpen} title="給予補休" onClose={()=>setGrantOpen(false)} size="small">
    <form onKeyDown={enterAdvancesFields} className="cy-op-form" onSubmit={e=>{e.preventDefault();void submitGrant()}}>
     <EntryFields label="給予補休" rows={[
-      {label:"來源",content:<select className="cy-sheet-input" value={grantKind} onChange={e=>setGrantKind(e.target.value as "holiday"|"grant")}>
+      {label:"來源",content:<select disabled={mutationBusy} className="cy-sheet-input" value={grantKind} onChange={e=>setGrantKind(e.target.value as "holiday"|"grant")}>
         <option value="holiday">國定假日</option><option value="grant">管理員給予</option></select>},
-      ...(grantKind==="holiday"?[{label:"國定假日",required:true,content:<select className="cy-sheet-input" value={holidayDate} onChange={e=>setHolidayDate(e.target.value)}>
+      ...(grantKind==="holiday"?[{label:"國定假日",required:true,content:<select disabled={mutationBusy} className="cy-sheet-input" value={holidayDate} onChange={e=>setHolidayDate(e.target.value)}>
         <option value="">請選擇</option>{holidays.map(h=><option key={h.date} value={h.date}>{ymd(h.date)} {h.name}{owed.some(a=>a.holidayDate===h.date)?"（有預支）":""}</option>)}
        </select>}]:[]),
-      {label:"時數（0.5 小時為單位）",required:true,content:<input className="cy-sheet-input" type="number" min=".5" step=".5" value={grantHours} onChange={e=>setGrantHours(e.target.value)}/>}
+      {label:"時數（0.5 小時為單位）",required:true,content:<input disabled={mutationBusy} className="cy-sheet-input" type="number" min=".5" step=".5" value={grantHours} onChange={e=>setGrantHours(e.target.value)}/>}
     ]}/>
     <p>補休在{grantKind==="holiday"?"國定假日當月":"給予當月"}的下個月底到期。</p>
-    <div className="cy-op-form-footer"><button type="button" className="cy-op-button" onClick={()=>setGrantOpen(false)}>取消</button>
-      <button className="cy-op-button primary">給予</button></div>
+    {mutationError?<p role="alert" className="cy-notice cy-notice-danger">{mutationError}</p>:null}
+    <div className="cy-op-form-footer"><button disabled={mutationBusy} type="button" className="cy-op-button" onClick={()=>setGrantOpen(false)}>取消</button>
+      <button disabled={mutationBusy} className="cy-op-button primary">給予</button></div>
    </form>
   </Dialog>
-  <Dialog showCloseButton={false} open={adjust!==null} title="調整特休應給時數" onClose={()=>setAdjust(null)} size="small">
+  <Dialog showCloseButton={false} dismissible={!mutationBusy} open={adjust!==null} title="調整特休應給時數" onClose={()=>setAdjust(null)} size="small">
    <form onKeyDown={enterAdvancesFields} className="cy-op-form" onSubmit={e=>{e.preventDefault();void submitAdjust()}}>
     <EntryFields label="特休應給時數" rows={[
       {label:"特休年度",content:<span>{adjust?ymd(adjust.periodStart)+"～"+ymd(adjust.periodEnd)+"。"+basisText(adjust):""}</span>},
-      {label:"應給時數",content:<input className="cy-sheet-input" type="number" min="0" step=".5" value={adjustHours} onChange={e=>setAdjustHours(e.target.value)} placeholder="空白＝依出勤工時比例計算"/>}
+      {label:"應給時數",content:<input disabled={mutationBusy} className="cy-sheet-input" type="number" min="0" step=".5" value={adjustHours} onChange={e=>setAdjustHours(e.target.value)} placeholder="空白＝依出勤工時比例計算"/>}
     ]}/>
-    <div className="cy-op-form-footer"><button type="button" className="cy-op-button" onClick={()=>setAdjust(null)}>取消</button><button className="cy-op-button primary">儲存</button></div>
+    {mutationError?<p role="alert" className="cy-notice cy-notice-danger">{mutationError}</p>:null}
+    <div className="cy-op-form-footer"><button disabled={mutationBusy} type="button" className="cy-op-button" onClick={()=>setAdjust(null)}>取消</button><button disabled={mutationBusy} className="cy-op-button primary">儲存</button></div>
    </form>
   </Dialog>
   <Dialog open={printYear!==null} title="特休書面通知" onClose={()=>setPrintYear(null)} size="large">
