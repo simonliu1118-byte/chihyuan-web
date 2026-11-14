@@ -78,6 +78,12 @@
 - `git diff --check`及文件相對連結核對；發佈source前核對GitHub tree與本機index完全一致。PR CI結果以GitHub最新head checks為準。
 - 本環境networkInterfaces系統呼叫受限，build／Wrangler以scratch-only loopback shim補本機介面；不進產品source。完整回歸需的canonical CYAPPS測試來源僅作暫存依賴，不複製入repo。
 
+## PR來源核對與交付
+
+- 工程commit：`d6b7f60674540e4096ff08ea170acb127c3ef6e0`；GitHub tree：`8e621f0210e653c6601ef6fa1b07b7eb0ec84416`，與本機index逐byte建樹一致，重新讀回後工作目錄乾淨。
+- PR #515已由設計草稿轉為待審查，base為main、head仍為本分支，尚未合併；PR #514仍獨立開放。
+- 本補充只記來源證據與交付狀態，不修改產品source；本次亦納入handoff。最後head的Runtime／Governance／部署契約狀態以PR checks為準。PR部署工作應skip，不能把契約檢查稱為部署。
+
 ## 未完成／Claude審查欄
 
 - **1440／390實際瀏覽器目視待完成**：本環境Chromium啟動受Unix socket sandbox限制、Playwright browser下載不可用；不以元件測試冒充真實畫面驗收。需特別檢查平台設定大量券、巢狀逐券表手機換行、Dialog未儲存保護及零／負毛利。
