@@ -34,9 +34,20 @@ test('saved-item panel ignores late results after item/revision changes and neve
 
 test('master tax field has three explicit choices, required and no default; pending is only a placeholder',()=>{
  const draft={itemNo:'TEST',name:'合成',baseUnit:'個',cost:'100',costTaxMode:null,unitConversions:[],wholesalePrices:[],onlinePrices:[]};
- const sheet=ItemSheet({item:null,draft,editing:true,creating:true,busy:false,categories:[],platforms:[],onPatch:()=>{},onAddConversion:()=>{},onUpdateConversion:()=>{}});
+ const sheet=ItemSheet({item:null,draft,editing:true,creating:true,busy:false,canViewCost:true,categories:[],platforms:[],onPatch:()=>{},onAddConversion:()=>{},onUpdateConversion:()=>{}});
  const cell=sheet.props.rows.flatMap(row=>row.cells).find(cell=>cell.label==='成本稅別');
  assert.equal(cell.required,true);assert.equal(cell.edit.props.value,'');
  const options=walk(cell.edit).filter(n=>n.type==='option');assert.deepEqual(options.map(n=>n.props.value),['','inclusive','exclusive','no_tax']);assert.equal(options[0].props.disabled,true);
  assert.deepEqual(options.slice(1).map(n=>n.props.children),['含稅','未稅（外加）','不計稅']);
+});
+
+test('without cost permission both master cells are blank, not editable or marked as pending',()=>{
+ const item={itemNo:'TEST',name:'合成',baseUnit:'個',cost:'987.65',costTaxMode:'exclusive',unitConversions:[],wholesalePrices:[],onlinePrices:[]};
+ for (const editing of [false,true]) {
+  const sheet=ItemSheet({item,draft:item,editing,creating:false,busy:false,canViewCost:false,categories:[],platforms:[],onPatch:()=>{},onAddConversion:()=>{},onUpdateConversion:()=>{}});
+  for(const name of ['成本','成本稅別']) {
+   const cell=sheet.props.rows.flatMap(row=>row.cells).find(cell=>cell.label===name);
+   assert.equal(cell.view.type,'span');assert.equal(cell.view.props.children,undefined);assert.equal(cell.edit,undefined);assert.ok(!cell.required);
+  }
+ }
 });

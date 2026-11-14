@@ -97,3 +97,37 @@ test('old backup none restores as pending, new no_tax roundtrips without changin
  assert.deepEqual(oldTarget.sql.prepare('SELECT * FROM item_online_prices').all(),source.sql.prepare('SELECT * FROM item_online_prices').all());
  }finally{source.sql.close();target.sql.close();oldTarget.sql.close()}
 });
+
+test('ITEMS alone masks cost on every item response, denies margin/cost writes, and preserves hidden cost on ordinary edits',async()=>{
+ for (const role of ['USER','ADMIN']) {
+ const f=botCenterFixture(role);try {
+  await new ItemService(f.db).create(input,context);
+  f.sql.prepare("INSERT INTO app_member_module_access(member_id,module_code,enabled,updated_at,updated_by) VALUES(1,'ITEMS',1,?,1)").run(now);
+  const call=async(path,method='GET',json)=>{
+   const response=await handleBusinessApiRoute(new Request('https://test.invalid/api/business/items'+path,{method,headers:{cookie:'cyweb_identity_session=cyid_'+'a'.repeat(64),'content-type':'application/json'},body:json===undefined?undefined:JSON.stringify(json)}),f.env,'cost-grant');
+   return {status:response.status,body:await response.json()};
+  };
+  for(const path of ['', '/1']) {const r=await call(path);assert.equal(r.status,200);const item=path?r.body.data:r.body.data.items[0];assert.equal(item.cost,null);assert.equal(item.costTaxMode,null);}
+  assert.equal((await call('/1/margin')).status,403);
+  assert.equal((await call('/1','PATCH',{...input,expectedRevision:1})).status,403);
+  const {cost,costTaxMode,...profile}=input;
+  const updated=await call('/1','PATCH',{...profile,name:'只改名稱',expectedRevision:1});assert.equal(updated.status,200);assert.equal(updated.body.data.cost,null);
+  assert.equal(f.sql.prepare('SELECT cost FROM items').get().cost,1000000);assert.equal(f.sql.prepare('SELECT cost_tax_mode FROM items').get().cost_tax_mode,'exclusive');
+  const renamed=await call('/1/number','POST',{newItemNo:'MASKED-NEW',expectedRevision:2});assert.equal(renamed.status,200);assert.equal(renamed.body.data.cost,null);
+  f.sql.prepare("UPDATE items SET cost_tax_mode=NULL WHERE id=1").run();
+  assert.equal((await call('/1','PATCH',{...profile,expectedRevision:3})).status,200);assert.equal(f.sql.prepare('SELECT cost_tax_mode FROM items').get().cost_tax_mode,null);
+  f.sql.prepare("INSERT INTO app_member_module_access(member_id,module_code,enabled,updated_at,updated_by) VALUES(1,'ITEMS_COST_MARGIN',1,?,1)").run(now);
+  assert.equal((await call('/1/margin')).status,200);assert.equal((await call('/1')).body.data.cost,'100');
+  assert.equal((await call('/1','PATCH',{...input,cost:'111',costTaxMode:'no_tax',expectedRevision:4})).status,200);
+  assert.ok((await call('/1/price-history')).body.data.some(row=>row.after['成本稅別']==='no_tax'));
+  f.sql.prepare("UPDATE app_member_module_access SET enabled=0 WHERE module_code='ITEMS_COST_MARGIN'").run();
+  for(const row of (await call('/1/price-history')).body.data) for(const fields of [row.before,row.after]) {assert.equal(fields['成本'],undefined);assert.equal(fields['成本稅別'],undefined);}assert.equal((await call('/1/margin')).status,403);
+  const {AuditService}=await compiled('worker/audit/audit-service.ts');
+  assert.equal((await new AuditService(f.db).listDetailedPage({entityType:'item',q:'111',includeItemCosts:false})).events.length,0);
+  assert.ok((await new AuditService(f.db).listDetailedPage({entityType:'item',q:'111',includeItemCosts:true})).events.length);
+  f.sql.prepare("UPDATE app_member_module_access SET enabled=1 WHERE module_code='ITEMS_COST_MARGIN'").run();
+  f.sql.prepare("UPDATE app_member_module_access SET enabled=0 WHERE module_code='ITEMS'").run();
+  assert.equal((await call('/1/margin')).status,403);
+ }finally{f.sql.close()}
+ }
+});

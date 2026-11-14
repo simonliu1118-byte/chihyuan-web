@@ -230,7 +230,9 @@ function normalizeOnline(input: Record<string,unknown>,errors:Record<string,stri
  });
 }
 
-function normalizeProfile(raw: unknown): NormalizedItemProfile {
+type PreservedItemCost = Pick<NormalizedItemProfile, "costScaled4" | "costTaxMode">;
+
+function normalizeProfile(raw: unknown, preservedCost?: PreservedItemCost): NormalizedItemProfile {
   const input = asObject(raw as ItemProfileInput);
   const bag = new ValidationBag(input);
   const errors: Record<string, string> = {};
@@ -242,10 +244,10 @@ function normalizeProfile(raw: unknown): NormalizedItemProfile {
   const notes = bag.optionalText("notes", { maxLength: 4000 });
   Object.assign(errors, bag.fields());
 
-  const costScaled4 = optionalScaled4(input, "cost", errors);
+  const costScaled4 = preservedCost ? preservedCost.costScaled4 : optionalScaled4(input, "cost", errors);
   const storePriceScaled4 = optionalScaled4(input, "storePrice", errors);
   const clinicPriceScaled4 = optionalScaled4(input, "clinicPrice", errors);
-  const costTaxMode = requiredTaxMode(input, errors);
+  const costTaxMode = preservedCost ? preservedCost.costTaxMode : requiredTaxMode(input, errors);
   const isActive = optionalBoolean(input, "isActive", true, errors);
   const unitConversions = normalizeUnitConversions(input, baseUnit, errors);
   const wholesalePrices=normalizeWholesale(input,errors);
@@ -278,9 +280,9 @@ export function normalizeCreateItemRequest(raw: unknown): NormalizedCreateItemRe
   return { ...profile, itemNo };
 }
 
-export function normalizeUpdateItemRequest(raw: unknown): NormalizedUpdateItemRequest {
+export function normalizeUpdateItemRequest(raw: unknown, preservedCost?: PreservedItemCost): NormalizedUpdateItemRequest {
   const input = asObject(raw as UpdateItemRequest);
-  const profile = normalizeProfile(input);
+  const profile = normalizeProfile(input, preservedCost);
   const bag = new ValidationBag(input);
   const expectedRevision = bag.requiredPositiveInteger("expectedRevision");
   bag.throwIfInvalid();

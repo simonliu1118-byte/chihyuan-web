@@ -4,7 +4,7 @@
 - 狀態：工程完成、待 Claude 審查；桌機／手機目視截圖尚待完成；未合併、未部署。
 - 分支：`cyweb/item-margin-phase1-20261114`。
 - 基準：main `d1407054310d65c7cf7543153d026c3b6a84aa16`；承接規劃 PR #513 的提交 `2681b7b5bcfb156abbeb1682c3dfa74ec903dc40`，未合併任何 PR。
-- VERSION／package：0.19.0，BUILD 0。新增完整非網路通路毛利能力，Minor 升級；非同項返修，不使用 Build1。
+- VERSION／package：0.19.0，BUILD 1（本輪權限補充）。新增完整非網路通路毛利能力，Minor 升級；非同項返修，不使用 Build1。
 - 計畫：[ITEM_MARGIN_PLAN.md](../development/ITEM_MARGIN_PLAN.md)；原規劃交接：[planning handoff](CYWEB-ITEM-MARGIN-PLAN-20261114.md)。
 
 ## 1. 使用者要求與範圍
@@ -99,3 +99,46 @@
 - 必修項／意見：待填。
 - 審查者直接修正小項：待填。
 - 執行者仍不得自行合併／部署；任何返修在同分支更新本檔及PR。
+
+## 8. 本輪補充：商品成本／毛利次級權限（2026-11-14）
+
+使用者指示比照「叫貨－中國貨採購」，將成本與毛利的可見性改成商品次級權限；隨後明確指定有商品但無成本／毛利者，成本及稅別欄位**空白**，毛利分析**全部不顯示**。本輪按同項未合併功能補充，維持0.19.0、BUILD升1，同PR #514，仍不合併／部署。
+
+### 本輪逐檔變更
+
+| 檔案 | 變更 |
+| --- | --- |
+| shared/modules.ts | 新增ITEMS_COST_MARGIN（商品－成本及毛利分析），route:null、依附ITEMS，沿用同一授權／群組與連動取消規則 |
+| migrations/0070_item_cost_margin_permission.sql | 比照0064擴充授權表CHECK，完整複製既有授權、重建同索引；不自動授權任何人 |
+| worker/backup/portable-backup.ts | marker改0070；表／欄位不變，0069舊稅別升級仍保留，無新增備份轉換步驟 |
+| worker/http/business-api-routes.ts | 每次request檢查次級權限；列表／詳情／修改／改號回應成本及稅別回null；無權限毛利403、成本寫入403、修改紀錄剔除成本欄位及純成本事件 |
+| worker/item/item-service.ts | 無成本權限的一般商品更新從現存主檔取得並保留成本／稅別，不信任客戶端空值；仍走同一revision mutation |
+| worker/item/item-validation.ts | 只接受server傳入的保留成本參數；無權限者可更新一般欄位及舊待補NULL，不假設no_tax，也不對有權限寫入放寬三選一必填 |
+| worker/audit/audit-service.ts | 無權限時SQL排除成本Audit，包含全文搜尋條件，避免從全域異動紀錄再讀回成本 |
+| worker/http/settings-audit-routes.ts | Audit成本可見旗標只由server現行權限設定，不採用client旗標 |
+| src/App.tsx、src/runtime/modules/ItemsModulePage.tsx | 沿用現行allowedModules，將次級權限一路傳至商品畫面，無新登入／授權狀態owner |
+| src/runtime/modules/ItemOperationalPage.tsx | 無權限不掛載毛利頁、不顯示毛利分頁；一般更新不傳cost／costTaxMode；啟停保留原值，權限撤銷時改回商品資料 |
+| src/runtime/modules/item/ItemSheet.tsx | 成本及稅別保留欄位位置，檢視及編輯均以空span留白；沒有破折號、待補標籤、輸入框或必填星號 |
+| worker/acceptance/business-http-acceptance.ts | 更新隔離fixture，分別確認僅ITEMS不能建立需填稅別的新商品、有次級授權才做成本相關CRUD |
+| scripts/item-margin.test.mjs | 新增USER／ADMIN的列表、詳情、改號回應、一般修改保留成本與舊NULL、直接API拒絕成本／毛利、撤權及Audit搜尋遮蔽測試；SUPER_ADMIN既有測試保留 |
+| scripts/item-margin-ui.test.mjs | 三選一測試明確授權，新增無權限的兩欄真正空白及不可編輯測試 |
+| scripts/module-requirements.test.mjs | 次級權限依附ITEMS、缺主權限無效及取消連動測試 |
+| scripts/item-price-record-sheet.test.mjs | marker斷言隨0070更新 |
+| BUILD、CHANGELOG.md、TODO.md、docs/architecture/ITEM_MODULE_CONTRACT.md、API_CONTRACT.md、BACKUP_ARCHITECTURE.md | Build1與權限／遮蔽／備份現況同步 |
+| 本handoff | 本輪需求、逐檔行為、風險與驗證同步；Claude結論仍待填 |
+
+### 權限與寫入結果
+
+- 僅ITEMS：其他商品資料及售價照常，成本與稅別位置留白；沒有毛利入口／結果；GET margin回403。一般修改／啟停由server保留原成本／稅別，客戶端直接傳成本欄位（即使null）回403。
+- ITEMS＋ITEMS_COST_MARGIN：顯示主檔成本／稅別、毛利分析及成本異動；成本稅別仍三選一必填。只有次級權限、沒有ITEMS不能進入商品API。
+- SUPER_ADMIN：沿用既有全模組授權；USER／ADMIN不因角色而自動取得成本權限，必須明確勾選。
+- **新增商品界線**：新商品必須由人明確選三種成本稅別，無成本權限者不能填此欄，故新增按鈕停用並說明須由具成本權限者建立，POST回403；不默認稅別或製造新待補例外。既有商品一般欄位仍可修改。請Claude一併審查此兩項需求交集的處理。
+- 同一Worker讀取權限，無額外AI token或並行權限來源；現有授權不自動回填，發布後須由有權管理者設定員工／群組。正式資料仍讀0／寫0。
+- 0070複製G筆現有授權列，讀寫各G並重建索引，沒有逐人自動加權限；需在未來正式發布前與0069的N列一起估算額度／維護窗口。本輪只用合成資料。
+
+### 驗證與待審
+
+- 成本權限／毛利／UI／依附權限13項針對性測試通過；完整Node回歸841項通過、0失敗，typecheck／validate:source／build與71份migration、19組本機Worker＋D1驗收通過；遠端CI以本PR本輪最新head為準。
+- 桌機／手機實際瀏覽器目視驗收仍沿用§5的環境限制，不能把React結構測試當成截圖。
+- Claude請檢查：空白而非隱藏欄位、無毛利分頁、後端所有商品回應與歷史不洩漏成本、全域Audit搜尋不繞過、一般更新不抹成本、保留NULL、權限依附與撤銷、授權表遷移／備份、無權限新增商品界線。
+- Claude審查結論：待填；未合併／未部署。

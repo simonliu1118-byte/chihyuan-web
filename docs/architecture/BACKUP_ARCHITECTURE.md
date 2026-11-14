@@ -332,3 +332,5 @@ Current per-application implementation progress is intentionally excluded from t
 ### 商品成本稅別升級（0069，V0.19.0 待審查）
 
 CURRENT_MIGRATION 為 0069_item_cost_tax_modes；資料表／備份欄位名稱未變，無新增成本主檔。restore 的既有版本升級鏈將 0069 之前 items.cost_tax_mode 的 none 轉 NULL（待補），不猜為 no_tax；inclusive／exclusive 保留。當前版本明確 no_tax 可完整往返。校驗仍先驗來源 hash／count，再升級並依欄位名還原及對帳。舊 Worker 不認 no_tax，未來回退部署須另核對 schema 相容性，不能只退版本。未執行正式備份／還原或正式 migration。
+
+V0.19.0 Build1的CURRENT_MIGRATION更新為0070_item_cost_margin_permission，授權表欄位及備份表集不變；0069之前none轉NULL的升級仍有效。0070只擴充可接受權限碼，完整保留原授權，不自動產生ITEMS_COST_MARGIN。

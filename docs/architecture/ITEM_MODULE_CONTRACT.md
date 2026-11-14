@@ -185,3 +185,9 @@ This foundation does not yet expose protected Item HTTP routes and does not writ
 - 缺成本／稅別、缺售價或換算無效顯示待補；個別單位缺漏不阻斷其他通路。成本零可算；售價零毛利率 NULL（畫面 —），負毛利顯示原值及共用危險色。
 - 調整成本或成本稅別以共用 item.price.changed Audit 記錄前後值；商品更新先鎖 revision 並檢查 changes()，失敗整批回滾／409。稅別待補時啟停操作導回同一商品編輯補正，不繞過必填。
 - 網路毛利（含基本毛利）、優惠、費率、區間與 AI API 全部留第二階段，本版未實作。
+
+### V0.19.0 Build1：商品成本及毛利次級權限
+
+新增ITEMS_COST_MARGIN（商品－成本及毛利分析），route:null且依附ITEMS，授權／群組勾選及連動取消比照ORDERING_CN_PURCHASE。SUPER_ADMIN依既有全授權；USER／ADMIN不自動取得。僅ITEMS者成本及稅別兩欄保留位置、內容空白（非破折號或待補），毛利入口及內容完全不顯示。商品列表／詳情／修改／改號回應的cost與costTaxMode為null，margin回403，成本歷史及全域Audit的成本事件不提供（含搜尋）。
+
+無次級權限的一般商品PATCH不得提供cost／costTaxMode（即使null）；由server保留現存值，舊待補NULL亦不猜測，其他欄位／售價仍可更新。具權限者成本稅別維持三選一必填。新增商品需選成本稅別，故無成本權限者新增停用、POST403，交具權限者建立。0070擴充既有授權表CHECK且保留原授權，不自動替員工加授權；由既有權限管理者自行設定。

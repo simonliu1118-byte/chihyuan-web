@@ -354,7 +354,7 @@ function OperationalApp({
   else if (route === "customers") content = <CustomerOperationalPage role={role} />;
   else if (route === "items" || route === "defects") content = <ItemsModulePage route={route}
     canItems={allowedModules.has("ITEMS")} canDefects={allowedModules.has("DEFECTS")}
-    canViewCustomers={allowedModules.has("CUSTOMERS")}/>;
+    canViewCustomers={allowedModules.has("CUSTOMERS")} canViewCost={allowedModules.has("ITEMS_COST_MARGIN")}/>;
   else if (route === "orders") content = <SalesOrderOperationalPage />;
   else if (route === "outsourcing") content = <OutsourcingOperationalPage />;
   else if (route === "worklogs") content = <WorkLogOperationalPage />;

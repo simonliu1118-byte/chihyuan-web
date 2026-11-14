@@ -656,3 +656,9 @@ GraphQL 結構以 [Cloudflare 官方 D1 Metrics and Analytics](https://developer
 回應 envelope 沿用現有 `success`，data 型別為 `shared/item-margin.ts` 的 ItemMarginResult：itemId、revision、baseUnit、originalCost、costTaxMode、payment、inputTax、netCost、costStatus，及 rows（channel＝store／clinic／wholesale、unit、price、netCost、status、exclusive／inclusive）。每個有效解讀含 netSales、grossProfit、grossMarginPercent、negative。
 
 衍生金額／百分比為兩位小數字串，缺資料為 null，零收入的百分比為 null；原始成本及售價沿用主檔最多四位小數字串。門市 exclusive 為 null。查詢參數不覆寫成本、售價或稅別。來源由 ItemRepository 同一商品 id 的 batch 讀取，回應不含網路毛利。
+
+### V0.19.0 Build1：商品成本及毛利次級權限
+
+新增ITEMS_COST_MARGIN（商品－成本及毛利分析），route:null且依附ITEMS，授權／群組勾選及連動取消比照ORDERING_CN_PURCHASE。SUPER_ADMIN依既有全授權；USER／ADMIN不自動取得。僅ITEMS者成本及稅別兩欄保留位置、內容空白（非破折號或待補），毛利入口及內容完全不顯示。商品列表／詳情／修改／改號回應的cost與costTaxMode為null，margin回403，成本歷史及全域Audit的成本事件不提供（含搜尋）。
+
+無次級權限的一般商品PATCH不得提供cost／costTaxMode（即使null）；由server保留現存值，舊待補NULL亦不猜測，其他欄位／售價仍可更新。具權限者成本稅別維持三選一必填。新增商品需選成本稅別，故無成本權限者新增停用、POST403，交具權限者建立。0070擴充既有授權表CHECK且保留原授權，不自動替員工加授權；由既有權限管理者自行設定。

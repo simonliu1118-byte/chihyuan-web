@@ -4,8 +4,8 @@ import {ItemOperationalPage} from "./ItemOperationalPage";
 import {DefectOperationalPage} from "./DefectOperationalPage";
 
 /** 商品與瑕疵為同一導覽入口；既有 #defects 深連結不改，授權各自獨立。 */
-export function ItemsModulePage({route,canItems,canDefects,canViewCustomers}:{
- route:"items"|"defects";canItems:boolean;canDefects:boolean;canViewCustomers:boolean;
+export function ItemsModulePage({route,canItems,canDefects,canViewCustomers,canViewCost=false}:{
+ route:"items"|"defects";canItems:boolean;canDefects:boolean;canViewCustomers:boolean;canViewCost?:boolean;
 }) {
  const sections=[
   ...(canItems?[{key:"items" as const,label:"商品"}]:[]),
@@ -15,6 +15,6 @@ export function ItemsModulePage({route,canItems,canDefects,canViewCustomers}:{
  return <div className="cy-items-module">
   <ModuleSections label="商品功能" sections={sections} value={active}
    onChange={key=>{window.location.hash=routeHref(key)}}/>
-  {active==="items"?<ItemOperationalPage canViewDefects={canDefects} canViewCustomers={canViewCustomers}/>:<DefectOperationalPage/>}
+  {active==="items"?<ItemOperationalPage canViewDefects={canDefects} canViewCustomers={canViewCustomers} canViewCost={canViewCost}/>:<DefectOperationalPage/>}
  </div>;
 }
