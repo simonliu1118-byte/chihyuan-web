@@ -159,7 +159,7 @@ Referenced lookup rows are normally disabled rather than hard-deleted. Fixed wor
 | `base_unit` | TEXT | no | |
 | `item_category_id` | INTEGER FK item_categories | yes | RESTRICT |
 | `cost` | INTEGER scaled4 | yes | `>= 0` |
-| `cost_tax_mode` | TEXT code | yes | `none / inclusive / exclusive` |
+| `cost_tax_mode` | TEXT code | yes | `inclusive / exclusive / no_tax`；NULL 僅容納既有待補資料，新增／修改必填，舊 none 經 0069 轉 NULL |
 | `store_price` | INTEGER scaled4 | yes | `>= 0` |
 | `clinic_price` | INTEGER scaled4 | yes | `>= 0` |
 | `notes` | TEXT | yes | |

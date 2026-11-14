@@ -14,9 +14,9 @@ export interface ItemSheetDraft {
  onlinePrices:ItemOnlinePrice[];
 }
 const money=(value:string|null|undefined)=>value==null||value===""?"—":"$"+value;
-export function ItemSheet({item,draft,editing,creating,busy,categories,platforms,onPatch,onAddConversion,onUpdateConversion}:{
+export function ItemSheet({item,draft,editing,creating,busy,canViewCost=false,categories,platforms,onPatch,onAddConversion,onUpdateConversion}:{
  item:ItemDetail|null;draft:ItemSheetDraft|null;editing:boolean;creating:boolean;busy:boolean;
- categories:readonly LookupSetting[];platforms:readonly ItemWebPlatform[];
+ canViewCost?:boolean;categories:readonly LookupSetting[];platforms:readonly ItemWebPlatform[];
  onPatch:(partial:Partial<ItemSheetDraft>)=>void;
  onAddConversion:()=>void;
  onUpdateConversion:(index:number,field:"fromUnit"|"quantity",value:string)=>void;
@@ -82,11 +82,11 @@ export function ItemSheet({item,draft,editing,creating,busy,categories,platforms
       onChange={e=>onPatch({itemCategoryId:e.target.value?Number(e.target.value):null})}>
        <option value="">未分類</option>{categories.filter(c=>c.isActive||c.id===draft!.itemCategoryId).map(c=><option key={c.id} value={c.id}>{c.name}</option>)}
       </select>:undefined},
-    {label:"成本",view:costDisplay,edit:editing?input(draft!.cost,value=>onPatch({cost:value}),"成本",{decimal:true}):undefined},
-    {label:"成本稅別",view:source.costTaxMode==="exclusive"?"未稅":source.costTaxMode==="inclusive"?"含稅":"未指定",
-     edit:editing?<select className="cy-op-input" aria-label="成本稅別" value={draft!.costTaxMode??""} disabled={busy}
+    {label:"成本",view:canViewCost?costDisplay:<span/>,edit:editing&&canViewCost?input(draft!.cost,value=>onPatch({cost:value}),"成本",{decimal:true}):undefined},
+    {label:"成本稅別",required:canViewCost,view:!canViewCost?<span/>:source.costTaxMode==="exclusive"?"未稅（外加）":source.costTaxMode==="inclusive"?"含稅":source.costTaxMode==="no_tax"?"不計稅":"待補資料",
+     edit:editing&&canViewCost?<select className="cy-op-input" aria-label="成本稅別" value={draft!.costTaxMode??""} disabled={busy}
       onChange={e=>onPatch({costTaxMode:(e.target.value||null) as ItemCostTaxMode|null})}>
-       <option value="">未指定</option><option value="inclusive">含稅</option><option value="exclusive">未稅</option><option value="none">無稅別</option>
+       <option value="" disabled>請選擇</option><option value="inclusive">含稅</option><option value="exclusive">未稅（外加）</option><option value="no_tax">不計稅</option>
       </select>:undefined},
     {label:"門市價",view:money(source.storePrice),edit:editing?input(draft!.storePrice,value=>onPatch({storePrice:value}),"門市價",{decimal:true}):undefined},
     {label:"診所價",view:money(source.clinicPrice),edit:editing?input(draft!.clinicPrice,value=>onPatch({clinicPrice:value}),"診所價",{decimal:true}):undefined},

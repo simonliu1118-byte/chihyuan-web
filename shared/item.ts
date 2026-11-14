@@ -1,4 +1,4 @@
-export type ItemCostTaxMode = "none" | "inclusive" | "exclusive";
+export type ItemCostTaxMode = "no_tax" | "inclusive" | "exclusive";
 
 export interface ItemCategoryRef {
   id: number;

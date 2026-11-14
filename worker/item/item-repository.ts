@@ -24,7 +24,7 @@ type ItemSummaryRow = {
   category_name: string | null;
   category_parent_id: number | null;
   cost: number | null;
-  cost_tax_mode: "none" | "inclusive" | "exclusive" | null;
+  cost_tax_mode: "no_tax" | "inclusive" | "exclusive" | null;
   store_price: number | null;
   clinic_price: number | null;
   is_active: number;

@@ -1,3 +1,5 @@
+import { ModuleSections } from "../../ui/mobile/ModuleSections";
+import { ItemMarginPanel } from "./item/ItemMarginPanel";
 import { IconButton } from "../../ui/actions/IconButton";
 import { Icons } from "../../ui/actions/icons";
 import {Field,CheckField,FormSection} from "../../ui/forms/Field";
@@ -38,7 +40,6 @@ import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { useSettingsSaved } from "./settings-events";
 import type { ItemModuleLookups } from "../../../shared/business-lookups";
 import type {
-  ItemCostTaxMode,
   ItemDetail,
   ItemProfileInput,
   ItemSummary,
@@ -59,12 +60,6 @@ import {
 import "./item-operational.css";
 
 type ItemDraft=ItemSheetDraft;
-
-const taxModeText: Record<ItemCostTaxMode, string> = {
-  none: "未指定",
-  inclusive: "含稅",
-  exclusive: "未稅",
-};
 
 function activeCategoryId(lookups: ItemModuleLookups | null): number | null {
   return lookups?.itemCategories.find((row) => row.isActive)?.id ?? null;
@@ -200,13 +195,14 @@ function categoryName(item: ItemSummary): string {
   return item.category?.name ?? "未分類";
 }
 
-export function ItemOperationalPage({ canViewDefects = false, canViewCustomers = false }: { canViewDefects?: boolean; canViewCustomers?: boolean }) {
+export function ItemOperationalPage({ canViewDefects = false, canViewCustomers = false, canViewCost = false }: { canViewDefects?: boolean; canViewCustomers?: boolean; canViewCost?: boolean }) {
   const [lookups, setLookups] = useState<ItemModuleLookups | null>(null);
   const [rows, setRows] = useState<readonly ItemSummary[]>([]);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [selected, setSelected] = useState<ItemDetail | null>(null);
   const [numberHistory, setNumberHistory] = useState<Awaited<ReturnType<typeof loadItemNumberHistory>>>([]);
   const [priceHistory,setPriceHistory]=useState<Awaited<ReturnType<typeof loadItemPriceHistory>>>([]);
+  const [detailSection, setDetailSection] = useState<"profile" | "margin">("profile");
   const [historyOpen,setHistoryOpen]=useState(false);
   const [platforms,setPlatforms]=useState<Awaited<ReturnType<typeof loadItemPlatforms>>>([]);
   const [query, setQuery] = useState("");
@@ -413,6 +409,7 @@ export function ItemOperationalPage({ canViewDefects = false, canViewCustomers =
   }
 
   async function startCreate() {
+    if (!canViewCost) return;
     if (busy || !(await canLeave())) return;
     pane.open();
     setSelectedId(null);
@@ -462,6 +459,7 @@ export function ItemOperationalPage({ canViewDefects = false, canViewCustomers =
     setMessage(null);
     try {
       const profile = { ...profileFromDraft({ ...draft, unitConversions: conversions }) };
+      if (!canViewCost) { delete profile.cost; delete profile.costTaxMode; }
       const saved = creating
         ? await createItem({ itemNo: draft.itemNo.trim(), ...profile })
         : selected
@@ -542,6 +540,7 @@ export function ItemOperationalPage({ canViewDefects = false, canViewCustomers =
 
   async function toggleActive() {
     if (!selected || busy) return;
+    if (canViewCost && !selected.costTaxMode) { startEdit(); reportError("請先補填成本稅別，再變更啟用狀態。"); return; }
     const action = selected.isActive ? "停用" : "啟用";
     if (!(await confirm({
       title: `${action}商品`,
@@ -552,10 +551,9 @@ export function ItemOperationalPage({ canViewDefects = false, canViewCustomers =
     setBusy(true);
     setMessage(null);
     try {
-      const saved = await updateItem(selected.id, {
-        ...profileFromDetail(selected, !selected.isActive),
-        expectedRevision: selected.revision,
-      });
+      const profile = profileFromDetail(selected, !selected.isActive);
+      if (!canViewCost) { delete profile.cost; delete profile.costTaxMode; }
+      const saved = await updateItem(selected.id, { ...profile, expectedRevision: selected.revision });
       setSelected(saved);
       setMessage(`商品已${action}。`);
       setRefreshEpoch((value) => value + 1);
@@ -669,11 +667,11 @@ export function ItemOperationalPage({ canViewDefects = false, canViewCustomers =
         {compact?<DataViewToolbar searchValue={query} onSearchChange={setQuery} searchLabel="搜尋商品"
           searchPlaceholder="搜尋現行／歷史品號、名稱、規格"
           filters={itemFilters} activeFilterCount={[categoryFilter,activeFilter].filter(Boolean).length}
-          actions={<button type="button" className="cy-op-button primary" disabled={busy} onClick={()=>void startCreate()}>＋ 新增商品</button>}
+          actions={<button type="button" className="cy-op-button primary" disabled={busy || !canViewCost} title={!canViewCost?"新增商品需填成本稅別，請由具成本權限者建立":undefined} onClick={()=>void startCreate()}>＋ 新增商品</button>}
           resultSummary={loadingList?"載入中":paging.hasMore?`已載入 ${rows.length} 筆，還有更多`:`共 ${rows.length} 筆`}/>
         :<div className="cy-md-toolbar">
           <div className="cy-md-toolbar-lead">
-            <button type="button" className="cy-op-button primary" disabled={busy} onClick={()=>void startCreate()}>＋ 新增商品</button>
+            <button type="button" className="cy-op-button primary" disabled={busy || !canViewCost} title={!canViewCost?"新增商品需填成本稅別，請由具成本權限者建立":undefined} onClick={()=>void startCreate()}>＋ 新增商品</button>
             <input className="cy-op-input" type="search" aria-label="搜尋商品" value={query} onChange={event=>setQuery(event.target.value)} placeholder="搜尋現行／歷史品號、名稱、規格"/>
           </div>
           {itemFilters}
@@ -709,7 +707,7 @@ export function ItemOperationalPage({ canViewDefects = false, canViewCustomers =
              :<div className="cy-record-actions"><button type="button" className="cy-op-button" disabled={busy} onClick={()=>void cancelEdit()}>取消</button>
               <button className="cy-op-button primary" disabled={busy} aria-busy={busy||undefined}>{creating?"建立商品":"儲存修改"}</button></div>}</div>
             <ItemSheet editing creating={creating} item={selected} draft={draft}
-              busy={busy} categories={categories} platforms={platforms}
+              busy={busy} canViewCost={canViewCost} categories={categories} platforms={platforms}
               onPatch={patch} onAddConversion={addConversion} onUpdateConversion={updateConversion}/>
 
   </form>
@@ -739,9 +737,12 @@ export function ItemOperationalPage({ canViewDefects = false, canViewCustomers =
                </div>}
             </div>
             {compact?<ActionBar><button type="button" className="cy-op-button primary" disabled={busy} onClick={startEdit}>修改</button></ActionBar>:null}
-            <div className="cy-item-detail-body">
+            <ModuleSections label="商品詳情" sections={[{key:"profile",label:"商品資料"},...(canViewCost?[{key:"margin" as const,label:"毛利分析"}]:[])]}
+              value={canViewCost?detailSection:"profile"} onChange={setDetailSection}/>
+            {canViewCost && detailSection === "margin" ? <ItemMarginPanel key={selected.id} itemId={selected.id} revision={selected.revision}
+              onEdit={() => { setDetailSection("profile"); startEdit(); }}/>:<div className="cy-item-detail-body">
               <ItemSheet editing={false} creating={false} item={selected} draft={null}
-                busy={busy} categories={categories} platforms={platforms}
+                busy={busy} canViewCost={canViewCost} categories={categories} platforms={platforms}
                 onPatch={patch} onAddConversion={addConversion} onUpdateConversion={updateConversion}/>
               {canViewDefects || canViewCustomers ? <section className="cy-customer-cards" aria-label="商品相關紀錄">
                 {canViewDefects ? <RelatedCard title="瑕疵紀錄"
@@ -764,7 +765,7 @@ export function ItemOperationalPage({ canViewDefects = false, canViewCustomers =
                     {quoteGroupText(group)}
                   </span>)} /> : null}
               </section> : null}
-            </div>
+            </div>}
           </div>
         ) : (
           <MasterDetailEmpty title="尚未選擇商品" />

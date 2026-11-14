@@ -1,6 +1,7 @@
 export const CYWEB_MODULES = [
   { code: "CUSTOMERS", route: "customers", label: "客戶" },
   { code: "ITEMS", route: "items", label: "商品" },
+  { code: "ITEMS_COST_MARGIN", route: null, label: "商品－成本及毛利分析" },
   { code: "DEFECTS", route: "defects", label: "瑕疵" },
   { code: "ORDERS", route: "orders", label: "銷售工單" },
   { code: "OUTSOURCING", route: "outsourcing", label: "委外/代工" },
@@ -55,6 +56,7 @@ export function moduleCodesForRoute(route: string): CyWebModuleCode[] {
 export const MODULE_REQUIREMENTS: Partial<Record<CyWebModuleCode, readonly CyWebModuleCode[]>> = {
   ERP_RESTOCK_ASSIST: ["ERP_ITEM_QUERY", "ERP_CUSTOMER_QUERY"],
   ORDERING_CN_PURCHASE: ["ORDERING"],
+  ITEMS_COST_MARGIN: ["ITEMS"],
 };
 
 export function moduleLabel(code: CyWebModuleCode): string {

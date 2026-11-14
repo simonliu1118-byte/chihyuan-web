@@ -1,3 +1,5 @@
+import { parseScaled4 } from "../../shared/fixed-point";
+import { calculateItemMargin } from "./item-margin-service";
 import type {
   ItemDetail,
   ItemListResult,
@@ -56,6 +58,8 @@ export class ItemService {
     this.persistence = new ItemPersistence(db);
   }
 
+  async getMargin(itemId: number) { return calculateItemMargin(await this.getDetail(itemId)); }
+
   async getPlatforms():Promise<readonly ItemWebPlatform[]> {return this.repository.getPlatforms()}
   async listPriceHistory(itemId:number):Promise<readonly ItemPriceHistoryRecord[]> {
     const id=normalizeItemId(itemId);
@@ -94,9 +98,9 @@ export class ItemService {
     return this.getDetail(itemId);
   }
 
-  async update(itemId: number, raw: unknown, context: ItemMutationContext): Promise<ItemDetail> {
+  async update(itemId: number, raw: unknown, context: ItemMutationContext, preserveCost = false): Promise<ItemDetail> {
     const id = normalizeItemId(itemId);
-    const input = await this.preflightUpdate(id, raw);
+    const input = await this.preflightUpdate(id, raw, preserveCost);
     const updated = await this.persistence.update(id, input, context);
     if (!updated) {
       throw new ItemServiceError(
@@ -157,11 +161,13 @@ export class ItemService {
       throw new FieldValidationError({onlinePrices:"網路平台不存在或已停用"});
   }
 
-  async preflightUpdate(itemId: number, raw: unknown): Promise<NormalizedUpdateItemRequest> {
+  async preflightUpdate(itemId: number, raw: unknown, preserveCost = false): Promise<NormalizedUpdateItemRequest> {
     const id = normalizeItemId(itemId);
-    const input = normalizeUpdateItemRequest(raw);
     const current = await this.repository.getDetail(id);
     if (!current) throw new ItemServiceError("ITEM_NOT_FOUND", 404, "Item not found");
+    const input = normalizeUpdateItemRequest(raw, preserveCost ? {
+      costScaled4: current.cost == null ? null : parseScaled4(current.cost), costTaxMode: current.costTaxMode,
+    } : undefined);
     if (current.revision !== input.expectedRevision) {
       throw new ItemServiceError(
         "ITEM_REVISION_CONFLICT",
