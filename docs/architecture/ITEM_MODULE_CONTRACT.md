@@ -199,3 +199,9 @@ This foundation does not yet expose protected Item HTTP routes and does not writ
 網路每平台以共用表格並排基本與基本＋活動兩費率，無折扣與每個滿件折數分列，全部互斥券各算後取整體最低／最高；展開逐券分欄加粗顯示。商品設定的簡化平台費用與優惠限SUPER_ADMIN管理，設定儲存立即生效並重讀商品owner。主檔售價／成本維持唯一來源，不增加試算、搭購或AI接口。
 
 0071新增共用規則及歷史版本，revision／Audit原子寫入。費率基礎、門檻比例、最後理論界及運費約定完整見[當前規格](../development/ITEM_MARGIN_PHASE2_DESIGN.md)；原第一階段「全部網路留下一階段」現在由本節接續，AI仍延後。
+
+## V0.20.1 商品平台品類與獨立費率（待Claude審查）
+
+商品主檔RecordSheet新增蝦皮品類、Mo+品類選填下拉；兩平台獨立清單、先完成費率設定才能選。普通商品分類不等於平台品類。所選品類費率僅加入該平台基本費率，兩費率欄均計入；同時只套用一個品類，不加總所有品類。未選蝦皮只隱藏蝦皮毛利並提示「請先選擇品類」，Mo+及其他通路照常；Mo+同理。
+
+選項由既有platforms資料owner取得（僅id／name），商品選擇與詳情同次回應，不為品類另查一次商品。商品revision／成本次級權限／SUPER_ADMIN設定權限不變。品類以平台身分＋穩定字串id關聯，平台或品類改名不重選；使用中品類不可直接刪除。完整契約見[第二階段規格](../development/ITEM_MARGIN_PHASE2_DESIGN.md)與[handoff](../handoff/CYWEB-ITEM-MARGIN-CATEGORIES-20261114.md)。

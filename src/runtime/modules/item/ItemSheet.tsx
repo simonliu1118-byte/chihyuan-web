@@ -1,3 +1,4 @@
+import {ITEM_FEE_CATEGORY_PLATFORMS,type ItemPlatformFeeSelection} from '../../../../shared/item-platform-fee-categories';
 import type {ItemDetail,ItemCostTaxMode,ItemUnitConversionInput,ItemWholesalePrice,ItemOnlinePrice,ItemWebPlatform} from "../../../../shared/item";
 import type {LookupSetting} from "../../../../shared/settings";
 import {RecordSheet,type SheetRow} from "../../../ui/forms/RecordSheet";
@@ -12,6 +13,7 @@ export interface ItemSheetDraft {
  unitConversions:ItemUnitConversionInput[];
  wholesalePrices:ItemWholesalePrice[];
  onlinePrices:ItemOnlinePrice[];
+ platformFeeCategories:ItemPlatformFeeSelection[];
 }
 const money=(value:string|null|undefined)=>value==null||value===""?"—":"$"+value;
 export function ItemSheet({item,draft,editing,creating,busy,canViewCost=false,categories,platforms,onPatch,onAddConversion,onUpdateConversion}:{
@@ -98,6 +100,17 @@ export function ItemSheet({item,draft,editing,creating,busy,canViewCost=false,ca
        id:p.id,label:p.name,value:online.find(row=>row.platformId===p.id)?.price??""
      }))} onChange={updateOnline}/>:undefined},
   ]},
+  {columns:"repeat(2,minmax(0,1fr))",cells:ITEM_FEE_CATEGORY_PLATFORMS.map(({platformId,label})=>{
+    const options=platforms.find(p=>p.id===platformId)?.feeCategories??[];
+    const selected=(source.platformFeeCategories??[]).find(p=>p.platformId===platformId)?.categoryId??'';
+    return {label,view:options.find(o=>o.id===selected)?.name??'—',
+      edit:editing?<select className="cy-op-input" aria-label={label} value={selected} disabled={busy||!options.length}
+        onChange={e=>onPatch({platformFeeCategories:[...(draft!.platformFeeCategories??[]).filter(c=>c.platformId!==platformId),
+          ...(e.target.value?[{platformId,categoryId:e.target.value}]:[])]})}>
+        <option value="">{options.length?'未選擇（選填）':'請先設定此平台品類費率'}</option>
+        {options.map(o=><option key={o.id} value={o.id}>{o.name}</option>)}
+      </select>:undefined};
+  })},
   {columns:"minmax(0,1fr)",cells:[{label:"備註",view:source.notes,
     edit:editing?<textarea className="cy-op-input" aria-label="備註" rows={2} disabled={busy}
      value={draft!.notes} onChange={e=>onPatch({notes:e.target.value})}/>:undefined}]},

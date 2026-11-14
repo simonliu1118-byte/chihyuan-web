@@ -92,3 +92,7 @@
 - 執行者不得自行合併／部署；此交接與PR是給Claude審查的具體成果，沒有對外發文、發送BOT訊息或宣稱Claude已通過。
 
 網路費用後結果型別為`ContributionValue`（`contributionAmount`／`contributionMarginPercent`），與原商品基本毛利`MarginValue`（`grossProfit`／`grossMarginPercent`）明確區分，畫面仍以「毛利」方便閱讀；兩者共用同一精確計算核心。
+
+## 後續需求 V0.20.1
+
+使用者新增蝦皮、Mo+各自獨立品類費率與商品選填下拉，未選只隱藏對應平台毛利。已接續同PR實作，完整逐檔修改、驗證及限制見[品類交接](CYWEB-ITEM-MARGIN-CATEGORIES-20261114.md)；本次同步更新此指引，不代填Claude通過，不合併／部署。

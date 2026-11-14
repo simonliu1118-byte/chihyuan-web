@@ -213,9 +213,14 @@ export class ItemRepository {
   }
 
   async getPlatforms():Promise<readonly ItemWebPlatform[]> {
-    const rows=await this.db.prepare("SELECT id,name,sort_order,is_active,updated_at FROM item_web_platforms ORDER BY sort_order,id")
-     .all<{id:number;name:string;sort_order:number;is_active:number;updated_at:string}>();
-    return (rows.results??[]).map(p=>({id:p.id,name:p.name,sortOrder:p.sort_order,isActive:p.is_active===1,updatedAt:p.updated_at}));
+    const rows=await this.db.prepare(`SELECT p.id,p.name,p.sort_order,p.is_active,p.updated_at,
+      (SELECT json_group_array(json_object('id',c.category_id,'name',json_extract(j.value,'$.name')))
+       FROM item_platform_fee_categories c JOIN json_each(COALESCE(json_extract(r.rules_json,'$.categoryFees'),'[]')) j
+       ON json_extract(j.value,'$.id')=c.category_id WHERE c.platform_id=p.id) AS fee_categories
+      FROM item_web_platforms p LEFT JOIN item_platform_margin_rules r ON r.platform_id=p.id ORDER BY p.sort_order,p.id`)
+     .all<{id:number;name:string;sort_order:number;is_active:number;updated_at:string;fee_categories:string}>();
+    return (rows.results??[]).map(p=>({id:p.id,name:p.name,sortOrder:p.sort_order,isActive:p.is_active===1,updatedAt:p.updated_at,
+      feeCategories:JSON.parse(p.fee_categories) as {id:string;name:string}[]}));
   }
 
   async listPriceHistory(itemId:number):Promise<readonly ItemPriceHistoryRecord[]> {
@@ -239,6 +244,7 @@ export class ItemRepository {
       `).bind(itemId),
       this.db.prepare("SELECT unit,price,sort_order FROM item_wholesale_prices WHERE item_id=? ORDER BY sort_order,id").bind(itemId),
       this.db.prepare("SELECT platform_id,price FROM item_online_prices WHERE item_id=? ORDER BY platform_id").bind(itemId),
+      this.db.prepare("SELECT platform_id,category_id FROM item_platform_fee_selections WHERE item_id=? ORDER BY platform_id").bind(itemId),
     ]);
 
     const master = (results[0]?.results?.[0] ?? null) as ItemDetailRow | null;
@@ -246,6 +252,7 @@ export class ItemRepository {
     const conversions = (results[1]?.results ?? []) as ItemUnitConversionRow[];
     return {
       ...toSummary(master),
+      platformFeeCategories: ((results[4]?.results??[]) as {platform_id:number;category_id:string}[]).map(row=>({platformId:row.platform_id,categoryId:row.category_id})),
       notes: master.notes,
       createdAt: master.created_at,
       wholesalePrices: ((results[2]?.results??[]) as {unit:string;price:number;sort_order:number}[]).map(row=>({unit:row.unit,price:formatScaled4(row.price),sortOrder:row.sort_order})),

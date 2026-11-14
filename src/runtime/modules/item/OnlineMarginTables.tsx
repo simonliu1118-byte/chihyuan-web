@@ -38,9 +38,9 @@ export function OnlineMarginTables({platforms}:{platforms:OnlinePlatformMargin[]
  return <section aria-label="網路平台毛利"><h3>網路平台毛利</h3>{platforms.map(p=><section key={p.platformId} aria-label={p.name+'毛利'}>
   <h4>{p.name}・主檔售價 {onlineMoney(p.price)}</h4>
   {p.status?<StatusChip tone="warning">{p.status}</StatusChip>:null}
-  {p.rules?<>
+  {p.rules&&p.status!=='請先選擇品類'?<>
    <table className="cy-op-table cy-rt"><thead><tr><th>項目</th><th>費率／毛利</th></tr></thead><tbody>
-    <tr><td data-label="項目">平台基本費率</td><td data-label="費率">{feeText(p.rules.basicFees)}</td></tr>
+    <tr><td data-label="項目">平台基本費率</td><td data-label="費率">{feeText([...p.rules.basicFees,...(p.categoryFee?[p.categoryFee]:[])])}</td></tr>
     <tr><td data-label="項目">扣除基本費率毛利</td><td data-label="毛利"><Profit value={p.basic}/></td></tr>
     <tr><td data-label="項目">平台活動費率</td><td data-label="費率">{feeText(p.rules.activityFees)}</td></tr>
     <tr><td data-label="項目">扣除基本＋活動費率毛利</td><td data-label="毛利"><Profit value={p.activity}/></td></tr>
@@ -52,6 +52,6 @@ export function OnlineMarginTables({platforms}:{platforms:OnlinePlatformMargin[]
     <tbody><tr><td data-label="條件">無折扣</td><td data-label="基本費率"><Profit value={p.basicShipping??p.basic}/></td><td data-label="基本＋活動費率"><Profit value={p.shipping??p.activity}/></td></tr>
      {p.tiers.map((t,i)=><Tier key={t.quantity} basic={p.basicTiers[i]} activity={t}/>)}</tbody></table>
    <p>兩欄皆計入勾選運費。優惠券互斥、各自與滿件折扣並用；預設顯示全部券的整體區間，展開逐券分別查看最低／最高毛利。</p>
-  </>:<p>請由超級管理員至商品設定的「平台費用與優惠」填寫；未設定不視為零費用。</p>}
+  </>:p.status==='請先選擇品類'?<p>請在商品詳情選擇此平台品類；其他通路毛利不受影響。</p>:<p>請由超級管理員至商品設定的「平台費用與優惠」填寫；未設定不視為零費用。</p>}
  </section>)}</section>;
 }

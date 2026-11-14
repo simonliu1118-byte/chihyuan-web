@@ -1,3 +1,4 @@
+import {needsFeeCategory} from '../../shared/item-platform-fee-categories';
 import type {ItemDetail,ItemWebPlatform} from '../../shared/item';
 import type {PlatformMarginRules,PlatformFee,MarginCoupon,OnlinePlatformMargin,CouponMarginEndpoint} from '../../shared/item-online-margin';
 import {value,multiply,subtract,display,margin,itemNetCost,type Rational} from './item-margin-service';
@@ -26,8 +27,11 @@ export function onlineMargins(item:ItemDetail,platforms:readonly ItemWebPlatform
  const cost=itemNetCost(item);const byId=new Map(rules.map(r=>[r.platformId,r]));
  return item.onlinePrices.map(entry=>{
   const rule=byId.get(entry.platformId)??null;
-  const output:OnlinePlatformMargin={platformId:entry.platformId,name:platforms.find(p=>p.id===entry.platformId)?.name??String(entry.platformId),price:entry.price,configured:!!rule,rules:rule,status:cost==null?'待補成本／稅別':rule==null?'費率待設定':null,basic:null,activity:null,shipping:null,basicShipping:null,basicTiers:[],tiers:[]};
-  if(!cost||!rule)return output;
+  const selected=item.platformFeeCategories?.find(c=>c.platformId===entry.platformId);
+  const categoryFee=rule?.categoryFees?.find(c=>c.id===selected?.categoryId)??null;
+  const missingCategory=needsFeeCategory(entry.platformId)&&categoryFee==null;
+  const output:OnlinePlatformMargin={platformId:entry.platformId,name:platforms.find(p=>p.id===entry.platformId)?.name??String(entry.platformId),price:entry.price,configured:!!rule,rules:rule,categoryFee,status:missingCategory?'請先選擇品類':cost==null?'待補成本／稅別':rule==null?'費率待設定':null,basic:null,activity:null,shipping:null,basicShipping:null,basicTiers:[],tiers:[]};
+  if(!cost||!rule||missingCategory)return output;
   const calculate=(price:Rational,fees:PlatformFee[],shipping:boolean)=>{
    let deductions=cost;
    for(const fee of fees)deductions=add(deductions,feeAmount(fee,price));
@@ -35,10 +39,10 @@ export function onlineMargins(item:ItemDetail,platforms:readonly ItemWebPlatform
    const result=margin(multiply(price,100n,105n),deductions);
    return {netSales:result.netSales,contributionAmount:result.grossProfit,contributionMarginPercent:result.grossMarginPercent,negative:result.negative};
   };
-  const price=value(entry.price),allFees=[...rule.basicFees,...rule.activityFees];
-  output.basic=calculate(price,rule.basicFees,false);output.activity=calculate(price,allFees,false);
+  const price=value(entry.price),basicFees=[...rule.basicFees,...(categoryFee?[categoryFee]:[])],allFees=[...basicFees,...rule.activityFees];
+  output.basic=calculate(price,basicFees,false);output.activity=calculate(price,allFees,false);
   output.shipping=rule.shipping.enabled?calculate(price,allFees,true):null;
-  output.basicShipping=rule.shipping.enabled?calculate(price,rule.basicFees,true):null;
+  output.basicShipping=rule.shipping.enabled?calculate(price,basicFees,true):null;
   const thresholds=[...new Set(rule.coupons.map(c=>Number(c.threshold)))].sort((a,b)=>a-b);
   const tierResults=(fees:PlatformFee[])=>(rule.tiers.length?rule.tiers:[{quantity:1,discount:'10'}]).map(tier=>{
    const fold=value(tier.discount),tierPrice=multiply(price,fold.numerator,fold.denominator*10n);
@@ -63,7 +67,7 @@ export function onlineMargins(item:ItemDetail,platforms:readonly ItemWebPlatform
    for(const candidate of candidates){if(cmp(candidate.ratio,low.ratio)>0n)low=candidate;if(cmp(candidate.ratio,high.ratio)<0n)high=candidate;}
    return {...tier,minimum:low.endpoint,maximum:high.endpoint,coupons:couponRanges};
   });
-  output.basicTiers=tierResults(rule.basicFees);output.tiers=tierResults(allFees);
+  output.basicTiers=tierResults(basicFees);output.tiers=tierResults(allFees);
   return output;
  });
 }

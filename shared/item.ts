@@ -1,3 +1,4 @@
+import type {ItemPlatformFeeSelection, PlatformFeeCategoryOption} from './item-platform-fee-categories';
 import type { ItemMarginResult } from "./item-margin";
 export type ItemCostTaxMode = "no_tax" | "inclusive" | "exclusive";
 
@@ -34,11 +35,12 @@ export interface ItemUnitConversion {
 
 export interface ItemWholesalePrice { unit: string; price: string; sortOrder: number; }
 export interface ItemOnlinePrice { platformId: number; price: string; }
-export interface ItemWebPlatform { id: number; name: string; sortOrder: number; isActive: boolean; updatedAt: string; }
+export interface ItemWebPlatform { id: number; name: string; sortOrder: number; isActive: boolean; updatedAt: string; feeCategories?: readonly PlatformFeeCategoryOption[]; }
 export interface ItemPriceHistoryRecord { id: number; occurredAt: string; action: string; before: Record<string,string|null>; after: Record<string,string|null>; }
 
 export interface ItemDetail extends ItemSummary {
   margin?: ItemMarginResult;
+  platformFeeCategories: readonly ItemPlatformFeeSelection[];
   notes: string | null;
   createdAt: string;
   unitConversions: readonly ItemUnitConversion[];
@@ -80,6 +82,7 @@ export interface ItemProfileInput {
   unitConversions?: readonly ItemUnitConversionInput[];
   wholesalePrices?: readonly ItemWholesalePrice[];
   onlinePrices?: readonly ItemOnlinePrice[];
+  platformFeeCategories?: readonly ItemPlatformFeeSelection[];
 }
 
 export interface CreateItemRequest extends ItemProfileInput {

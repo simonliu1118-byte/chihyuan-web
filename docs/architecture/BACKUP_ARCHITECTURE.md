@@ -340,3 +340,9 @@ V0.19.0 Build1的CURRENT_MIGRATION更新為0070_item_cost_margin_permission，�
 CURRENT_MIGRATION為`0071_item_platform_margin_rules`。`item_platform_margin_rules`及`item_platform_margin_rule_versions`均納入可攜備份，欄位platform_id、revision、rules_json、updated_at、updated_by；先還原平台及成員，再還原兩表。完整規則快照保留每版，Audit只記版號。不含AI憑證、第二份商品價格或試算收據。
 
 0070及更早備份升級時兩張新表為空（沿用按欄位補表機制），不補猜費率。測試涵蓋當前完整備份往返及0070備份升級。只新增migration檔及本機驗證，未對正式D1執行。
+
+### 平台品類費率（0072，V0.20.1待審查）
+
+CURRENT_MIGRATION更新為0072_item_platform_fee_categories。納入item_platform_fee_categories(category_id,platform_id)及item_platform_fee_selections(category_id,item_id,platform_id)；恢復時依外鍵順序處理平台／商品、品類鍵、商品選擇。完整費率／名稱仍在既有rules_json及版本快照。
+
+新包驗證完整費率、品類鍵及選擇往返；0071及0070舊包補空新表，不猜品類。舊規則缺categoryFees由服務讀為空清單，不覆寫歷史版本。未對正式D1執行migration或還原。

@@ -1,3 +1,4 @@
+import {needsFeeCategory,type ItemPlatformFeeSelection} from '../../shared/item-platform-fee-categories';
 import type {
   ChangeItemNumberRequest,
   CreateItemRequest,
@@ -19,6 +20,7 @@ export interface NormalizedItemUnitConversion {
 }
 
 export interface NormalizedItemProfile {
+  platformFeeCategories: readonly ItemPlatformFeeSelection[] | null;
   name: string;
   spec: string | null;
   baseUnit: string;
@@ -230,6 +232,17 @@ function normalizeOnline(input: Record<string,unknown>,errors:Record<string,stri
  });
 }
 
+function normalizeFeeSelections(input: Record<string,unknown>, errors:Record<string,string>):readonly ItemPlatformFeeSelection[]|null {
+ const raw=input.platformFeeCategories;if(raw==null)return null;
+ if(!Array.isArray(raw)||raw.length>2){errors.platformFeeCategories='品類選擇格式錯誤';return []}
+ const seen=new Set<number>();return raw.map((value,index)=>{
+  const row=value&&typeof value==='object'?value as Record<string,unknown>:{};
+  const platformId=Number(row.platformId),categoryId=typeof row.categoryId==='string'?row.categoryId:'';
+  if(!needsFeeCategory(platformId)||seen.has(platformId)||!/^[a-zA-Z0-9_-]{1,80}$/.test(categoryId))errors['platformFeeCategories.'+index]='品類選擇無效';
+  seen.add(platformId);return {platformId,categoryId};
+ });
+}
+
 type PreservedItemCost = Pick<NormalizedItemProfile, "costScaled4" | "costTaxMode">;
 
 function normalizeProfile(raw: unknown, preservedCost?: PreservedItemCost): NormalizedItemProfile {
@@ -252,6 +265,7 @@ function normalizeProfile(raw: unknown, preservedCost?: PreservedItemCost): Norm
   const unitConversions = normalizeUnitConversions(input, baseUnit, errors);
   const wholesalePrices=normalizeWholesale(input,errors);
   const onlinePrices=normalizeOnline(input,errors);
+  const platformFeeCategories=normalizeFeeSelections(input,errors);
 
   if (Object.keys(errors).length > 0) throw new FieldValidationError(errors);
   return {
@@ -268,6 +282,7 @@ function normalizeProfile(raw: unknown, preservedCost?: PreservedItemCost): Norm
     unitConversions,
     wholesalePrices,
     onlinePrices,
+    platformFeeCategories,
   };
 }
 

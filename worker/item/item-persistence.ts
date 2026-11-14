@@ -89,6 +89,15 @@ function updatePriceStatements(db:D1Database,itemId:number,input:NormalizedUpdat
  return statements;
 }
 
+function feeSelectionStatements(db:D1Database,itemId:number|null,input:NormalizedItemProfile):D1PreparedStatement[]{
+ if(input.platformFeeCategories==null)return [];
+ const idSql=itemId==null?'(SELECT MAX(id) FROM items)':String(itemId);
+ return [
+  ...(itemId==null?[]:[db.prepare(`DELETE FROM item_platform_fee_selections WHERE item_id=${idSql}`)]),
+  ...input.platformFeeCategories.map(row=>db.prepare(`INSERT INTO item_platform_fee_selections(item_id,platform_id,category_id) VALUES(${idSql},?,?)`).bind(row.platformId,row.categoryId)),
+ ];
+}
+
 export class ItemPersistence {
   private readonly audit: AuditService;
 
@@ -126,6 +135,7 @@ export class ItemPersistence {
       ),
       ...createConversionStatements(this.db, input),
       ...createPriceStatements(this.db,input,context),
+      ...feeSelectionStatements(this.db,null,input),
       this.db.prepare("SELECT MAX(id) AS item_id FROM items"),
     ];
 
@@ -216,6 +226,7 @@ export class ItemPersistence {
       this.db.prepare("SELECT CASE WHEN changes()=1 THEN 1 ELSE json('ITEM_REVISION_CONFLICT') END"),
       ...updateConversionStatements(this.db, itemId, input),
       ...updatePriceStatements(this.db,itemId,input),
+      ...feeSelectionStatements(this.db,itemId,input),
       ...events,
     ];
     try {

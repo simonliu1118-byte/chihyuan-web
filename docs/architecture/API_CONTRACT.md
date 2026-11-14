@@ -672,3 +672,11 @@ GET／PUT `/api/business/items/platform-margin-rules/:platformId`：GET要求商
 券互斥、與滿件並用；每券比較本門檻至下一不同門檻減1的比例分攤，最後固定／封頂券理論上界與無上限折數券區分。百分比費用按優惠後含稅價、固定費與運費按單件、支出額直接扣除。詳見[實作規格](../development/ITEM_MARGIN_PHASE2_DESIGN.md)。無成本權限詳情不帶margin、cost及costTaxMode為null、兩接口403；泛用Audit不含毛利正文。
 
 網路費用後結果型別為`ContributionValue`（`contributionAmount`／`contributionMarginPercent`），與原商品基本毛利`MarginValue`（`grossProfit`／`grossMarginPercent`）明確區分，畫面仍以「毛利」方便閱讀；兩者共用同一精確計算核心。
+
+## V0.20.1 平台獨立品類費率（待審查／未部署）
+
+規則新增`categoryFees`陣列，項目為PlatformFee加穩定字串id；蝦皮與Mo+分別保存在各platformId的規則中。舊規則沒有此欄時讀為空陣列。每平台上限100品類、名稱同平台不重複、金額／上下限與普通費率同驗證，跨平台可同名。
+
+GET `/api/business/items/platforms`既有平台回應新增`feeCategories: [{id,name}]`，只公開設定完成的品類選項，不回費率金額。商品詳情新增`platformFeeCategories: [{platformId,categoryId}]`，create／PATCH可選填；省略保持原選擇、空陣列明確清空，且每平台最多一個。只允許對應平台已設定品類，無效或跨平台422；商品revision409時選擇不變。只有ITEMS權限亦可選品類，但cost／costTaxMode仍null、不回margin，無法讀或寫受保護費率接口。
+
+毛利每平台新增`categoryFee`（所選費率或null），加入基本及基本＋活動兩欄。該平台缺品類時status為「請先選擇品類」，該平台的basic／activity／運費結果為null、區間空；其他通路不受影響。品類變更及完整規則／版本／Audit原子提交；刪除使用中品類422並rollback，穩定id使改名不影響商品。

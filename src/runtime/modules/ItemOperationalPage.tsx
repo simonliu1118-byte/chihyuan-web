@@ -80,6 +80,7 @@ function newDraft(lookups: ItemModuleLookups | null): ItemDraft {
     unitConversions: [],
     wholesalePrices: [],
     onlinePrices: [],
+    platformFeeCategories: [],
   };
 }
 
@@ -117,6 +118,7 @@ function draftFromDetail(item: ItemDetail): ItemDraft {
     unitConversions: baseConversions(item),
     wholesalePrices:[...item.wholesalePrices],
     onlinePrices:[...item.onlinePrices],
+    platformFeeCategories:[...item.platformFeeCategories],
   };
 }
 
@@ -134,6 +136,7 @@ function profileFromDraft(draft: ItemDraft): ItemProfileInput {
     isActive: draft.isActive,
     wholesalePrices: draft.wholesalePrices.map((row,index)=>({unit:row.unit.trim(),price:row.price.trim(),sortOrder:index})),
     onlinePrices: draft.onlinePrices.map(row=>({platformId:row.platformId,price:row.price.trim()})),
+    platformFeeCategories: draft.platformFeeCategories,
     unitConversions: draft.unitConversions.map((row, index) => ({
       fromUnit: row.fromUnit.trim(),
       quantity: row.quantity.trim(),

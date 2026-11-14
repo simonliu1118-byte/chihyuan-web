@@ -785,3 +785,9 @@ Since V0.9.81 a portable backup records the source database's last migration and
 `item_platform_margin_rules`：platform_id INTEGER PRIMARY KEY FK→item_web_platforms(id)，revision INTEGER>0，rules_json TEXT且json_valid，updated_at TEXT，updated_by INTEGER FK→app_members(id)。`item_platform_margin_rule_versions`同欄位，主鍵(platform_id,revision)，作完整不可覆寫歷史。
 
 rules_json為`shared/item-online-margin.ts`的PlatformMarginRules：基本／活動費目、shipping、滿件折扣及互斥券，數值以最多四位小數字串傳輸，revision與平台id冗餘供快照追溯。完整白名單與驗證在Worker；沒有商品成本／售價複本、AI憑證或提案表。兩表納入可攜備份，舊備份補空表。更新current、版本、Audit為同批原子操作。
+
+## V0.20.1 平台品類鍵與商品選擇（0072，待審查／未部署）
+
+`item_platform_fee_categories`：platform_id INTEGER FK→item_web_platforms(id)，category_id TEXT（1至80字元），聯合主鍵(platform_id,category_id)。這是目前rules_json.categoryFees的鍵投影，供商品外鍵約束；名稱、金額及方式仍只存版本化rules_json，不在投影重複。
+
+`item_platform_fee_selections`：item_id INTEGER FK→items(id) ON DELETE CASCADE、platform_id INTEGER、category_id TEXT，主鍵(item_id,platform_id)，複合外鍵(platform_id,category_id)→item_platform_fee_categories ON DELETE RESTRICT。索引(platform_id,category_id,item_id)支援使用中品類查核。兩表納入備份；不變更items成本／價格，也不猜舊商品品類。蝦皮與Mo+對應0061已固定的platform id1／2，顯示名稱可改，識別仍維持原平台。

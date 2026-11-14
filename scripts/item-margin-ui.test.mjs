@@ -64,3 +64,16 @@ test('comparison is one matrix; collapsed tiers aggregate all coupons and expand
  assert.equal(walk(content).filter(n=>n.props['data-label']==='優惠券').length,2);
  }finally{delete globalThis.marginHost;}
 });
+
+test('Shopee and Mo+ dropdowns are optional, isolated and unavailable before category settings; one missing category hides only its platform',()=>{
+ const item={itemNo:'TEST',name:'合成',baseUnit:'個',cost:'100',costTaxMode:'exclusive',unitConversions:[],wholesalePrices:[],onlinePrices:[],platformFeeCategories:[{platformId:2,categoryId:'mo-only'}]};
+ const platforms=[{id:1,name:'可改名的平台',isActive:true,feeCategories:[]},{id:2,name:'MO',isActive:true,feeCategories:[{id:'mo-only',name:'Mo+專屬'}]}];
+ let patch;const sheet=ItemSheet({item,draft:item,editing:true,creating:false,busy:false,canViewCost:true,categories:[],platforms,onPatch:v=>{patch=v},onAddConversion:()=>{},onUpdateConversion:()=>{}});
+ const cells=sheet.props.rows.flatMap(row=>row.cells);const shopee=cells.find(c=>c.label==='蝦皮品類'),mo=cells.find(c=>c.label==='Mo+品類');
+ assert.ok(!shopee.required&&!mo.required);assert.equal(shopee.edit.props.disabled,true);assert.equal(mo.edit.props.disabled,false);
+ assert.deepEqual(walk(mo.edit).filter(n=>n.type==='option').map(n=>n.props.value),['','mo-only']);
+ mo.edit.props.onChange({target:{value:''}});assert.deepEqual(patch.platformFeeCategories,[]);
+ const point={netSales:'200.00',contributionAmount:'100.00',contributionMarginPercent:'50.00',negative:false};
+ const tree=OnlineMarginTables({platforms:[{platformId:1,name:'蝦皮',price:'300',status:'請先選擇品類',rules:{},tiers:[]},{platformId:2,name:'Mo+',price:'300',status:null,rules:{basicFees:[],activityFees:[],shipping:{enabled:false},tiers:[],coupons:[]},basic:point,activity:point,tiers:[]}]});
+ assert.equal(walk(tree).filter(n=>n.type==='table'&&n.props['aria-label']==='蝦皮毛利比較').length,0);assert.equal(walk(tree).filter(n=>n.type==='table'&&n.props['aria-label']==='Mo+毛利比較').length,1);
+});

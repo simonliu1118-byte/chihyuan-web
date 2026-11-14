@@ -99,6 +99,7 @@ export class ItemService {
       if (isItemNumberConstraintError(error)) {
         throw new ItemServiceError("ITEM_NO_CONFLICT", 409, "Item number already exists");
       }
+      if(input.platformFeeCategories?.length&&error instanceof Error&&/FOREIGN KEY constraint/i.test(error.message))throw new FieldValidationError({platformFeeCategories:"品類設定已變更，請重新選擇"});
       throw error;
     }
     return this.getDetail(itemId);
@@ -107,7 +108,11 @@ export class ItemService {
   async update(itemId: number, raw: unknown, context: ItemMutationContext, preserveCost = false): Promise<ItemDetail> {
     const id = normalizeItemId(itemId);
     const input = await this.preflightUpdate(id, raw, preserveCost);
-    const updated = await this.persistence.update(id, input, context);
+    let updated:boolean;
+    try {updated=await this.persistence.update(id,input,context)} catch(error){
+      if(input.platformFeeCategories?.length&&error instanceof Error&&/FOREIGN KEY constraint/i.test(error.message))throw new FieldValidationError({platformFeeCategories:'品類設定已變更，請重新選擇'});
+      throw error;
+    }
     if (!updated) {
       throw new ItemServiceError(
         "ITEM_REVISION_CONFLICT",
@@ -156,7 +161,17 @@ export class ItemService {
       throw new ItemServiceError("ITEM_NO_CONFLICT", 409, "Item number already exists");
     }
     await this.validatePlatforms(input.onlinePrices);
+    await this.validateFeeSelections(input.platformFeeCategories);
     return input;
+  }
+
+  private async validateFeeSelections(entries:NormalizedCreateItemRequest['platformFeeCategories']):Promise<void>{
+    if(!entries?.length)return;
+    const result=await this.db.prepare(`SELECT platform_id,category_id FROM item_platform_fee_categories
+      WHERE platform_id IN (SELECT json_extract(value,'$.platformId') FROM json_each(?))`).bind(JSON.stringify(entries))
+      .all<{platform_id:number;category_id:string}>();
+    const valid=new Set((result.results??[]).map(r=>r.platform_id+':'+r.category_id));
+    if(entries.some(r=>!valid.has(r.platformId+':'+r.categoryId)))throw new FieldValidationError({platformFeeCategories:'品類不存在，請先至對應平台的品類費率設定新增'});
   }
 
   private async validatePlatforms(entries:readonly {platformId:number}[]|null,keep:readonly number[]=[]):Promise<void> {
@@ -189,6 +204,7 @@ export class ItemService {
       });
     }
     await this.validatePlatforms(input.onlinePrices,current.onlinePrices.map(p=>p.platformId));
+    await this.validateFeeSelections(input.platformFeeCategories);
     return input;
   }
 

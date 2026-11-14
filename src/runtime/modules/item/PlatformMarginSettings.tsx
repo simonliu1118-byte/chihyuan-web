@@ -1,3 +1,4 @@
+import {ITEM_FEE_CATEGORY_PLATFORMS,needsFeeCategory} from '../../../../shared/item-platform-fee-categories';
 import { ApiClientError } from "../../../api/client";
 import {useEffect,useState,type FormEvent} from 'react';
 import type {ItemWebPlatform} from '../../../../shared/item';
@@ -23,17 +24,17 @@ export function PlatformMarginSettings({onDirtyChange}:{onDirtyChange:(dirty:boo
  const patch=(p:Partial<PlatformMarginRules>)=>setDraft(d=>d?{...d,...p}:d);
  const input=(value:string,change:(s:string)=>void,label:string)=> <input className="cy-op-input" aria-label={label} disabled={busy} value={value} onChange={e=>change(e.target.value)}/>;
  async function save(event:FormEvent){event.preventDefault();if(!draft)return;setBusy(true);setMessage(null);try{const r=await savePlatformMarginRules(draft);setDraft(r);setSaved(r);setMessage('平台費用與優惠已儲存');window.dispatchEvent(new CustomEvent(SETTINGS_SAVED_EVENT))}catch(e){reportError(e instanceof ApiClientError&&e.fields?Object.values(e.fields).join('；'):e instanceof Error?e.message:String(e))}finally{setBusy(false)}}
- const fees=(key:'basicFees'|'activityFees',title:string)=>{
-  const rows=draft![key];const update=(i:number,p:Partial<PlatformFee>)=>patch({[key]:rows.map((r,n)=>n===i?{...r,...p}:r)});
+ const fees=(key:'basicFees'|'activityFees'|'categoryFees',title:string)=>{
+  const rows=draft![key]??[];const update=(i:number,p:Partial<PlatformFee>)=>patch({[key]:rows.map((r,n)=>n===i?{...r,...p}:r)});
   const columns:RowColumn<PlatformFee>[]=[
-   {label:'費用名稱',required:true,view:r=>r.name,edit:(r,i)=>input(r.name,v=>update(i,{name:v}),'費用名稱')},
+   {label:key==='categoryFees'?'品類名稱':'費用名稱',required:true,view:r=>r.name,edit:(r,i)=>input(r.name,v=>update(i,{name:v}),key==='categoryFees'?'品類名稱':'費用名稱')},
    {label:'計算方式',view:r=>r.method,edit:(r,i)=><select aria-label="計算方式" value={r.method} disabled={busy} onChange={e=>update(i,{method:e.target.value as PlatformFee['method']})}><option value="percent">百分比</option><option value="fixed">固定金額</option></select>},
    {label:'數值',required:true,view:r=>r.value,edit:(r,i)=>input(r.value,v=>update(i,{value:v}),'費用數值')},
    {label:'最低收費',view:r=>r.minimum,edit:(r,i)=>input(r.minimum??'',v=>update(i,{minimum:v||null}),'最低收費')},
    {label:'最高收費',view:r=>r.maximum,edit:(r,i)=>input(r.maximum??'',v=>update(i,{maximum:v||null}),'最高收費')},
   ];
   return <RecordRows title={title} editing rows={rows} columns={columns} rowKey={(_,i)=>i} busy={busy}
-   onInsert={i=>{const next=[...rows];next.splice(i+1,0,{name:'',method:'percent',value:'',minimum:null,maximum:null});patch({[key]:next})}}
+   onInsert={i=>{const next=[...rows];next.splice(i+1,0,{name:'',method:'percent',value:'',minimum:null,maximum:null,...(key==='categoryFees'?{id:crypto.randomUUID()}:{})});patch({[key]:next})}}
    onRemove={i=>patch({[key]:rows.filter((_,n)=>n!==i)})}/>;
  };
  if(loading)return <Loading/>;
@@ -45,7 +46,12 @@ export function PlatformMarginSettings({onDirtyChange}:{onDirtyChange:(dirty:boo
   <FeedbackBanner message={message} tone={tone}/>
   <EntryFields label="平台費用" rows={[{label:'平台',content:<select aria-label="平台" value={platformId??''} disabled={busy||dirty} onChange={e=>setPlatformId(Number(e.target.value))}>{platforms.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</select>}]} />
   <p>設定套用至此平台全部商品；儲存即生效。基本及活動費率各至少一項，零費用請明確填0。百分比費用依優惠後含稅售價計算，固定費與運費按單件扣除，金額按賣家支出額計入。</p>
-  {fees('basicFees','基本費率')}{fees('activityFees','活動費率')}
+  {fees('basicFees','基本費率')}
+  {needsFeeCategory(draft.platformId)?<>
+    {fees('categoryFees',(ITEM_FEE_CATEGORY_PLATFORMS.find(p=>p.platformId===draft.platformId)?.label??'平台品類')+'費率')}
+    <p>蝦皮與Mo+各自獨立設定。商品只會套用所選的一個品類費率，加入此平台基本費率，不會加總全部品類。品類選填；未選擇只隱藏對應平台毛利並提示「請先選擇品類」。已有商品使用的品類須先調整商品才能移除。</p>
+  </>:null}
+  {fees('activityFees','活動費率')}
   <CheckField label="賣家負擔運費" checked={draft.shipping.enabled} disabled={busy} onChange={e=>patch({shipping:{...draft.shipping,enabled:e.target.checked}})}/>
   {draft.shipping.enabled?<EntryFields label="賣家運費" rows={[
    {label:'貨運別',required:true,content:input(draft.shipping.carrier,v=>patch({shipping:{...draft.shipping,carrier:v}}),'貨運別')},
