@@ -648,3 +648,11 @@ GraphQL 結構以 [Cloudflare 官方 D1 Metrics and Analytics](https://developer
 
 ## WO-0.9.25 人事第二期 2b
 全部須 CYID SUPER_ADMIN。GET /api/business/hr/leave/summary?year=&storeId=；GET /api/business/hr/employees/:id/leave?year=；POST /api/business/hr/leave-requests；POST /api/business/hr/leave-requests/:batchId/cancel；POST /api/business/hr/leave-requests/:batchId/attachments；GET /api/business/hr/leave-attachments/:id；GET/POST/PATCH /api/business/hr/settings/leave-types；PATCH /api/business/hr/annual-leave-years/:id/notice；POST /api/business/hr/employees/:id/comp-time；POST /api/business/hr/comp-time/:kind/:id/extend；POST /api/business/hr/comp-time/overtime/:id/settle。補休不足 409 HR_COMP_INSUFFICIENT、假額不足 409 HR_LEAVE_QUOTA、已有正式假單擋 409 HR_LEAVE_FORM_EXISTS。R2 缺少綁定 503 HR_FILES_UNAVAILABLE。詳見 HR_MODULE_CONTRACT.md。
+
+## 商品毛利查詢（V0.19.0，第一階段待審查）
+
+`GET /api/business/items/:id/margin`：沿用 CYID session 及 ITEMS 模組權限；401 未登入、403 無權限、404 無商品。唯讀，無新增的 AI 或寫入權限。商品新增／更新成本稅別必填 inclusive／exclusive／no_tax，空值或舊 none 回欄位驗證 422；舊資料 NULL 仍可讀。
+
+回應 envelope 沿用現有 `success`，data 型別為 `shared/item-margin.ts` 的 ItemMarginResult：itemId、revision、baseUnit、originalCost、costTaxMode、payment、inputTax、netCost、costStatus，及 rows（channel＝store／clinic／wholesale、unit、price、netCost、status、exclusive／inclusive）。每個有效解讀含 netSales、grossProfit、grossMarginPercent、negative。
+
+衍生金額／百分比為兩位小數字串，缺資料為 null，零收入的百分比為 null；原始成本及售價沿用主檔最多四位小數字串。門市 exclusive 為 null。查詢參數不覆寫成本、售價或稅別。來源由 ItemRepository 同一商品 id 的 batch 讀取，回應不含網路毛利。

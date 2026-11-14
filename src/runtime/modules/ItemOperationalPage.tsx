@@ -1,3 +1,5 @@
+import { ModuleSections } from "../../ui/mobile/ModuleSections";
+import { ItemMarginPanel } from "./item/ItemMarginPanel";
 import { IconButton } from "../../ui/actions/IconButton";
 import { Icons } from "../../ui/actions/icons";
 import {Field,CheckField,FormSection} from "../../ui/forms/Field";
@@ -38,7 +40,6 @@ import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { useSettingsSaved } from "./settings-events";
 import type { ItemModuleLookups } from "../../../shared/business-lookups";
 import type {
-  ItemCostTaxMode,
   ItemDetail,
   ItemProfileInput,
   ItemSummary,
@@ -59,12 +60,6 @@ import {
 import "./item-operational.css";
 
 type ItemDraft=ItemSheetDraft;
-
-const taxModeText: Record<ItemCostTaxMode, string> = {
-  none: "未指定",
-  inclusive: "含稅",
-  exclusive: "未稅",
-};
 
 function activeCategoryId(lookups: ItemModuleLookups | null): number | null {
   return lookups?.itemCategories.find((row) => row.isActive)?.id ?? null;
@@ -207,6 +202,7 @@ export function ItemOperationalPage({ canViewDefects = false, canViewCustomers =
   const [selected, setSelected] = useState<ItemDetail | null>(null);
   const [numberHistory, setNumberHistory] = useState<Awaited<ReturnType<typeof loadItemNumberHistory>>>([]);
   const [priceHistory,setPriceHistory]=useState<Awaited<ReturnType<typeof loadItemPriceHistory>>>([]);
+  const [detailSection, setDetailSection] = useState<"profile" | "margin">("profile");
   const [historyOpen,setHistoryOpen]=useState(false);
   const [platforms,setPlatforms]=useState<Awaited<ReturnType<typeof loadItemPlatforms>>>([]);
   const [query, setQuery] = useState("");
@@ -542,6 +538,7 @@ export function ItemOperationalPage({ canViewDefects = false, canViewCustomers =
 
   async function toggleActive() {
     if (!selected || busy) return;
+    if (!selected.costTaxMode) { startEdit(); reportError("請先補填成本稅別，再變更啟用狀態。"); return; }
     const action = selected.isActive ? "停用" : "啟用";
     if (!(await confirm({
       title: `${action}商品`,
@@ -739,7 +736,10 @@ export function ItemOperationalPage({ canViewDefects = false, canViewCustomers =
                </div>}
             </div>
             {compact?<ActionBar><button type="button" className="cy-op-button primary" disabled={busy} onClick={startEdit}>修改</button></ActionBar>:null}
-            <div className="cy-item-detail-body">
+            <ModuleSections label="商品詳情" sections={[{key:"profile",label:"商品資料"},{key:"margin",label:"毛利分析"}]}
+              value={detailSection} onChange={setDetailSection}/>
+            {detailSection === "margin" ? <ItemMarginPanel key={selected.id} itemId={selected.id} revision={selected.revision}
+              onEdit={() => { setDetailSection("profile"); startEdit(); }}/>:<div className="cy-item-detail-body">
               <ItemSheet editing={false} creating={false} item={selected} draft={null}
                 busy={busy} categories={categories} platforms={platforms}
                 onPatch={patch} onAddConversion={addConversion} onUpdateConversion={updateConversion}/>
@@ -764,7 +764,7 @@ export function ItemOperationalPage({ canViewDefects = false, canViewCustomers =
                     {quoteGroupText(group)}
                   </span>)} /> : null}
               </section> : null}
-            </div>
+            </div>}
           </div>
         ) : (
           <MasterDetailEmpty title="尚未選擇商品" />

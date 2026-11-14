@@ -359,6 +359,10 @@ async function handleItems(
     if (request.method === "POST") return success(await service.create(await jsonBody(request), context), requestId, { status: 201 });
   }
 
+  const margin = /^\/api\/business\/items\/(\d+)\/margin$/.exec(url.pathname);
+  if (margin && request.method === "GET")
+    return success(await service.getMargin(routeId(margin[1], "itemId")), requestId);
+
   const priceHistory=/^\/api\/business\/items\/(\d+)\/price-history$/.exec(url.pathname);
   if(priceHistory && request.method==="GET")
     return success(await service.listPriceHistory(routeId(priceHistory[1],"itemId")),requestId);

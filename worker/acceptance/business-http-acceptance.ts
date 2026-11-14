@@ -147,7 +147,7 @@ export async function acceptBusinessHttpAuthority(db: D1Database, componentId: n
   check(readback.revision === created.revision + 1 && readback.shortName === edit.shortName, "CUSTOMER_HTTP_READBACK");
 
   // Formal Item/Quote HTTP uses synthetic references exclusively in isolated D1.
-  const itemProfile = { itemNo: "ACC-HTTP-ITEM-001", name: "Isolated HTTP Item", baseUnit: "EA", cost: "1.2345", costTaxMode: "none",
+  const itemProfile = { itemNo: "ACC-HTTP-ITEM-001", name: "Isolated HTTP Item", baseUnit: "EA", cost: "1.2345", costTaxMode: "no_tax",
     unitConversions: [{ fromUnit: "BOX", quantity: "12", toUnit: "EA", sortOrder: 0 }] };
   const item = (await (await expect("items", 201, "POST", itemProfile)).json() as { data: { id: number; revision: number } }).data;
   const itemPath = "items/" + item.id;

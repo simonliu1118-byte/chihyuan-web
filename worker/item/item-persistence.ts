@@ -39,7 +39,7 @@ function updateConversionStatements(
   itemId: number,
   input: NormalizedUpdateItemRequest,
 ): D1PreparedStatement[] {
-  const revision = input.expectedRevision;
+  const revision = input.expectedRevision + 1;
   return [
     db.prepare(`
       DELETE FROM item_unit_conversions
@@ -75,16 +75,16 @@ function createPriceStatements(db:D1Database,input:NormalizedItemProfile,context
 function updatePriceStatements(db:D1Database,itemId:number,input:NormalizedUpdateItemRequest):D1PreparedStatement[]{
  const statements:D1PreparedStatement[]=[];
  if(input.wholesalePrices){
-  statements.push(db.prepare(`DELETE FROM item_wholesale_prices WHERE item_id=?1 AND EXISTS(SELECT 1 FROM items WHERE id=?1 AND revision=?2)`).bind(itemId,input.expectedRevision));
+  statements.push(db.prepare(`DELETE FROM item_wholesale_prices WHERE item_id=?1 AND EXISTS(SELECT 1 FROM items WHERE id=?1 AND revision=?2)`).bind(itemId,input.expectedRevision+1));
   for(const row of input.wholesalePrices)statements.push(db.prepare(`INSERT INTO item_wholesale_prices(item_id,unit,price,sort_order)
    SELECT ?1,?2,?3,?4 WHERE EXISTS(SELECT 1 FROM items WHERE id=?1 AND revision=?5)`)
-   .bind(itemId,row.unit,row.priceScaled4,row.sortOrder,input.expectedRevision));
+   .bind(itemId,row.unit,row.priceScaled4,row.sortOrder,input.expectedRevision+1));
  }
  if(input.onlinePrices){
-  statements.push(db.prepare(`DELETE FROM item_online_prices WHERE item_id=?1 AND EXISTS(SELECT 1 FROM items WHERE id=?1 AND revision=?2)`).bind(itemId,input.expectedRevision));
+  statements.push(db.prepare(`DELETE FROM item_online_prices WHERE item_id=?1 AND EXISTS(SELECT 1 FROM items WHERE id=?1 AND revision=?2)`).bind(itemId,input.expectedRevision+1));
   for(const row of input.onlinePrices)statements.push(db.prepare(`INSERT INTO item_online_prices(item_id,platform_id,price)
    SELECT ?1,?2,?3 WHERE EXISTS(SELECT 1 FROM items WHERE id=?1 AND revision=?4)`)
-   .bind(itemId,row.platformId,row.priceScaled4,input.expectedRevision));
+   .bind(itemId,row.platformId,row.priceScaled4,input.expectedRevision+1));
  }
  return statements;
 }
@@ -168,9 +168,17 @@ export class ItemPersistence {
       for(const id of new Set([...previous.keys(),...next.keys()]))
         auditValue("網路價/"+(byId.get(id)??String(id)),previous.get(id)??null,next.get(id)??null);
     }
+    const previous = await this.db.prepare("SELECT cost,cost_tax_mode FROM items WHERE id=?").bind(itemId)
+      .first<{cost:number|null;cost_tax_mode:string|null}>();
+    if (previous) {
+      auditValue("成本", previous.cost, input.costScaled4);
+      if (previous.cost_tax_mode !== input.costTaxMode) events.push(this.audit.prepareRecord({
+        entityType:"item",entityKey:String(itemId),action:"item.price.changed",
+        actorEmployeeId:context.actorMemberId,occurredAt:context.now,requestId:context.requestId,
+        before:{"成本稅別":previous.cost_tax_mode},after:{"成本稅別":input.costTaxMode},
+      },{sql:"EXISTS (SELECT 1 FROM items WHERE id = ? AND revision = ?)",values:[itemId,input.expectedRevision+1]}));
+    }
     const statements = [
-      ...updateConversionStatements(this.db, itemId, input),
-      ...updatePriceStatements(this.db,itemId,input),
       this.db.prepare(`
         UPDATE items
            SET name = ?1,
@@ -204,10 +212,19 @@ export class ItemPersistence {
         itemId,
         input.expectedRevision,
       ),
+      // Abort the transaction before touching children if another writer won the revision.
+      this.db.prepare("SELECT CASE WHEN changes()=1 THEN 1 ELSE json('ITEM_REVISION_CONFLICT') END"),
+      ...updateConversionStatements(this.db, itemId, input),
+      ...updatePriceStatements(this.db,itemId,input),
       ...events,
     ];
-    const results = await this.db.batch(statements);
-    return Number(results[results.length - 1-events.length]?.meta?.changes ?? 0) === 1;
+    try {
+      const results = await this.db.batch(statements);
+      return Number(results[0]?.meta?.changes ?? 0) === 1;
+    } catch (error) {
+      if (error instanceof Error && /malformed JSON/i.test(error.message)) return false;
+      throw error;
+    }
   }
 
   async changeItemNumber(

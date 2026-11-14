@@ -1,3 +1,4 @@
+import { calculateItemMargin } from "./item-margin-service";
 import type {
   ItemDetail,
   ItemListResult,
@@ -55,6 +56,8 @@ export class ItemService {
     this.repository = new ItemRepository(db);
     this.persistence = new ItemPersistence(db);
   }
+
+  async getMargin(itemId: number) { return calculateItemMargin(await this.getDetail(itemId)); }
 
   async getPlatforms():Promise<readonly ItemWebPlatform[]> {return this.repository.getPlatforms()}
   async listPriceHistory(itemId:number):Promise<readonly ItemPriceHistoryRecord[]> {

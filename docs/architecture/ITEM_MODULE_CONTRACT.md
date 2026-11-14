@@ -172,3 +172,16 @@ This foundation does not yet expose protected Item HTTP routes and does not writ
 - 平台設定路由 `/api/admin/settings/lookups/item_platform`（建立／PATCH／排序）僅 SUPER_ADMIN；Item API `/api/business/items/platforms`、`/:id/price-history` 需 ITEMS 模組權限。停用平台不得新增未存在價格，既有價格仍可展示與編輯。
 - 商品側邊入口同時提供 ITEMS/DEFECTS 權限的主頁，頁內二分頁；各自的權限獨立檢查，舊 `#defects` 深連結不變。瑕疵原版面及業務處理不在本次範圍。
 - migration `0061_item_price_tables` 同步 portable backup schema/seed guard，舊備份缺新表以預設種子和空表對應。
+
+## V0.19.0 第一階段商品毛利分析（待 Claude 審查，未合併／部署）
+
+- 商品主檔成本稅別改為必填三選一：inclusive＝含稅、exclusive＝未稅（外加）、no_tax＝不計稅；不預設。DB 允許舊待補 NULL，新建／更新由 Worker 與共用表單要求明確選擇。
+- migration 0069 以 rename/add/copy/drop column 置換 CHECK，沒有 DROP items／重建親表或刪除子表；舊 none 轉 NULL，其他兩種保留。可攜備份的舊 none 同樣升級 NULL，新 no_tax 原值保留。發布前須估算整張 items 掃描／寫入與內部 DROP COLUMN 重寫成本。
+- 商品資料區新增「商品資料／毛利分析」切換；只有新的毛利頁，沒有重做商品主檔。既有商品／瑕疵入口、網路售價編輯保留。編輯狀態不顯示頁籤，沿用未儲存保護。
+- GET /api/business/items/:id/margin 沿用 ITEMS 權限，讀取已儲存的同一商品 aggregate。API 不接受試算成本或售價；query 中的 cost／price 不是資料來源。沒有毛利寫入表或背景重算。
+- 成本以 baseUnit 為單位；含稅成本淨額 C×100/105、付款 C，外加成本淨額 C、付款 C×105/100，不計稅兩者皆 C；進項稅為付款與淨額差。依使用者指定的一般應稅 5% 且符合扣抵前提，特殊情況另案，不判定供應商開票合法性。
+- 門市含稅；診所及每個批發單位同時算含稅／未稅兩種解讀。成本依既有 unitFactorToBase 精確轉至對應銷售單位；讀取支援舊鏈式，新增／更新維持 BD-058 直達基準。
+- 毛利額＝未稅銷售額－同單位淨成本，毛利率＝毛利額／未稅銷售額×100%。Worker BigInt 有理數運算，最後輸出金額及百分比兩位小數（半數遠離零），前端只格式化十進位字串，不重算。
+- 缺成本／稅別、缺售價或換算無效顯示待補；個別單位缺漏不阻斷其他通路。成本零可算；售價零毛利率 NULL（畫面 —），負毛利顯示原值及共用危險色。
+- 調整成本或成本稅別以共用 item.price.changed Audit 記錄前後值；商品更新先鎖 revision 並檢查 changes()，失敗整批回滾／409。稅別待補時啟停操作導回同一商品編輯補正，不繞過必填。
+- 網路毛利（含基本毛利）、優惠、費率、區間與 AI API 全部留第二階段，本版未實作。

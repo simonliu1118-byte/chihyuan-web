@@ -9,7 +9,7 @@ import { parseScaled4 } from "../../shared/fixed-point";
 import { FieldValidationError, ValidationBag } from "../validation/fields";
 
 const MAX_UNIT_CONVERSIONS = 50;
-const TAX_MODES = new Set<ItemCostTaxMode>(["none", "inclusive", "exclusive"]);
+const TAX_MODES = new Set<ItemCostTaxMode>(["no_tax", "inclusive", "exclusive"]);
 
 export interface NormalizedItemUnitConversion {
   fromUnit: string;
@@ -70,12 +70,15 @@ function optionalBoolean(
   return value;
 }
 
-function optionalTaxMode(
+function requiredTaxMode(
   input: Record<string, unknown>,
   errors: Record<string, string>,
 ): ItemCostTaxMode | null {
   const value = input.costTaxMode;
-  if (value == null || value === "") return null;
+  if (value == null || value === "") {
+    errors.costTaxMode = "請選擇成本稅別";
+    return null;
+  }
   if (typeof value !== "string" || !TAX_MODES.has(value as ItemCostTaxMode)) {
     errors.costTaxMode = "稅別格式錯誤";
     return null;
@@ -242,7 +245,7 @@ function normalizeProfile(raw: unknown): NormalizedItemProfile {
   const costScaled4 = optionalScaled4(input, "cost", errors);
   const storePriceScaled4 = optionalScaled4(input, "storePrice", errors);
   const clinicPriceScaled4 = optionalScaled4(input, "clinicPrice", errors);
-  const costTaxMode = optionalTaxMode(input, errors);
+  const costTaxMode = requiredTaxMode(input, errors);
   const isActive = optionalBoolean(input, "isActive", true, errors);
   const unitConversions = normalizeUnitConversions(input, baseUnit, errors);
   const wholesalePrices=normalizeWholesale(input,errors);
