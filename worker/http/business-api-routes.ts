@@ -1,3 +1,5 @@
+import { ItemPlatformMarginRulesService } from "../item/item-platform-margin-rules";
+import { checkModuleAccess } from "../auth/app-access";
 import type { CustomerSearchQuery } from "../../shared/customer";
 import type { DefectSearchQuery, DefectStatusCode } from "../../shared/defect";
 import type { ItemSearchQuery } from "../../shared/item";
@@ -347,6 +349,21 @@ async function handleItems(
     requestId,
   };
 
+  const canCost = (await checkModuleAccess(env.DB, guarded.gate.principal, "ITEMS_COST_MARGIN")).allowed;
+  const costDenied = () => failure({code:"ACCESS_DENIED",message:"沒有商品成本及毛利分析權限"}, requestId, 403);
+  const visibleItem = <T extends {cost:string|null;costTaxMode:unknown}>(item:T):T => canCost ? item : {...item,cost:null,costTaxMode:null};
+
+  const platformRules = /^\/api\/business\/items\/platform-margin-rules\/(\d+)$/.exec(url.pathname);
+  if (platformRules) {
+    if (!canCost) return costDenied();
+    const platformId=routeId(platformRules[1],"platformId"),rules=new ItemPlatformMarginRulesService(env.DB);
+    if (request.method==="GET") return success(await rules.get(platformId),requestId);
+    if (request.method==="PUT") {
+      if (guarded.gate.principal.workspaceRole!=="SUPER_ADMIN") return failure({code:"ACCESS_DENIED",message:"僅超級管理員可修改平台費用"},requestId,403);
+      return success(await rules.save(platformId,await jsonBody(request),context),requestId);
+    }
+  }
+
   if (request.method === "GET" && url.pathname === "/api/business/items/lookups") {
     return success(await lookups.itemLookups(actorRef(guarded.gate)), requestId);
   }
@@ -355,13 +372,30 @@ async function handleItems(
   }
 
   if (url.pathname === "/api/business/items") {
-    if (request.method === "GET") return success(await service.search(itemSearch(url)), requestId);
-    if (request.method === "POST") return success(await service.create(await jsonBody(request), context), requestId, { status: 201 });
+    if (request.method === "GET") {
+      const result = await service.search(itemSearch(url));
+      return success({...result,items:result.items.map(visibleItem)}, requestId);
+    }
+    if (request.method === "POST") {
+      if (!canCost) return costDenied(); // New Items require an explicit cost tax mode.
+      return success(await service.create(await jsonBody(request), context), requestId, { status: 201 });
+    }
+  }
+
+  const margin = /^\/api\/business\/items\/(\d+)\/margin$/.exec(url.pathname);
+  if (margin && request.method === "GET") {
+    if (!canCost) return costDenied();
+    return success(await service.getMargin(routeId(margin[1], "itemId")), requestId);
   }
 
   const priceHistory=/^\/api\/business\/items\/(\d+)\/price-history$/.exec(url.pathname);
-  if(priceHistory && request.method==="GET")
-    return success(await service.listPriceHistory(routeId(priceHistory[1],"itemId")),requestId);
+  if(priceHistory && request.method==="GET") {
+    const history = await service.listPriceHistory(routeId(priceHistory[1],"itemId"));
+    if (canCost) return success(history, requestId);
+    const publicFields = (fields:Record<string,string|null>) => Object.fromEntries(Object.entries(fields).filter(([key])=>key!=="成本"&&key!=="成本稅別"));
+    return success(history.map(row=>({...row,before:publicFields(row.before),after:publicFields(row.after)}))
+      .filter(row=>Object.keys(row.before).length||Object.keys(row.after).length), requestId);
+  }
   let match = /^\/api\/business\/items\/(\d+)\/number-history$/.exec(url.pathname);
   if (match && request.method === "GET") {
     const itemId = routeId(match[1], "itemId");
@@ -372,14 +406,21 @@ async function handleItems(
   match = /^\/api\/business\/items\/(\d+)\/number$/.exec(url.pathname);
   if (match && request.method === "POST") {
     const itemId = routeId(match[1], "itemId");
-    return success(await service.changeItemNumber(itemId, await jsonBody(request), context), requestId);
+    return success(visibleItem(await service.changeItemNumber(itemId, await jsonBody(request), context)), requestId);
   }
 
   match = /^\/api\/business\/items\/(\d+)$/.exec(url.pathname);
   if (!match) return null;
   const itemId = routeId(match[1], "itemId");
-  if (request.method === "GET") return success(await service.getDetail(itemId), requestId);
-  if (request.method === "PATCH") return success(await service.update(itemId, await jsonBody(request), context), requestId);
+  if (request.method === "GET") {
+    const item=await service.getDetail(itemId);
+    return success(canCost?{...item,margin:await service.marginFor(item)}:visibleItem(item),requestId);
+  }
+  if (request.method === "PATCH") {
+    const raw = await jsonBody(request);
+    if (!canCost && raw && typeof raw === "object" && (Object.hasOwn(raw,"cost") || Object.hasOwn(raw,"costTaxMode"))) return costDenied();
+    return success(visibleItem(await service.update(itemId, raw, context, !canCost)), requestId);
+  }
   return null;
 }
 

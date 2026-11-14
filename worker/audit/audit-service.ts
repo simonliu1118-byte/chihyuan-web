@@ -65,6 +65,8 @@ export interface AuditTimelineItem {
 }
 
 export interface AuditQuery {
+  /** Server-authorized visibility for item cost changes, including free-text search. */
+  includeItemCosts?: boolean;
   entityType?: string;
   entityKey?: string;
   action?: string;
@@ -310,6 +312,9 @@ export class AuditService {
     where.push(query.includeErpQueries
       ? "(ae.entity_type <> 'erp_item_query' OR ae.action <> 'erp_item_query.created')"
       : "ae.entity_type <> 'erp_item_query'");
+    if (!query.includeItemCosts) where.push(`NOT (ae.entity_type='item' AND ae.action='item.price.changed' AND
+      (json_type(ae.before_json,'$.成本') IS NOT NULL OR json_type(ae.after_json,'$.成本') IS NOT NULL OR
+       json_type(ae.before_json,'$.成本稅別') IS NOT NULL OR json_type(ae.after_json,'$.成本稅別') IS NOT NULL))`);
     if (!query.includeHrEvents) where.push("ae.entity_type NOT LIKE 'hr_%'");
     if (query.entityType) where.push(`ae.entity_type = ${bind(normalizeCode(query.entityType, "entityType"))}`);
     if (query.entityKey) where.push(`ae.entity_key = ${bind(normalizeEntityKey(query.entityKey))}`);

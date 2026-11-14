@@ -354,7 +354,7 @@ function OperationalApp({
   else if (route === "customers") content = <CustomerOperationalPage role={role} />;
   else if (route === "items" || route === "defects") content = <ItemsModulePage route={route}
     canItems={allowedModules.has("ITEMS")} canDefects={allowedModules.has("DEFECTS")}
-    canViewCustomers={allowedModules.has("CUSTOMERS")}/>;
+    canViewCustomers={allowedModules.has("CUSTOMERS")} canViewCost={allowedModules.has("ITEMS_COST_MARGIN")}/>;
   else if (route === "orders") content = <SalesOrderOperationalPage />;
   else if (route === "outsourcing") content = <OutsourcingOperationalPage />;
   else if (route === "worklogs") content = <WorkLogOperationalPage />;
@@ -459,7 +459,7 @@ function OperationalApp({
         : route === "erp-item-query"
         ? <ErpAgentCredentialControl isSuperAdmin={session.user.workspaceRole === "SUPER_ADMIN"} />
         : route === "customers" ? <ModuleSettingsButton key={route} role={role} label="客戶" only={["customer_category","customer_status","department"]} />
-        : route === "items" ? <ModuleSettingsButton key={route} role={role} label="商品" only={["item_category","item_platform"]} />
+        : route === "items" ? <ModuleSettingsButton key={route} role={role} label="商品" only={["item_category","item_platform",...(role==="SUPER_ADMIN"?["item_margin" as const]:[])]} />
         : route === "worklogs" ? <ModuleSettingsButton key={route} role={role} label="工作日誌" only={["worklog-categories","worklog-platforms","scoring"]} />
         : undefined}
       subtitle="志遠企業管理系統"

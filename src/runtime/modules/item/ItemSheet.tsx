@@ -1,3 +1,4 @@
+import {ITEM_FEE_CATEGORY_PLATFORMS,type ItemPlatformFeeSelection} from '../../../../shared/item-platform-fee-categories';
 import type {ItemDetail,ItemCostTaxMode,ItemUnitConversionInput,ItemWholesalePrice,ItemOnlinePrice,ItemWebPlatform} from "../../../../shared/item";
 import type {LookupSetting} from "../../../../shared/settings";
 import {RecordSheet,type SheetRow} from "../../../ui/forms/RecordSheet";
@@ -12,11 +13,12 @@ export interface ItemSheetDraft {
  unitConversions:ItemUnitConversionInput[];
  wholesalePrices:ItemWholesalePrice[];
  onlinePrices:ItemOnlinePrice[];
+ platformFeeCategories:ItemPlatformFeeSelection[];
 }
 const money=(value:string|null|undefined)=>value==null||value===""?"—":"$"+value;
-export function ItemSheet({item,draft,editing,creating,busy,categories,platforms,onPatch,onAddConversion,onUpdateConversion}:{
+export function ItemSheet({item,draft,editing,creating,busy,canViewCost=false,categories,platforms,onPatch,onAddConversion,onUpdateConversion}:{
  item:ItemDetail|null;draft:ItemSheetDraft|null;editing:boolean;creating:boolean;busy:boolean;
- categories:readonly LookupSetting[];platforms:readonly ItemWebPlatform[];
+ canViewCost?:boolean;categories:readonly LookupSetting[];platforms:readonly ItemWebPlatform[];
  onPatch:(partial:Partial<ItemSheetDraft>)=>void;
  onAddConversion:()=>void;
  onUpdateConversion:(index:number,field:"fromUnit"|"quantity",value:string)=>void;
@@ -82,11 +84,11 @@ export function ItemSheet({item,draft,editing,creating,busy,categories,platforms
       onChange={e=>onPatch({itemCategoryId:e.target.value?Number(e.target.value):null})}>
        <option value="">未分類</option>{categories.filter(c=>c.isActive||c.id===draft!.itemCategoryId).map(c=><option key={c.id} value={c.id}>{c.name}</option>)}
       </select>:undefined},
-    {label:"成本",view:costDisplay,edit:editing?input(draft!.cost,value=>onPatch({cost:value}),"成本",{decimal:true}):undefined},
-    {label:"成本稅別",view:source.costTaxMode==="exclusive"?"未稅":source.costTaxMode==="inclusive"?"含稅":"未指定",
-     edit:editing?<select className="cy-op-input" aria-label="成本稅別" value={draft!.costTaxMode??""} disabled={busy}
+    {label:"成本",view:canViewCost?costDisplay:<span/>,edit:editing&&canViewCost?input(draft!.cost,value=>onPatch({cost:value}),"成本",{decimal:true}):undefined},
+    {label:"成本稅別",required:canViewCost,view:!canViewCost?<span/>:source.costTaxMode==="exclusive"?"未稅（外加）":source.costTaxMode==="inclusive"?"含稅":source.costTaxMode==="no_tax"?"不計稅":"待補資料",
+     edit:editing&&canViewCost?<select className="cy-op-input" aria-label="成本稅別" value={draft!.costTaxMode??""} disabled={busy}
       onChange={e=>onPatch({costTaxMode:(e.target.value||null) as ItemCostTaxMode|null})}>
-       <option value="">未指定</option><option value="inclusive">含稅</option><option value="exclusive">未稅</option><option value="none">無稅別</option>
+       <option value="" disabled>請選擇</option><option value="inclusive">含稅</option><option value="exclusive">未稅（外加）</option><option value="no_tax">不計稅</option>
       </select>:undefined},
     {label:"門市價",view:money(source.storePrice),edit:editing?input(draft!.storePrice,value=>onPatch({storePrice:value}),"門市價",{decimal:true}):undefined},
     {label:"診所價",view:money(source.clinicPrice),edit:editing?input(draft!.clinicPrice,value=>onPatch({clinicPrice:value}),"診所價",{decimal:true}):undefined},
@@ -98,6 +100,17 @@ export function ItemSheet({item,draft,editing,creating,busy,categories,platforms
        id:p.id,label:p.name,value:online.find(row=>row.platformId===p.id)?.price??""
      }))} onChange={updateOnline}/>:undefined},
   ]},
+  {columns:"repeat(2,minmax(0,1fr))",cells:ITEM_FEE_CATEGORY_PLATFORMS.map(({platformId,label})=>{
+    const options=platforms.find(p=>p.id===platformId)?.feeCategories??[];
+    const selected=(source.platformFeeCategories??[]).find(p=>p.platformId===platformId)?.categoryId??'';
+    return {label,view:options.find(o=>o.id===selected)?.name??'—',
+      edit:editing?<select className="cy-op-input" aria-label={label} value={selected} disabled={busy||!options.length}
+        onChange={e=>onPatch({platformFeeCategories:[...(draft!.platformFeeCategories??[]).filter(c=>c.platformId!==platformId),
+          ...(e.target.value?[{platformId,categoryId:e.target.value}]:[])]})}>
+        <option value="">{options.length?'未選擇（選填）':'請先設定此平台品類費率'}</option>
+        {options.map(o=><option key={o.id} value={o.id}>{o.name}</option>)}
+      </select>:undefined};
+  })},
   {columns:"minmax(0,1fr)",cells:[{label:"備註",view:source.notes,
     edit:editing?<textarea className="cy-op-input" aria-label="備註" rows={2} disabled={busy}
      value={draft!.notes} onChange={e=>onPatch({notes:e.target.value})}/>:undefined}]},

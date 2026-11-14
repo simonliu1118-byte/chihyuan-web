@@ -9,7 +9,7 @@ export const BACKUP_TABLES = Object.keys(BACKUP_COLUMNS).sort();
  * The latest migration in migrations/ (file name without .sql). Bump it with every migration; a test
  * keeps it in step. A backup records it, and a restore maps its data by table and column name.
  */
-export const CURRENT_MIGRATION = "0068_bot_revisions";
+export const CURRENT_MIGRATION = "0072_item_platform_fee_categories";
 /**
  * Only for a migration that changes what existing data means (moves, renames, drops or recomputes
  * values). New tables, new columns with a default, new indexes and wider checks need nothing here:
@@ -94,6 +94,11 @@ const UPGRADES: { migration: string; apply: (data: Data) => void }[] = [
       const at = text.indexOf("/");
       row[section] = "OTHER"; row[publisher] = (at < 0 ? text : text.slice(0, at)).trim(); row[author] = at < 0 ? "" : text.slice(at + 1).trim(); row[spec] = "";
     }
+  } },
+  { migration: "0069_item_cost_tax_modes", apply: data => {
+    const items = data.tables.items;
+    const column = items?.columns.indexOf("cost_tax_mode") ?? -1;
+    if (column >= 0) for (const row of items.rows) if (row[column] === "none") row[column] = null;
   } }
 ];
 // Operational queue, heartbeat and revocable credential hashes are intentionally
