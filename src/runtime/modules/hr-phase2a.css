@@ -21,10 +21,10 @@
 .hr-roster-cell small{display:block;font-size:8px}
 .hr-roster-cell:focus-visible{outline:2px solid var(--cy-accent)}
 .hr-cell-choices{display:flex;flex-wrap:wrap;gap:6px}
-.hr-attendance-table{min-width:950px;white-space:nowrap}.hr-attendance-clock{width:78px;padding:5px}
+.hr-attendance-table{width:100%}.hr-attendance-clock{width:78px;padding:5px}
 .hr-attendance-totals{display:flex;gap:18px;flex-wrap:wrap;margin-top:14px}
 .print-only{display:none}
-@media(max-width:640px){.hr-roster-table th,.hr-roster-table td{font-size:10px}.hr-roster-cell{min-height:38px}.hr-roster-toolbar{gap:6px}}
+
 @page{size:A4 landscape;margin:5mm}
 @media print {
  .hr-roster-table .hr-invalid{outline:none}

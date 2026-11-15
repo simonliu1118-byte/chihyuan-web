@@ -37,11 +37,11 @@
 .cy-hr-picker{display:flex;gap:4px;align-items:center;width:100%;min-width:0}
 .cy-hr-picker .cy-sheet-input{flex:1;min-width:0}
 .cy-hr-picker .cy-op-button{flex:none}
-.cy-hr-salary-toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:12px}
-.cy-hr-salary-toolbar .cy-op-input{width:auto}.cy-hr-salary-toolbar input[type=search]{width:220px}
-.cy-hr-salary-toolbar .cy-hr-salary-summary{margin-left:auto;font-weight:400;color:var(--cy-text-muted);font-size:var(--cy-fs-sm)}
+
+
+
 .cy-hr-salary-filters{display:flex;gap:8px;flex-wrap:wrap}
-.cy-hr-salary-summary{margin-left:auto;white-space:nowrap;font-variant-numeric:tabular-nums}
+
 .cy-hr-salary-table{width:100%;min-width:1080px}
 .cy-hr-salary-table .num,.cy-hr-salary-table th.num{text-align:right;font-variant-numeric:tabular-nums}
 .cy-hr-salary-allowances{display:flex;gap:4px;flex-wrap:wrap}
@@ -50,49 +50,19 @@
 .cy-hr-salary-history-row>td{background:var(--cy-surface-muted);padding:10px}
 .cy-hr-salary-history{min-width:720px}
 .cy-hr-salary-mobile-meta{display:none}
-.cy-hr-roster-setting{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
-.cy-hr-roster-setting>.cy-sheet-input{width:100px;flex:none}
-@media(max-width:820px){
- .cy-hr-sheet .cy-sheet-row{min-width:0}
- .cy-hr-salary-table{min-width:0}
- .cy-hr-salary-number{display:block}
- .cy-hr-salary-filters{display:grid}
- .cy-hr-salary-table.cy-rt-list tbody>tr.cy-hr-salary-history-row{display:block;grid-template-columns:none;padding:8px;border-top:1px solid var(--cy-border)}
- .cy-hr-salary-table.cy-rt-list tbody>tr.cy-hr-salary-history-row>td{display:block;width:100%;padding:0}
- .cy-hr-salary-history{min-width:0}
-}
-.cy-hr-browse {
-  display: grid;
-}
-.cy-hr-browse-row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 4px 16px;
-  padding: 8px 0;
-  border-bottom: 1px solid var(--cy-border);
-}
-.cy-hr-browse-row small {
-  flex-basis: 100%;
-  color: var(--cy-text-muted);
-}
-.cy-hr-browse-row .cy-row-remove {
-  margin-left: auto;
-}
+
+
+
+
+
+
+
 .cy-hr-revealed {
   margin: 0;
   font-size: var(--cy-fs-lg);
   letter-spacing: 0.08em;
 }
-.cy-hr-setting-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin: 0;
-  padding: 6px 0;
-  border-bottom: 1px solid var(--cy-border);
-}
+
 
 /* 學歷就讀年月／經歷起迄年月：一格內兩個年月，中間「～」(user 2026-11-10). */
 .cy-hr-period{display:flex;align-items:center;gap:4px;width:100%}

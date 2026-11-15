@@ -1,3 +1,5 @@
+import {DataViewToolbar} from '../../ui/data/DataViewToolbar';
+import {StatusChip} from '../../ui/primitives/StatusChip';
 import {useLatestRequest} from '../../ui/foundation/useLatestRequest';
 import {useUnsavedChangesGuard} from '../../ui/foundation/useUnsavedChangesGuard';
 import { DateInput } from "../../ui/forms/DateInput";
@@ -72,24 +74,28 @@ export function HrLeavePanel({initialEmployeeId}:{initialEmployeeId?:number|null
   if(saved)setAdjust(null);
  }
  function printNotice(){document.body.classList.add("hr-printing-notice");window.addEventListener("afterprint",()=>document.body.classList.remove("hr-printing-notice"),{once:true});window.print()}
+ const [search,setSearch]=useState(""),[recordQuery,setRecordQuery]=useState(""),[recordStatus,setRecordStatus]=useState("active");
+ const shownPeople=(summary?.employees??[]).filter(e=>!search.trim()||(e.employeeNo+" "+e.name).includes(search.trim()));
+ const shownRecords=(detail?.records??[]).filter(x=>(recordStatus==="all"||(recordStatus==="cancelled"?!!x.cancelled_at:!x.cancelled_at))&&(!recordQuery.trim()||(x.work_date+" "+x.reason+" "+detail?.types.find(t=>t.id===x.leave_type_id)?.name).includes(recordQuery.trim())));
  const owed=detail?.comp.advances.filter(a=>a.outstandingMinutes>0)??[];
  return <section className="cy-op-module cy-hr-leave">
-  <div className="cy-op-panel hr-leave-toolbar">
-   <button type="button" className="cy-op-button" disabled={mutationBusy} onClick={()=>{setDetail(null);setYear(y=>y-1)}}>上一年</button><strong>{year} 年</strong><button type="button" className="cy-op-button" disabled={mutationBusy} onClick={()=>{setDetail(null);setYear(y=>y+1)}}>下一年</button>
-   <label>門市<select disabled={mutationBusy} className="cy-op-input" value={store} onChange={e=>{setPerson(null);setDetail(null);setStore(e.target.value)}}><option value="">全部</option>{stores.map(x=><option key={x.id} value={x.id}>{x.name}</option>)}</select></label>
-   <button type="button" className="cy-op-button primary" disabled={!people.length} onClick={()=>setRequest({person:person??people[0],choose:true})}>＋ 請假</button>
-  </div>
+  <DataViewToolbar searchValue={search} onSearchChange={setSearch} searchLabel="搜尋請假員工" searchPlaceholder="員工編號、姓名"
+   beforeSearch={<><button type="button" className="cy-op-button" disabled={mutationBusy} onClick={()=>{setDetail(null);setYear(y=>y-1)}}>上一年</button><strong>{year} 年</strong><button type="button" className="cy-op-button" disabled={mutationBusy} onClick={()=>{setDetail(null);setYear(y=>y+1)}}>下一年</button></>}
+   filters={<select aria-label="請假門市" disabled={mutationBusy} className="cy-op-input" value={store} onChange={e=>{setPerson(null);setDetail(null);setStore(e.target.value)}}><option value="">全部門市</option>{stores.map(x=><option key={x.id} value={x.id}>{x.name}</option>)}</select>}
+   activeFilterCount={Number(Boolean(store))} resultSummary={`顯示 ${shownPeople.length}／${summary?.employees.length??0} 人`}
+   actions={<button type="button" className="cy-op-button primary" disabled={mutationBusy||!people.length} onClick={()=>setRequest({person:person??people[0],choose:true})}>＋ 請假</button>}/>
+
   {error?<p role="alert" className="cy-notice cy-notice-danger">{error}</p>:null}
   <div className="cy-md cy-hr-leave-md" data-pane={person?"detail":"list"}>
    <div className="cy-op-panel cy-md-list"><h3>{year} 年請假總表</h3>
-    <div className="cy-op-table-wrap"><table className="cy-op-table hr-leave-summary"><thead><tr><th>員工</th>{MAIN.map(c=><th key={c}>{c}（時）</th>)}<th>其他</th><th>待補假單</th><th>特休剩餘</th><th>補休餘額</th></tr></thead><tbody>
-     {summary?.employees.map(e=><tr key={e.id} className={"hr-leave-row"+(person?.id===e.id?" active":"")} onClick={()=>{if(mutationBusy)return;setPerson(people.find(x=>x.id===e.id)!);setDetail(null)}}>
-      <th scope="row">{e.employeeNo} {e.name}</th>
-      {MAIN.map(c=><td key={c}>{quota(e.used[c]??0,c,summary.types)}</td>)}
-      <td title={summary.types.filter(t=>!MAIN.includes(t.code)&&(e.used[t.code]??0)>0).map(t=>t.name+" "+hrs(e.used[t.code])+" 小時").join("、")}>{hrs(Object.entries(e.used).filter(([k])=>!MAIN.includes(k)).reduce((n,[,v])=>n+v,0))}</td>
-      <td>{e.pending?<strong className="hr-leave-pending">{e.pending}</strong>:"—"}</td>
-      <td>{amount(e.annualRemainingMinutes,e.employmentType!=="full")}</td>
-      <td>{hrs(e.comp.balanceMinutes)} 小時{e.comp.advanceMinutes?<small className="hr-leave-advance">預支 {hrs(e.comp.advanceMinutes)}</small>:null}</td>
+    <div className="cy-op-table-wrap"><table className="cy-op-table cy-rt hr-leave-summary"><thead><tr><th>員工</th>{MAIN.map(c=><th key={c}>{c}（時）</th>)}<th>其他</th><th>待補假單</th><th>特休剩餘</th><th>補休餘額</th></tr></thead><tbody>
+     {shownPeople.map(e=><tr key={e.id} className={"hr-leave-row"+(person?.id===e.id?" active":"")} onClick={()=>{if(mutationBusy)return;setPerson(people.find(x=>x.id===e.id)!);setDetail(null)}}>
+      <td data-label="員工" data-priority="title" role="rowheader">{e.employeeNo} {e.name}</td>
+      {MAIN.map(c=><td key={c} data-label={c+"（時）"}>{quota(e.used[c]??0,c,summary!.types)}</td>)}
+      <td data-label="其他假別" title={summary!.types.filter(t=>!MAIN.includes(t.code)&&(e.used[t.code]??0)>0).map(t=>t.name+" "+hrs(e.used[t.code])+" 小時").join("、")}>{hrs(Object.entries(e.used).filter(([k])=>!MAIN.includes(k)).reduce((n,[,v])=>n+v,0))}</td>
+      <td data-label="待補假單">{e.pending?<strong className="hr-leave-pending">{e.pending}</strong>:"—"}</td>
+      <td data-label="特休剩餘">{amount(e.annualRemainingMinutes,e.employmentType!=="full")}</td>
+      <td data-label="補休餘額">{hrs(e.comp.balanceMinutes)} 小時{e.comp.advanceMinutes?<small className="hr-leave-advance">預支 {hrs(e.comp.advanceMinutes)}</small>:null}</td>
      </tr>)}</tbody></table></div>
     {loading?<p>資料讀取中…</p>:summary&&!summary.employees.length?<p>沒有員工。</p>:null}
    </div>
@@ -100,34 +106,42 @@ export function HrLeavePanel({initialEmployeeId}:{initialEmployeeId?:number|null
      {detail?.pending.length?<><h4>待補假單</h4><div className="hr-cell-choices">{detail.pending.map(x=><button type="button" key={x.work_date} className="cy-op-button hr-leave-pending-title"
       onClick={()=>setRequest({person,date:x.work_date,typeId:x.leave_type_id})}>{ymd(x.work_date)} {detail.types.find(t=>t.id===x.leave_type_id)?.code} 補假單</button>)}</div></>:null}
      <h4>假單</h4>
-     {detail&&!detail.records.length?<p>今年還沒有假單。</p>:null}
-     {detail?.records.map(x=><div key={x.id} className={"hr-leave-item"+(x.cancelled_at?" cancelled":"")}>
-      <span>{ymd(x.work_date)}{x.whole_day?"":"　"+x.start_time+"–"+x.end_time}　{detail.types.find(t=>t.id===x.leave_type_id)?.name}　{hrs(x.minutes)} 小時
-       {x.advance_holiday_name?<small className="hr-leave-advance">預支 {x.advance_holiday_name}</small>:null}
-       {x.reason?<small>　{x.reason}</small>:null}{x.cancelled_at?<small>（已銷假：{x.cancel_reason}）</small>:null}</span>
-      <span>{x.attachmentCount?<button type="button" className="cy-op-button compact soft" onClick={()=>setViewAttachmentIds(x.attachmentIds)}>證明 {x.attachmentCount} 張</button>:null}
-       {!x.cancelled_at?<button type="button" className="cy-op-button compact" onClick={()=>setRequest({person,completed:{batchId:x.batch_id,date:x.work_date,code:detail.types.find(t=>t.id===x.leave_type_id)?.code??"",minutes:x.minutes}})}>銷假</button>:null}</span>
-     </div>)}
+     <DataViewToolbar searchValue={recordQuery} onSearchChange={setRecordQuery} searchLabel="搜尋假單" searchPlaceholder="日期、假別、事由"
+      filters={<select aria-label="假單狀態" className="cy-op-input" value={recordStatus} onChange={e=>setRecordStatus(e.target.value)}><option value="active">有效假單</option><option value="cancelled">已銷假</option><option value="all">全部假單</option></select>}
+      activeFilterCount={Number(recordStatus!=='active')} resultSummary={`${shownRecords.length} 筆`}/>
+     <div className="cy-op-table-wrap"><table className="cy-op-table cy-rt"><thead><tr><th>日期</th><th>時段</th><th>假別</th><th>時數</th><th>事由／預支</th><th>狀態</th><th>操作</th></tr></thead><tbody>
+     {shownRecords.map(x=><tr key={x.id}>
+      <td data-label="日期" data-priority="title">{ymd(x.work_date)}</td><td data-label="時段">{x.whole_day?'整天':x.start_time&&x.end_time?x.start_time+'–'+x.end_time:'依分鐘請假'}</td>
+      <td data-label="假別">{detail?.types.find(t=>t.id===x.leave_type_id)?.name}</td><td data-label="時數">{hrs(x.minutes)} 小時</td>
+      <td data-label="事由／預支">{x.reason||'—'}{x.advance_holiday_name?<div>預支 {x.advance_holiday_name}</div>:null}</td>
+      <td data-label="狀態"><StatusChip tone={x.cancelled_at?'neutral':'success'}>{x.cancelled_at?'已銷假':'有效'}</StatusChip>{x.cancelled_at?<small>{x.cancel_reason}</small>:null}</td>
+      <td data-label="操作">{x.attachmentCount?<button type="button" className="cy-op-button compact soft" onClick={()=>setViewAttachmentIds(x.attachmentIds)}>證明 {x.attachmentCount} 張</button>:null}
+       {!x.cancelled_at?<button type="button" disabled={mutationBusy} className="cy-op-button compact" onClick={()=>setRequest({person,completed:{batchId:x.batch_id,date:x.work_date,code:detail?.types.find(t=>t.id===x.leave_type_id)?.code??'',minutes:x.minutes}})}>銷假</button>:null}</td>
+     </tr>)}</tbody></table></div>
+     {detail&&!shownRecords.length?<p className="cy-op-empty">沒有符合條件的假單。</p>:null}
      <h4>特休年度</h4>
-     <div className="cy-op-table-wrap"><table className="cy-op-table"><thead><tr><th>特休年度</th><th>應給</th><th>遞延進來</th><th>剩餘</th><th>到期未休</th><th>書面通知</th></tr></thead><tbody>
-      {detail?.annual.map(x=><tr key={x.periodStart}><td>{ymd(x.periodStart)}～{ymd(x.periodEnd)}</td>
-       <td>{amount(x.entitledMinutes,partTime)}{x.partTime?<button type="button" className="cy-op-button compact soft" title={basisText(x)} onClick={()=>{setMutationError('');setAdjust(x);setAdjustHours(x.overridden?hrs(x.entitledMinutes):"")}}>{x.overridden?"已調整":"依工時比例"}</button>:null}</td>
-       <td>{amount(x.carriedInDays*480,partTime)}</td><td>{amount(x.remainingMinutes,partTime)}</td><td>{x.expiredUnpaidMinutes?amount(x.expiredUnpaidMinutes,partTime):"—"}</td>
-       <td><button type="button" className="cy-op-button compact" onClick={()=>setPrintYear(x)}>列印通知</button> <small>{x.notifiedOn?ymd(x.notifiedOn):"未通知"}</small></td></tr>)}</tbody></table></div>
+     <div className="cy-op-table-wrap"><table className="cy-op-table cy-rt"><thead><tr><th>特休年度</th><th>應給</th><th>遞延進來</th><th>剩餘</th><th>到期未休</th><th>書面通知</th></tr></thead><tbody>
+      {detail?.annual.map(x=><tr key={x.periodStart}><td data-label="特休年度" data-priority="title">{ymd(x.periodStart)}～{ymd(x.periodEnd)}</td>
+       <td data-label="應給">{amount(x.entitledMinutes,partTime)}{x.partTime?<button type="button" className="cy-op-button compact soft" title={basisText(x)} onClick={()=>{setMutationError('');setAdjust(x);setAdjustHours(x.overridden?hrs(x.entitledMinutes):"")}}>{x.overridden?"已調整":"依工時比例"}</button>:null}</td>
+       <td data-label="遞延進來">{amount(x.carriedInDays*480,partTime)}</td><td data-label="剩餘">{amount(x.remainingMinutes,partTime)}</td><td data-label="到期未休">{x.expiredUnpaidMinutes?amount(x.expiredUnpaidMinutes,partTime):"—"}</td>
+       <td data-label="書面通知"><button type="button" className="cy-op-button compact" onClick={()=>setPrintYear(x)}>列印通知</button> <small>{x.notifiedOn?ymd(x.notifiedOn):"未通知"}</small></td></tr>)}</tbody></table></div>
      <h4>補休帳戶</h4>
      <p>餘額 <strong>{hrs(detail?.comp.balanceMinutes??0)} 小時</strong></p>
-     {owed.map(a=><p key={a.holidayDate} className="hr-leave-owed">預支 −{hrs(a.outstandingMinutes)} 小時（{ymd(a.holidayDate)} {a.holidayName}）：這個國定假日的補休給予後才會抵銷</p>)}
-     {detail?.comp.credits.filter(x=>x.remainingMinutes>0||!x.expired).map(x=><div key={x.kind+x.id} className={"hr-leave-item "+(x.expired?"hr-expired":x.expiringSoon?"hr-expiring":"")}>
-      <span>{source(x)}　剩 {hrs(x.remainingMinutes)}／{hrs(x.minutes)} 小時，{ymd(x.expiresOn)} 到期{x.expired?"（已到期）":x.expiringSoon?"（快到期）":""}</span>
-      <span>{x.remainingMinutes>0?<button type="button" className="cy-op-button compact" onClick={()=>void act(()=>apiRequest("/api/business/hr/comp-time/"+(x.kind==="overtime"?"overtime/"+x.id:"grant/"+(x.id-100000000))+"/extend",{method:"POST"}),"延期失敗")}>再延一個月</button>:null}
-       {x.kind==="overtime"&&x.expired&&x.remainingMinutes>0?<button type="button" className="cy-op-button compact" onClick={()=>void act(()=>apiRequest("/api/business/hr/comp-time/overtime/"+x.id+"/settle",{method:"POST"}),"結清失敗")}>轉加班費</button>:null}</span>
-     </div>)}
+     {owed.length?<div className="cy-op-table-wrap"><table className="cy-op-table cy-rt"><thead><tr><th>預支國定假日</th><th>日期</th><th>待抵銷時數</th></tr></thead><tbody>{owed.map(a=><tr key={a.holidayDate}><td data-label="預支來源" data-priority="title">{a.holidayName}</td><td data-label="日期">{ymd(a.holidayDate)}</td><td data-label="待抵銷">{hrs(a.outstandingMinutes)} 小時</td></tr>)}</tbody></table></div>:null}
+     <div className="cy-op-table-wrap"><table className="cy-op-table cy-rt"><thead><tr><th>來源</th><th>給予日期</th><th>到期日期</th><th>原始時數</th><th>剩餘時數</th><th>狀態</th><th>操作</th></tr></thead><tbody>
+     {detail?.comp.credits.filter(x=>x.remainingMinutes>0||!x.expired).map(x=><tr key={x.kind+x.id}>
+      <td data-label="來源" data-priority="title">{source(x)}</td><td data-label="給予日期">{ymd(x.issuedOn)}</td><td data-label="到期日期">{ymd(x.expiresOn)}</td>
+      <td data-label="原始時數">{hrs(x.minutes)}</td><td data-label="剩餘時數">{hrs(x.remainingMinutes)}</td>
+      <td data-label="狀態"><StatusChip tone={x.expired?'danger':x.expiringSoon?'warning':'neutral'}>{x.expired?'已到期':x.expiringSoon?'快到期':'可使用'}</StatusChip></td>
+      <td data-label="操作">{x.remainingMinutes>0?<button type="button" disabled={mutationBusy} className="cy-op-button compact" onClick={()=>void act(()=>apiRequest('/api/business/hr/comp-time/'+(x.kind==='overtime'?'overtime/'+x.id:'grant/'+(x.id-100000000))+'/extend',{method:'POST'}),'延期失敗')}>再延一個月</button>:null}
+       {x.kind==='overtime'&&x.expired&&x.remainingMinutes>0?<button type="button" disabled={mutationBusy} className="cy-op-button compact" onClick={()=>void act(()=>apiRequest('/api/business/hr/comp-time/overtime/'+x.id+'/settle',{method:'POST'}),'結清失敗')}>轉加班費</button>:null}</td>
+     </tr>)}</tbody></table></div>
      <button type="button" className="cy-op-button" onClick={()=>{setGrantKind("holiday");setHolidayDate(owed[0]?.holidayDate??"");setGrantHours(partTime?"4":"8");setMutationError('');setGrantOpen(true)}}>＋ 給予補休</button>
    </div>:null}
   </div>
   <Dialog showCloseButton={false} dismissible={!mutationBusy} open={grantOpen} title="給予補休" onClose={()=>setGrantOpen(false)} size="small">
    <form onKeyDown={enterAdvancesFields} className="cy-op-form" onSubmit={e=>{e.preventDefault();void submitGrant()}}>
-    <EntryFields label="給予補休" rows={[
+    <EntryFields columns={3} label="給予補休" rows={[
       {label:"來源",content:<select disabled={mutationBusy} className="cy-sheet-input" value={grantKind} onChange={e=>setGrantKind(e.target.value as "holiday"|"grant")}>
         <option value="holiday">國定假日</option><option value="grant">管理員給予</option></select>},
       ...(grantKind==="holiday"?[{label:"國定假日",required:true,content:<select disabled={mutationBusy} className="cy-sheet-input" value={holidayDate} onChange={e=>setHolidayDate(e.target.value)}>
@@ -143,7 +157,7 @@ export function HrLeavePanel({initialEmployeeId}:{initialEmployeeId?:number|null
   </Dialog>
   <Dialog showCloseButton={false} dismissible={!mutationBusy} open={adjust!==null} title="調整特休應給時數" onClose={()=>setAdjust(null)} size="small">
    <form onKeyDown={enterAdvancesFields} className="cy-op-form" onSubmit={e=>{e.preventDefault();void submitAdjust()}}>
-    <EntryFields label="特休應給時數" rows={[
+    <EntryFields columns={3} label="特休應給時數" rows={[
       {label:"特休年度",content:<span>{adjust?ymd(adjust.periodStart)+"～"+ymd(adjust.periodEnd)+"。"+basisText(adjust):""}</span>},
       {label:"應給時數",content:<input disabled={mutationBusy} className="cy-sheet-input" type="number" min="0" step=".5" value={adjustHours} onChange={e=>setAdjustHours(e.target.value)} placeholder="空白＝依出勤工時比例計算"/>}
     ]}/>
@@ -161,7 +175,7 @@ export function HrLeavePanel({initialEmployeeId}:{initialEmployeeId?:number|null
      <p>通知日期：{ymd(noteDate)}</p><p className="hr-leave-signature">雇主（蓋章）：___________________</p><p>員工簽收：___________________　日期：___________________</p>
     </div>:null}
    <div className="no-print">
-    <EntryFields label="書面通知日期" rows={[{label:"通知日期",required:true,content:<DateInput max="9999-12-31" className="cy-sheet-input" value={noteDate} onChange={setNoteDate}/>}]}/>
+    <EntryFields columns={3} label="書面通知日期" rows={[{label:"通知日期",required:true,content:<DateInput max="9999-12-31" className="cy-sheet-input" value={noteDate} onChange={setNoteDate}/>}]}/>
     <div className="cy-op-form-footer">
      <button type="button" className="cy-op-button" onClick={printNotice}>列印</button>
      <button type="button" className="cy-op-button primary" onClick={()=>{const id=printYear?.id;setPrintYear(null);void act(()=>apiRequest("/api/business/hr/annual-leave-years/"+id+"/notice",{method:"PATCH",json:{notifiedOn:noteDate}}),"記錄失敗")}}>記錄已通知</button>

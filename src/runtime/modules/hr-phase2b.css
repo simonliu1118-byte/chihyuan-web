@@ -3,7 +3,7 @@
 .hr-leave-pending{color:var(--cy-warning);background:var(--cy-warning-soft);border-radius:5px;padding:1px 7px}.hr-leave-roster-pending::after{content:"";position:absolute;right:2px;top:2px;width:0;height:0;border-top:7px solid #eaa52a;border-left:7px solid transparent}
 .hr-leave-pending-title{border:1px dashed #d79b37}.hr-expired{border-left:3px solid var(--cy-danger);padding-left:10px}.hr-expiring{border-left:3px solid var(--cy-warning);padding-left:10px}
 .hr-leave-notice{max-width:210mm;margin:auto;padding:16mm;font-family:serif;background:white;color:#111}.hr-leave-notice h1{text-align:center;font-size:19pt;margin-bottom:15mm}.hr-leave-signature{margin-top:20mm}
-@media(max-width:700px){.cy-hr-leave-md{display:block}.hr-leave-toolbar{gap:6px}}
+
 /* The notice prints on its own named A4 portrait page; the roster keeps its landscape @page. */
 @page hr-notice{size:A4 portrait;margin:12mm}
 @media print{body.hr-printing-notice *{visibility:hidden!important}body.hr-printing-notice .hr-leave-notice,body.hr-printing-notice .hr-leave-notice *{visibility:visible!important}
@@ -18,6 +18,7 @@
 .hr-comp-alerts{border-left:3px solid var(--cy-warning)}
 .hr-overtime-cell{white-space:nowrap}.hr-overtime-cell .cy-op-input{width:auto;min-width:0;display:inline-block;margin-right:4px}
 .hr-leave-toolbar label{white-space:nowrap}
-@media(min-width:701px){.cy-hr-leave-md[data-pane="list"]{grid-template-columns:minmax(0,1fr)}.cy-hr-leave-md[data-pane="list"] .cy-md-detail{display:none}
- .cy-hr-leave-md[data-pane="detail"]{grid-template-columns:minmax(0,.9fr) minmax(0,1.1fr)}}
+
 .cy-hr-leave .cy-md-list h3{padding:12px 14px 0}
+
+.cy-hr-leave-md[data-pane="list"]{grid-template-columns:minmax(0,1fr)}

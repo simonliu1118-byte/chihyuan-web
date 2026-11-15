@@ -95,7 +95,7 @@ export function HrLeaveDialog({person:given,people,types,initialDate,initialType
   dismissible={!busy} onClose={()=>{if(!busy){if(createdBatchId)onSaved();onClose()}}} size={completed?"small":"large"} showCloseButton={!!completed||!!createdBatchId}>
   {confirmationDialog}
   {person&&completed?<form onKeyDown={enterAdvancesFields} className="cy-op-form" onSubmit={e=>void cancelCompleted(e)}>
-    <EntryFields label="銷假" rows={[
+    <EntryFields columns={3} label="銷假" rows={[
      {label:"員工",content:<span>{person.employee_no}　{person.name}</span>},
      {label:"日期／假別",content:<span>{completed.date.replaceAll("-","/")}　{completed.code}　{(completed.minutes/60).toFixed(1)} 小時</span>},
      {label:"銷假原因",required:true,content:<textarea disabled={busy||!!createdBatchId} className="cy-sheet-input" value={cancelReason} onChange={e=>setCancelReason(e.target.value)}/>}
@@ -107,7 +107,7 @@ export function HrLeaveDialog({person:given,people,types,initialDate,initialType
      <button className="cy-op-button primary" disabled={busy||!cancelReason.trim()}>銷假</button>
     </div>
   </form>:person?<form onKeyDown={enterAdvancesFields} className="cy-op-form" onSubmit={e=>void submit(e)}>
-   <EntryFields label="請假單" rows={[
+   <EntryFields columns={3} label="請假單" rows={[
     {label:"員工",content:people?<select disabled={busy||!!createdBatchId} className="cy-sheet-input" value={person.id}
        onChange={e=>{const next=people.find(x=>x.id===Number(e.target.value));if(next){setPerson(next);setWholeDay(next.employment_type==="full")}}}>
        {people.map(x=><option key={x.id} value={x.id}>{x.employee_no} {x.name}</option>)}
