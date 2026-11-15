@@ -79,9 +79,16 @@
 | 公開官方來源完整導入 | 實際同一importer從官方12個URL取得資料，在一次性隔離SQLite匯入勞／就保28級、勞退62級、健保58級、扣繳840列，生效2026-01-01；最低工資2025／2026／2027正確追加 |
 | 完整來源冪等／異常 | 合成官方形狀transport驗證未改表不增版本／Audit，格式錯誤及5%政策變更阻擋；合成測試不冒稱正式Worker定時成功 |
 | 桌機1440／手機390目視 | **未完成**；Chromium launch失敗：`process_singleton_posix.cc ... socket() failed: Operation not permitted (1)`；沒有偽造截圖或把Host當目視 |
-| `git diff --check`及相對連結 | 通過；PR遠端tree／最終CI證據於送審後補在本節下方 |
+| `git diff --check`及相對連結 | 通過；PR遠端tree／CI證據見下節 |
 
 驗證使用合成員工、公開政府表；沒有真員工、薪資憑證、遠端D1或正式寫入。臨時loopback shim只協助此環境`os.networkInterfaces()`，不提交、不改workflow；實際D1正常跑完。一次驗收中途修改被Wrangler監看的來源導致熱重載，回`UNIQUE app_members.id`；停止修改並用**全新暫存D1**重跑後全過，沒有把有寫入的舊fixture當readiness再重試。首次缺Dialog size及測試fixture錯欄位已修正，最終TypeScript／目標測試均通過。
+
+## PR遠端CI與來源核對
+
+- 工程提交：`d274ada444d1edf1a817287928398faa25302db5`；GitHub tree `17a63c740466167f8a22ccb81a04158d35afc2dd`與本機index一致，46檔，來源／測試／契約／版本及逐檔handoff都在同一提交。
+- [Runtime Check #43714183868](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/43714183868)：**completed／success**，包含source-contracts、worker-typecheck、browser-typecheck及build；實際本地D1、完整Node及Vite由build job完成。
+- 本次後續提交只補這份handoff的CI證據，沒有再改source、測試、版本、schema或workflow；最新檢查以[PR #518](https://github.com/simonliu1118-byte/chihyuan-web/pull/518)檢查區為準。
+- PR保留draft供Claude審查，base維持第二批PR #517；沒有合併、部署、修改父分支或遠端套migration。
 
 ## 官方查核與重要口徑
 
