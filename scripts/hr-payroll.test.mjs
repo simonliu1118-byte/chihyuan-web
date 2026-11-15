@@ -191,3 +191,12 @@ test('a continuing leave-without-pay period cannot silently produce a full month
  const reviewed=await s.calculate({employeeId:1,month:'2026-11',payDate:'2026-12-05',paidDays:0,reason:'合成整月留停'},ctx);assert.equal(reviewed.result.net,0);assert.deepEqual(reviewed.result.issues,[]);
  }finally{f.sql.close();}
 });
+test('manual paid days cannot reduce an ordinary full-month salary without an unpaid-period source',async()=>{
+ const f=botCenterFixture();try{seed(f);const s=new HrPayrollService(f.db);await s.saveProfile(1,{settings:profile,effectiveDate:'2026-01-01',reason:'合成',expectedId:0},ctx);
+ const r=await s.calculate({employeeId:1,month:'2026-11',payDate:'2026-12-05',paidDays:0,reason:'與任職期間矛盾的手填'},ctx);assert.ok(r.result.issues.some(x=>x.includes('少於任職期間')));await assert.rejects(s.transition(r.id,{action:'confirm',revision:r.revision,reason:'合成'},ctx));
+ }finally{f.sql.close();}
+});
+test('an unpaid-period flag cannot authorize paying zero against actual recorded normal work',()=>{
+ const r=calculatePayroll({employeeId:1,month:'2026-11',payDate:'2026-12-05',paidDays:0},{hireDate:'2025-01-01',terminationDate:null,hasUnpaidPeriod:true},profile,salary,[day()],[],rules);
+ assert.ok(r.issues.some(x=>x.includes('少於已記錄正常出勤')));
+});

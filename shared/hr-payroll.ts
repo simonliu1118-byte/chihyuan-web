@@ -59,7 +59,7 @@ export function selectRule(rules:readonly PayrollRule[],kind:RuleKind,at:string)
  return [...rules].filter(r=>r.kind===kind&&r.effective_date<=at).sort((a,b)=>b.effective_date.localeCompare(a.effective_date)||b.id-a.id)
   .find(r=>r.valid_until>=at)??null;
 }
-export function calculatePayroll(input:PayrollInput,employee:{hireDate:string;terminationDate:string|null;employmentType?:string},profile:PayrollProfile|null,
+export function calculatePayroll(input:PayrollInput,employee:{hireDate:string;terminationDate:string|null;employmentType?:string;hasUnpaidPeriod?:boolean},profile:PayrollProfile|null,
  salaries:readonly PayrollSalary[],days:readonly PayrollDay[],leaves:readonly PayrollLeave[],rules:readonly PayrollRule[],cashouts:readonly PayrollCashout[]=[],minimumWages:readonly {effective_date:string;monthly_amount:number;hourly_amount:number}[]=[]):PayrollResult {
  const issues:string[]=[],lines:PayrollLine[]=[],refs=new Map<number,PayrollRule>();
  const add=(kind:PayrollLine['kind'],label:string,amount:number,detail:string,date='',minutes?:number)=>{
@@ -80,6 +80,10 @@ export function calculatePayroll(input:PayrollInput,employee:{hireDate:string;te
  const statusInMonth=employee.hireDate>input.month+'-01'||!!employee.terminationDate&&employee.terminationDate<last;
  if((statusInMonth||salaries.some(s=>s.effective_date>input.month+'-01'&&s.effective_date<=last))&&input.paidDays==null)
   issues.push('未滿月／月中調薪：請確認計薪天數及原因後重算');
+ const eligibleDays=insuranceDays(employee.hireDate,employee.terminationDate,input.month);
+ if(input.paidDays!=null&&input.paidDays<eligibleDays&&!employee.hasUnpaidPeriod)issues.push('手填計薪天數少於任職期間30天制天數，且無留職停薪依據，請核對避免少發工資');
+ const workedNormal=paidDays.reduce((sum,d)=>sum+Math.max(0,Math.min(d.normalMinutes,d.workedMinutes-(d.overtime?.minutes??0))),0);
+ if(input.paidDays!=null&&input.paidDays*480<workedNormal)issues.push('手填計薪天數少於已記錄正常出勤工時，請先核對');
  const factor=(input.paidDays??30)/30;
  const actualLeaves=[...leaves].filter(l=>!l.cancelled_at).sort((a,b)=>a.work_date.localeCompare(b.work_date)||a.id-b.id);
  const inMonth=actualLeaves.filter(l=>l.work_date.startsWith(input.month)&&l.work_date>=employee.hireDate&&(!employee.terminationDate||l.work_date<=employee.terminationDate));

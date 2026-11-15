@@ -1,9 +1,9 @@
-# CYWEB V0.21.0 人事第三批每月薪資交接
+# CYWEB V0.21.0 Build1 人事第三批每月薪資交接
 
 - 日期：2026-11-15（台灣需求紀錄；本輪驗證UTC2026-11-15晚間）。狀態：工程已備妥供Claude審查，尚未全情境／目視驗收，**未合併／未部署**。
 - PR：[518](https://github.com/simonliu1118-byte/chihyuan-web/pull/518)；分支`cyweb/hr-payroll-rules-20261115`，base第二批`cyweb/hr-table-ui-20261115`，父HEAD `1d6e9974dff1181b5b2735fc0de15af79dd69d2f`。不回寫父分支，不改base到main。原規劃HEAD `6049034c82a9ae6d470b5ea5ec1b16e193c9d143`後承接本工程。
 - 使用者明確授權開工及繼續，要求共用元件／表格式、每次handoff交Claude、不得自行合併及部署；本輪正式D1讀寫0、遠端migration0、部署0、AI接口0。
-- 新能力包含月薪計算、法定表年度自動更新、快照與窄更正，屬完整功能階段，Minor升V0.21.0／BUILD 0；沒有升Major。
+- 新能力包含月薪計算、法定表年度自動更新、快照與窄更正，屬完整功能階段，Minor升V0.21.0／初始BUILD 0；最後防少算修正為同工作項目BUILD 1，沒有另升版本或Major。
 - 規格唯一入口：[HR_PAYROLL_CONTRACT](../architecture/HR_PAYROLL_CONTRACT.md)。此交接不另建平行公式；已定公司規則不重問。
 
 ## 交付行為
@@ -19,6 +19,7 @@
 
 | 檔案 | 原因／行為 |
 | --- | --- |
+| [BUILD](../../BUILD) | 同工作項目收尾修正計薪天數矛盾，Build由0升1，未部署。 |
 | [CHANGELOG.md](../../CHANGELOG.md) | 記錄第三批行為、驗證及未涵蓋情境，不宣稱已部署。 |
 | [TODO.md](../../TODO.md) | 區分已實作與Claude／目視／特殊法定待補，保留父批未合併狀態。 |
 | [VERSION](../../VERSION) | 每月薪資為完整新功能階段，Minor升0.21.0、Build維持0。 |
@@ -35,7 +36,7 @@
 | [migrations/0073_hr_payroll.sql](../../migrations/0073_hr_payroll.sql) | 七表、索引／狀態／唯一消耗與假單保護欄，僅forward migration，未遠端套用。 |
 | [package.json](../../package.json) | 套件版本與VERSION同步。 |
 | [scripts/hr-payroll-ui.test.mjs](../../scripts/hr-payroll-ui.test.mjs) | 4項Host互動測試：初讀失敗、儲存留值、防連點、待補禁確認、指定更正失敗；不是瀏覽器目視。 |
-| [scripts/hr-payroll.test.mjs](../../scripts/hr-payroll.test.mjs) | 22項核心／官方來源／實際SQLite／權限／競態／結清／留停測試，含MOL可手核例、原文佐證與政策變更隔離。 |
+| [scripts/hr-payroll.test.mjs](../../scripts/hr-payroll.test.mjs) | 24項核心／官方來源／實際SQLite／權限／競態／結清／留停測試，含MOL可手核例、原文佐證與政策變更隔離。 |
 | [scripts/item-price-record-sheet.test.mjs](../../scripts/item-price-record-sheet.test.mjs) | 原硬寫0072的備份標記改讀migration chain最新值，保留一致性檢查，避免新增合法migration誤報。 |
 | [scripts/test-support/hr-payroll-sources.mjs](../../scripts/test-support/hr-payroll-sources.mjs) | 明示合成的官方形狀transport fixture，測自動探索、SVG、歷年／未來日期、格式／政策異常，不冒稱真官方表。 |
 | [scripts/validate_d1_local.py](../../scripts/validate_d1_local.py) | 必驗hrPayroll旗標，不能只遷移成功就算薪資驗收。 |
@@ -70,8 +71,8 @@
 
 | 驗證 | 結果／範圍 |
 | --- | --- |
-| `node --test scripts/*.test.mjs` | **889／889通過，0失敗、0跳過**；含父批回歸，52秒左右。原文封存metadata收尾後薪資目標再跑，最終同HEAD由PR Runtime再次驗證 |
-| `node --test scripts/hr-payroll*.test.mjs` | **26／26通過**，22核心／SQLite／HTTP＋4介面互動；含新來源原文context與費率變更隔離 |
+| `node --test scripts/*.test.mjs` | **891／891通過，0失敗、0跳過**；含父批回歸，Build1防少算收尾後完整重跑約48秒，最終HEAD由PR Runtime再次驗證 |
+| `node --test scripts/hr-payroll*.test.mjs` | **28／28通過**，24核心／SQLite／HTTP＋4介面互動；含新來源原文context與費率變更隔離 |
 | `npm run typecheck`／`npm run build` | 前後端TypeScript與Vite通過；build僅既有大chunk提示 |
 | `npm run validate:source` | 通過，74個migration檔（含兩個0031），165表；新表／backup columns一致；form／Audit／權限契約未放寬 |
 | `npm run validate:d1:local` | **實際Wrangler＋Worker＋本地D1通過**，新增`hrPayroll`真流程，亦驗證備份／復原等原有驗收；不是只有SQLite mock |
@@ -85,9 +86,9 @@
 
 ## PR遠端CI與來源核對
 
-- 工程提交：`d274ada444d1edf1a817287928398faa25302db5`；GitHub tree `17a63c740466167f8a22ccb81a04158d35afc2dd`與本機index一致，46檔，來源／測試／契約／版本及逐檔handoff都在同一提交。
+- 工程提交：`d274ada444d1edf1a817287928398faa25302db5`；GitHub tree `17a63c740466167f8a22ccb81a04158d35afc2dd`與本機index一致，原工程46檔，來源／測試／契約／版本及逐檔handoff都在同一提交。
 - [Runtime Check #43714183868](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/43714183868)：**completed／success**，包含source-contracts、worker-typecheck、browser-typecheck及build；實際本地D1、完整Node及Vite由build job完成。
-- 本次後續提交只補這份handoff的CI證據，沒有再改source、測試、版本、schema或workflow；最新檢查以[PR #518](https://github.com/simonliu1118-byte/chihyuan-web/pull/518)檢查區為準。
+- 上一筆`8a376f3`僅補這份handoff的CI證據，沒有改程式；之後Build1收尾修正見下節。最新檢查以[PR #518](https://github.com/simonliu1118-byte/chihyuan-web/pull/518)檢查區為準。
 - PR保留draft供Claude審查，base維持第二批PR #517；沒有合併、部署、修改父分支或遠端套migration。
 
 ## 官方查核與重要口徑
@@ -108,6 +109,15 @@
 5. 權限複核：只有兩條更正路徑例外，不能擴大SA的人事／薪資權限；授權撤回競態、停用帳號、跨店／普通USER均須被擋。指定ADMIN名單由使用者在設定選，本輪沒有任何正式授權資料。
 6. 交易複核：來源SQL與confirm/pay同一guard、唯一消耗、撤回／已發薪不可回寫、舊備份缺表／欄、同生效日append profile舊編輯鎖；所有變更Audit含前後／原因或追加式新內容。
 7. UI複核：共用820px、1440／390真目視、表格長欄與金額可讀性、Dialog鍵盤／離開確認。Host測試用guard替身，只證明互動狀態，真正NavigationGuard沿既有完整測試。未新增正式薪資單列印／匯出模板。
+
+## Build1最後複核修正（同工作項目，未部署）
+
+原工程及純交接補證據的兩次Runtime皆成功（[第一次](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/43714183868)、[交接文件提交](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/43714466967)）。最後複核再發現手填計薪天數可與完整任職／實際出勤矛盾；Build1補上兩項阻擋：
+
+- 無正式留停來源而手填少於任職期間30天制天數，不能確認。
+- 即使有留停來源，手填天數仍不得低於已記錄正常出勤工時的下限；前端不能自稱留停，來源由Worker依正式狀態歷史判斷。
+
+改動`shared/hr-payroll.ts`、`worker/hr/hr-payroll-service.ts`、`scripts/hr-payroll.test.mjs`及`BUILD`，其餘只同步本契約／版本說明／TODO／交接入口。新增兩項測試（實際SQLite與純核心）證明不能確認零天少發、留停也不掩蓋實際工作；Build1全套**891通過**、TypeScript／Vite通過。Schema、SQL來源／交易guard、權限及部署流程未改；最新CI結果從PR檢查區核對，不預填Claude通過。總PR仍僅本分支，47個變更檔案；沒有合併／部署／正式D1寫入。
 
 ## Claude審查欄（僅審查者填）
 

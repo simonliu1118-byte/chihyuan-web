@@ -110,7 +110,9 @@ export class HrPayrollService {
     overtime:overtime?{minutes:Number(overtime.minutes),settlement:String(overtime.settlement)}:null});
   }
   const rules:PayrollRule[]=s.rules.map(r=>({id:Number(r.id),kind:r.kind as PayrollRule['kind'],effective_date:String(r.effective_date),valid_until:String(r.valid_until),source_url:String(r.source_url),source_hash:String(r.source_hash),data:JSON.parse(String(r.payload_json))}));
-  const employee={hireDate:String(e.hire_date),terminationDate:e.termination_date as string|null,employmentType:String(e.employment_type)};
+  const effectiveStatus=s.status.filter(r=>String(r.effective_date)<=input.month+'-01').at(-1);
+  const hasUnpaidPeriod=effectiveStatus?.next_status==='leave'||s.status.some(r=>String(r.effective_date)>input.month+'-01'&&r.next_status==='leave');
+  const employee={hasUnpaidPeriod,hireDate:String(e.hire_date),terminationDate:e.termination_date as string|null,employmentType:String(e.employment_type)};
   const preliminary=calculatePayroll(input,employee,settings,salaries,days,leaves,rules,[],s.wages);
   const priorRate=(at:string)=>{if(at.startsWith(input.month))return preliminary.wageRates?.find(r=>r.date===at)?.hourly??null;const history=s.history.find(h=>h.month===at.slice(0,7));if(!history?.wage_rates)return null;const rates=JSON.parse(String(history.wage_rates)) as {date:string;hourly:number}[];return rates.find(r=>r.date===at)?.hourly??null;};
   const cashouts:PayrollCashout[]=[],pending:string[]=[],consumed=new Set(s.consumed.map(c=>String(c.source_key)));
@@ -154,8 +156,7 @@ export class HrPayrollService {
   }
   if(e.skip_roster_checks!==1&&e.employment_type!=='casual'&&!s.schedules.some(r=>String(r.work_date).startsWith(input.month)))result.issues.push('本月尚無班表資料');
   if(s.profiles.some(r=>String(r.effective_date)>firstEligible))result.issues.push('月中投保設定異動：須先分段核對，不能以月底設定套整月');
-  const effectiveStatus=s.status.filter(r=>String(r.effective_date)<=input.month+'-01').at(-1);
-  if((effectiveStatus?.next_status==='leave'||s.status.some(r=>String(r.effective_date)>input.month+'-01'&&r.next_status==='leave'))&&input.paidDays==null)result.issues.push('本月含留職停薪：請確認30天制實際計薪天數及原因，不能預設發整月');
+  if(hasUnpaidPeriod&&input.paidDays==null)result.issues.push('本月含留職停薪：請確認30天制實際計薪天數及原因，不能預設發整月');
   return result;
  }
  async calculate(raw:unknown,ctx:HrContext){
