@@ -101,7 +101,7 @@ Archive、舊 preview、review backlog、readiness checkpoint、已結案舊 han
 - `STORE_MONTHLY_TODOS.md` — 門市月度待辦、月份生效區間、項目週期、換行版面、編輯期限、管理員設定、獨立日期／無日期辦理、補漏排程與可攜備份。
 - `STORE_EQUIPMENT_MAINTENANCE.md` — 售後維修下的出機紀錄、同客戶同月到訪彙整、共用登記與歷程。
 - `STORE_REPAIRS.md` — 門市售後維修（流程、取消、逾期、維修單照片、API 與資料）。
-- `HR_MODULE_DESIGN.md`、`HR_MODULE_CONTRACT.md` — 人事（主檔、排班出勤、請假特休加班補休）；`HR_LEGAL_WATCH.md` 為每月法規檢查。
+- `HR_MODULE_DESIGN.md`、`HR_MODULE_CONTRACT.md` — 人事（主檔、排班出勤、請假特休加班補休）；`HR_PAYROLL_CONTRACT.md`為第三批每月薪資、官方表及指定更正契約（待審）；`HR_LEGAL_WATCH.md` 為每月法規檢查。
 - `BOT_CENTER.md` — BOT 管理中心（進度、待審稿、回報、今日完成）。通過或退回只回寫審核結果，不發布。
 - [HOME_HUB.md](HOME_HUB.md) — 首頁、個人待辦、公告通知雙頁籤、站內鈴鐺提醒及權限。
 

@@ -142,6 +142,8 @@ export class HrLeaveService{
   const typeId=integer(v.leaveTypeId,"leaveTypeId",true),types=await this.types(),type=types.find(t=>t.id===typeId);
   if(!type||type.needs_form===0||type.is_active===0)throw new HrValidationError("leaveTypeId","假別不存在、停用或不需建立假單");
   const wholeDay=v.wholeDay===true;
+  const payrollProtection=v.payrollProtection??null;
+  if(!(payrollProtection===null||payrollProtection==='family_care'&&type.code==='事'||['pregnancy_loss','pregnancy_rest'].includes(String(payrollProtection))&&['病','院'].includes(type.code)))throw new HrValidationError('payrollProtection','法定保護事由與假別不符');
   if(wholeDay&&employee.employment_type!=="full")throw new HrValidationError("wholeDay","半職與兼職僅能請時數");
   const start=ymd(v.from??v.date),end=ymd(v.to??v.date??start);
   const cells=(await this.db.prepare("SELECT s.*,t.code AS leave_code FROM hr_schedule_days s LEFT JOIN hr_leave_types t ON t.id=s.leave_type_id WHERE s.employee_id=? AND s.work_date BETWEEN ? AND ? ORDER BY s.work_date LIMIT 370").bind(employeeId,start,end).all<Cell&{leave_code:string|null}>()).results??[];
@@ -212,8 +214,8 @@ export class HrLeaveService{
   const batchId=crypto.randomUUID(),statements:D1PreparedStatement[]=[...rosterStatements];
   for(let i=0;i<list.length;i++){
    const d=list[i];
-   statements.push(this.db.prepare("INSERT INTO hr_leave_records(batch_id,employee_id,leave_type_id,work_date,start_time,end_time,minutes,whole_day,reason,event_date,event_quota_days,advance_holiday_date,advance_holiday_name,created_at,created_by) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
-    .bind(batchId,employeeId,typeId,d,wholeDay?null:v.startTime??null,wholeDay?null:v.endTime??null,minutes[i],wholeDay?1:0,String(v.reason??"").slice(0,2000),eventDate,eventQuotaDays,advanceDate,advanceName,ctx.now,ctx.actor));
+   statements.push(this.db.prepare("INSERT INTO hr_leave_records(batch_id,employee_id,leave_type_id,work_date,start_time,end_time,minutes,whole_day,reason,event_date,event_quota_days,advance_holiday_date,advance_holiday_name,created_at,created_by,payroll_protection) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
+    .bind(batchId,employeeId,typeId,d,wholeDay?null:v.startTime??null,wholeDay?null:v.endTime??null,minutes[i],wholeDay?1:0,String(v.reason??"").slice(0,2000),eventDate,eventQuotaDays,advanceDate,advanceName,ctx.now,ctx.actor,payrollProtection));
    if(wholeDay){
     const current=cells.find(x=>x.work_date===d);
     if(current?.kind==="leave"&&current.leave_type_id===typeId)continue;
@@ -222,7 +224,7 @@ export class HrLeaveService{
    }
   }
   statements.push(new AuditService(this.db).prepareRecord({entityType:"hr_leave",entityKey:batchId,action:"hr_leave.created",actorEmployeeId:ctx.actor,requestId:ctx.requestId,
-   after:{employeeId,typeId,dates:list,minutes,advanceHolidayDate:advanceDate,roster:wholeDay?list:[]}}));
+   after:{employeeId,typeId,dates:list,minutes,payrollProtection,advanceHolidayDate:advanceDate,roster:wholeDay?list:[]}}));
   await this.db.batch(statements);
   return {batchId,days:list.length,minutes:minutes.reduce((a,b)=>a+b,0)};
  }

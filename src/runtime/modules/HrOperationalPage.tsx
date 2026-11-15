@@ -32,7 +32,7 @@ import {HrEmployeeSheet} from "./HrEmployeeSheet";
 import {EntryTable,EntryHeading} from "../../ui/forms/EntryTable";
 import {EntryFields} from "../../ui/forms/EntryFields";
 import {RecordRows} from "../../ui/forms/RecordSheet";
-import {HrSalaryOverview} from "./HrSalaryOverview";
+import {HrSalaryPanel} from './HrPayrollPanel';
 
 const ROOT = "/api/business/hr";
 const statusLabels: Record<HrStatus, string> = { probation: "試用", active: "在職", leave: "留職停薪", terminated: "離職" };
@@ -458,7 +458,7 @@ export function HrOperationalPage() {
     </>
   </form>
     </Dialog> : null}
-  </div>:tab==="roster"?<HrRosterPanel/>:tab==="attendance"?<HrAttendancePanel/>:tab==="leave"?<HrLeavePanel initialEmployeeId={initialLeaveEmployeeId}/>:<HrSalaryOverview refreshToken={salaryRefresh} onRaise={(id)=>void openAction("salary",id)}/>}
+  </div>:tab==="roster"?<HrRosterPanel/>:tab==="attendance"?<HrAttendancePanel/>:tab==="leave"?<HrLeavePanel initialEmployeeId={initialLeaveEmployeeId}/>:<HrSalaryPanel refreshToken={salaryRefresh} onRaise={(id)=>void openAction("salary",id)}/>}
     {action&&actionEmployeeId!==null?<Dialog showCloseButton={false} open
       size={action==="salary"?"large":"medium"} dismissible={!busy&&!actionLoading}
       title={action==="status"?"新增狀態異動":action==="salary"?"新增薪資異動":"新增年資不計期間"}

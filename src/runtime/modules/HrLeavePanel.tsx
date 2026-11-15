@@ -16,7 +16,7 @@ type Credit={id:number;kind:"overtime"|"holiday"|"grant";minutes:number;remainin
 type Comp={balanceMinutes:number;advanceMinutes:number;advances:Advance[];credits:Credit[]};
 type Sum={employeeNo:string;name:string;id:number;storeId:number;employmentType:"full"|"half"|"casual";annualRemainingMinutes:number;used:Record<string,number>;pending:number;comp:Comp};
 type Summary={year:number;types:LeaveTypeOption[];employees:Sum[]};
-type Entry={id:number;batch_id:string;work_date:string;start_time:string|null;end_time:string|null;minutes:number;whole_day:number;reason:string;cancelled_at:string|null;cancel_reason:string|null;leave_type_id:number;advance_holiday_name:string|null;attachmentCount:number;attachmentIds:number[]};
+type Entry={payroll_protection?:string|null;id:number;batch_id:string;work_date:string;start_time:string|null;end_time:string|null;minutes:number;whole_day:number;reason:string;cancelled_at:string|null;cancel_reason:string|null;leave_type_id:number;advance_holiday_name:string|null;attachmentCount:number;attachmentIds:number[]};
 type Annual={id:number;periodStart:string;periodEnd:string;entitledMinutes:number;carriedInDays:number;remainingMinutes:number;expiredUnpaidMinutes:number;notifiedOn:string|null;partTime:boolean;overridden:boolean;basis:string|null};
 type Detail={records:Entry[];pending:{work_date:string;leave_type_id:number}[];types:LeaveTypeOption[];annual:Annual[];comp:Comp};
 const MAIN=["特","事","病","補"];
@@ -39,10 +39,11 @@ export function HrLeavePanel({initialEmployeeId}:{initialEmployeeId?:number|null
  const [grantOpen,setGrantOpen]=useState(false),[grantKind,setGrantKind]=useState<"holiday"|"grant">("holiday"),[grantHours,setGrantHours]=useState("8"),[holidayDate,setHolidayDate]=useState("");
  const [holidays,setHolidays]=useState<{date:string;name:string}[]>([]);
  const [adjust,setAdjust]=useState<Annual|null>(null),[adjustHours,setAdjustHours]=useState("");
+ const [protectionEntry,setProtectionEntry]=useState<Entry|null>(null),[protection,setProtection]=useState(''),[protectionReason,setProtectionReason]=useState('');
  const [printYear,setPrintYear]=useState<Annual|null>(null);
  const [mutationBusy,setMutationBusy]=useState(false),[mutationError,setMutationError]=useState('');
  const writing=useRef(false),listRequest=useLatestRequest(year+'|'+store),detailRequest=useLatestRequest(person?.id+'|'+year);
- useUnsavedChangesGuard({active:grantOpen||adjust!==null,blocked:mutationBusy});
+ useUnsavedChangesGuard({active:grantOpen||adjust!==null||protectionEntry!==null,blocked:mutationBusy});
 
  useEffect(()=>{void apiRequest<{id:number;name:string}[]>("/api/business/hr/settings/stores").then(setStores).catch(()=>{})},[]);
  useEffect(()=>{let active=true;void Promise.all([year-1,year,year+1].map(y=>apiRequest<{date:string;name:string}[]>("/api/business/hr/settings/holidays?year="+y)))
@@ -73,6 +74,7 @@ export function HrLeavePanel({initialEmployeeId}:{initialEmployeeId?:number|null
   const saved=await act(()=>apiRequest("/api/business/hr/annual-leave-years/"+adjust.id+"/entitlement",{method:"PATCH",json:{minutes:adjustHours.trim()===""?null:Math.round(Number(adjustHours)*60)}}),"調整失敗");
   if(saved)setAdjust(null);
  }
+ async function saveProtection(){if(!protectionEntry)return;const saved=await act(()=>apiRequest('/api/business/hr/payroll/leave-protection',{method:'POST',json:{recordId:protectionEntry.id,expectedProtection:protectionEntry.payroll_protection??null,protection:protection||null,reason:protectionReason}}),'全勤保護設定失敗');if(saved)setProtectionEntry(null);}
  function printNotice(){document.body.classList.add("hr-printing-notice");window.addEventListener("afterprint",()=>document.body.classList.remove("hr-printing-notice"),{once:true});window.print()}
  const [search,setSearch]=useState(""),[recordQuery,setRecordQuery]=useState(""),[recordStatus,setRecordStatus]=useState("active");
  const shownPeople=(summary?.employees??[]).filter(e=>!search.trim()||(e.employeeNo+" "+e.name).includes(search.trim()));
@@ -113,9 +115,10 @@ export function HrLeavePanel({initialEmployeeId}:{initialEmployeeId?:number|null
      {shownRecords.map(x=><tr key={x.id}>
       <td data-label="日期" data-priority="title">{ymd(x.work_date)}</td><td data-label="時段">{x.whole_day?'整天':x.start_time&&x.end_time?x.start_time+'–'+x.end_time:'依分鐘請假'}</td>
       <td data-label="假別">{detail?.types.find(t=>t.id===x.leave_type_id)?.name}</td><td data-label="時數">{hrs(x.minutes)} 小時</td>
-      <td data-label="事由／預支">{x.reason||'—'}{x.advance_holiday_name?<div>預支 {x.advance_holiday_name}</div>:null}</td>
+      <td data-label="事由／預支">{x.reason||'—'}{x.payroll_protection?<small>法定全勤保護</small>:null}{x.advance_holiday_name?<div>預支 {x.advance_holiday_name}</div>:null}</td>
       <td data-label="狀態"><StatusChip tone={x.cancelled_at?'neutral':'success'}>{x.cancelled_at?'已銷假':'有效'}</StatusChip>{x.cancelled_at?<small>{x.cancel_reason}</small>:null}</td>
       <td data-label="操作">{x.attachmentCount?<button type="button" className="cy-op-button compact soft" onClick={()=>setViewAttachmentIds(x.attachmentIds)}>證明 {x.attachmentCount} 張</button>:null}
+       {!x.cancelled_at&&['事','病','院'].includes(detail?.types.find(t=>t.id===x.leave_type_id)?.code??'')?<button type="button" disabled={mutationBusy} className="cy-op-button compact" onClick={()=>{setMutationError('');setProtectionEntry(x);setProtection(x.payroll_protection??'');setProtectionReason('');}}>全勤保護</button>:null}
        {!x.cancelled_at?<button type="button" disabled={mutationBusy} className="cy-op-button compact" onClick={()=>setRequest({person,completed:{batchId:x.batch_id,date:x.work_date,code:detail?.types.find(t=>t.id===x.leave_type_id)?.code??'',minutes:x.minutes}})}>銷假</button>:null}</td>
      </tr>)}</tbody></table></div>
      {detail&&!shownRecords.length?<p className="cy-op-empty">沒有符合條件的假單。</p>:null}
@@ -185,6 +188,14 @@ export function HrLeavePanel({initialEmployeeId}:{initialEmployeeId?:number|null
   <Dialog open={viewAttachmentIds!==null} title="請假證明" size="large" onClose={()=>setViewAttachmentIds(null)}>
    <div className="hr-leave-attachments">{viewAttachmentIds?.map((id,index)=><img src={"/api/business/hr/leave-attachments/"+id} alt={"請假證明 "+(index+1)} key={id} loading="lazy"/>)}</div>
   </Dialog>
+  {protectionEntry?<Dialog open size="medium" title="假單法定全勤保護" dismissible={!mutationBusy} onClose={()=>setProtectionEntry(null)}>
+   {mutationError?<p role="alert" className="cy-op-notice danger">{mutationError}</p>:null}
+   <p>僅依已核對的法定事由設定，不變更請假時數。儲存後請重新計算尚未確認的薪資。</p>
+   <form className="cy-op-form" onKeyDown={enterAdvancesFields} onSubmit={e=>{e.preventDefault();void saveProtection();}}><EntryFields columns={2} label="全勤保護設定" rows={[
+    {label:'法定事由',content:<select className="cy-sheet-input" disabled={mutationBusy} value={protection} onChange={e=>setProtection(e.target.value)}><option value="">一般假別規則</option>{detail?.types.find(t=>t.id===protectionEntry.leave_type_id)?.code==='事'?<option value="family_care">依法親自照顧家庭成員</option>:<><option value="pregnancy_loss">妊娠未滿三個月流產未請產假</option><option value="pregnancy_rest">安胎休養</option></>}</select>},
+    {label:'核對原因',required:true,content:<input className="cy-sheet-input" disabled={mutationBusy} value={protectionReason} onChange={e=>setProtectionReason(e.target.value)}/>},
+   ]}/><button className="cy-op-button primary" disabled={mutationBusy||!protectionReason.trim()}>保存全勤保護</button></form>
+  </Dialog>:null}
   <HrLeaveDialog person={request?.person??null} people={request?.choose?people:undefined} types={summary?.types??[]} initialDate={request?.date} initialTypeId={request?.typeId} completed={request?.completed}
    onClose={()=>setRequest(null)} onSaved={()=>{void refresh();void detailRefresh()}}/>
  </section>;

@@ -77,6 +77,11 @@ function samePeriod(entry:LeaveEntry,date:string,period:string|null|undefined):b
 export function checkLeaveQuota(type:LeaveTypeRule,types:readonly LeaveTypeRule[],records:readonly LeaveEntry[],candidate:readonly LeaveEntry[]):QuotaFailure[]{
  const byId=new Map(types.map(x=>[x.id,x]));
  const active=[...records,...candidate].filter(x=>!x.cancelledAt).sort((a,b)=>a.workDate.localeCompare(b.workDate));
+ const merged=new Map<LeaveEntry,number>(),running=new Map<string,number>();
+ for(const entry of active){const source=byId.get(entry.leaveTypeId),threshold=(source?.mergeAfterDays??0)*480;
+  if(threshold<=0)continue;const key=entry.leaveTypeId+'|'+entry.workDate.slice(0,4),before=running.get(key)??0,after=before+entry.minutes;
+  running.set(key,after);merged.set(entry,Math.max(0,after-threshold)-Math.max(0,before-threshold));
+ }
  const failures:QuotaFailure[]=[],checkTypes=types.filter(x=>x.quotaDays!=null&&x.quotaDays>=0);
  for(const rule of checkTypes){
   const relevant=active.filter(x=>x.leaveTypeId===rule.id || byId.get(x.leaveTypeId)?.mergeIntoTypeId===rule.id);
@@ -94,10 +99,7 @@ export function checkLeaveQuota(type:LeaveTypeRule,types:readonly LeaveTypeRule[
       if(!source)continue;
       const threshold=(source.mergeAfterDays??0)*480;
       if(threshold>0){
-        const earlier=active.filter(x=>x.leaveTypeId===source.id&&!x.cancelledAt&&x.workDate<=entry.workDate&&x.workDate.slice(0,4)===entry.workDate.slice(0,4))
-            .reduce((n,x)=>n+x.minutes,0);
-        const before=earlier-entry.minutes;
-        used+=Math.min(entry.minutes,Math.max(0,earlier-threshold))-Math.max(0,before-threshold);
+        used+=merged.get(entry)??0;
       }else used+=entry.minutes;
     }
    }

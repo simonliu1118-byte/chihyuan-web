@@ -10,6 +10,7 @@ import {enterAdvancesThenSubmits} from "../../ui/foundation/enter-advance";
 import {FeedbackBanner} from "../../ui/feedback/FeedbackProvider";
 import {formatDate} from "../../ui/foundation/format";
 import {HrPhase2aSettings} from "./HrPhase2aSettings";
+import {HrPayrollSettings} from './HrPayrollSettings';
 type Item={id:number;name:string;is_active:number};
 type Wage={id:number;effective_date:string;monthly_amount:number;hourly_amount:number};
 const ROOT="/api/business/hr/settings";
@@ -31,6 +32,7 @@ export function HrSettingsButton(){
   <Dialog open={open} title="人事設定" size="large" dismissible={!busy} onClose={()=>void close()}>
    <FeedbackBanner message={error||null} tone="danger" />
    <HrPhase2aSettings />
+   <HrPayrollSettings />
    <section className="cy-op-panel"><h3>津貼項目</h3>
     <form onKeyDown={enterAdvancesThenSubmits} className="cy-op-form" onSubmit={addItem}>
     <EntryTable label="津貼項目"><thead><tr><th>名稱</th><th>狀態</th><th>操作</th></tr></thead><tbody>
