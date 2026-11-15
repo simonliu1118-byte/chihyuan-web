@@ -2,7 +2,7 @@ import type {HealthTable,LaborTable,PayrollRule,PensionTable,RuleKind,TaxTable} 
 import {AuditService} from '../audit/audit-service';
 import {HrValidationError} from './hr-validation';
 
-const HOSTS=new Set(['data.gov.tw','apiservice.mol.gov.tw','info.nhi.gov.tw','www.ntbt.gov.tw','www.etax.nat.gov.tw','www.mol.gov.tw']);
+const HOSTS=new Set(['data.gov.tw','apiservice.mol.gov.tw','info.nhi.gov.tw','www.ntbt.gov.tw','www.etax.nat.gov.tw','www.mol.gov.tw','www.nhi.gov.tw']);
 const datasets={labor:6259,pension:6274,health:20246,tax:25627} as const;
 const LIMIT=1_000_000;
 export const sha256=async(text:string)=>[...new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(text)))].map(n=>n.toString(16).padStart(2,'0')).join('');
@@ -79,13 +79,20 @@ export function normalizeTax(raw:string,evidence:string,minimum:number):{effecti
  const rows=csv.map(r=>{const range=/^\s*([\d,]+)\s*[~～-]\s*([\d,]+)\s*$/.exec(r[0]);if(!range||r.length!==13)throw Error('扣繳表級距無法辨識');return {from:number(range[1]),to:number(range[2]),amounts:r.slice(1).map(number)};});
  if(rows.length<100||rows.length>3000||rows.some((r,i)=>r.to<r.from||i>0&&r.from!==rows[i-1].to+1||r.amounts.some((a,j)=>!Number.isSafeInteger(a)||j>0&&a>r.amounts[j-1]||i>0&&a<rows[i-1].amounts[j])))throw Error('扣繳表級距或稅額不一致');
  if(rows.find(r=>r.amounts[0]>0)?.from!==threshold||minimum<=0||rows.at(-1)?.to!==500000)throw Error('扣繳CSV與官方起扣點／最低工資／表尾不一致');
- return {effective:year+'-01-01',data:{rows,nonresidentThreshold:minimum*1.5}};
+ return {effective:year+'-01-01',data:{rows,nonresidentThreshold:minimum*1.5,nonMonthlyThreshold:threshold}};
 }
 async function resource(dataset:number,format:'JSON'|'CSV',transport:typeof fetch){
  const page='https://data.gov.tw/dataset/'+dataset,html=await officialText(page,transport);
  const links=resourceLinks(html,page).filter(l=>l.label===format);
  if(!links.length)throw Error('官方資料集缺少 '+format+' 來源');
  return {html,links};
+}
+export const SUPPLEMENT_SOURCE='https://www.nhi.gov.tw/ch/cp-4516-74b0f-2613-1.html';
+export function normalizeSupplement(html:string){
+ const text=plain(html),stamp=/最新\s*(\d{3})[.年]\s*(\d{1,2})[.月]\s*(\d{1,2})/.exec(text),rate=/費率\s*(\d+(?:\.\d+)?)%/.exec(text),cap=/單次以\s*([\d,]+)\s*萬元/.exec(text),multiple=/投保金額\s*(\d+)\s*倍/.exec(text);
+ if(!stamp||!rate||!cap||!multiple||!text.includes('兼職薪資所得')||!text.includes('基本工資')||!text.includes('投保金額總額'))throw Error('官方補充保費日期／費率／門檻不完整');
+ const effective=date(stamp[1]+stamp[2].padStart(2,'0')+stamp[3].padStart(2,'0')),data={rate:number(rate[1]),cap:number(cap[1])*10000,multiple:number(multiple[1])};
+ if(data.rate<=0||data.rate>10||data.cap<100000||data.cap>100000000||data.multiple<=0||data.multiple>20)throw Error('官方補充保費數值無效');return {effective,data};
 }
 export async function downloadRule(kind:RuleKind,transport:typeof fetch=fetch){
  const page=await resource(datasets[kind],kind==='labor'||kind==='pension'?'JSON':'CSV',transport);
@@ -112,10 +119,12 @@ export async function downloadRule(kind:RuleKind,transport:typeof fetch=fetch){
   normalized=normalizeTax(raw,evidence,(labor.data as LaborTable).minimum);
   if(normalized.effective.slice(0,4)!==labor.effective.slice(0,4))throw Error('扣繳佐證與最低工資年度不同');
  }
+ let supplement:{effective:string;data:{rate:number;cap:number;multiple:number};raw:string;hash:string;sourceHash:string}|undefined;
+ if(kind==='health'){const text=await officialText(SUPPLEMENT_SOURCE,transport),normalized=normalizeSupplement(text);supplement={...normalized,raw:text,hash:await sha256(JSON.stringify(normalized)),sourceHash:await sha256(text)};}
  const parserVersion=1,hash=await sha256(JSON.stringify({parserVersion,kind,normalized}));
  const archive=JSON.stringify({parserVersion,raw,evidence,datasetUrl:'https://data.gov.tw/dataset/'+datasets[kind],resourceContext:selected.context,metadata:plain(page.html)});
  if(new TextEncoder().encode(archive).byteLength>1500000)throw Error('官方原文封存超過安全上限');
- return {kind,...normalized,hash,sourceHash:await sha256(raw),url:selected.url,raw:archive,minimumWages,validUntil:kind==='tax'||kind==='labor'?normalized.effective.slice(0,4)+'-12-31':'9999-12-31'};
+ return {kind,...normalized,supplement,hash,sourceHash:await sha256(raw),url:selected.url,raw:archive,minimumWages,validUntil:kind==='tax'||kind==='labor'?normalized.effective.slice(0,4)+'-12-31':'9999-12-31'};
 }
 export async function syncPayrollRules(db:D1Database,now:string,transport:typeof fetch=fetch){
  const results:{kind:RuleKind;ok:boolean;message:string}[]=[];
@@ -139,6 +148,9 @@ export async function syncPayrollRules(db:D1Database,now:string,transport:typeof
    }
    if(!existing){statements.push(db.prepare("INSERT OR IGNORE INTO hr_payroll_rule_versions(kind,effective_date,valid_until,source_url,source_hash,content_hash,payload_json,source_text,created_at) VALUES(?,?,?,?,?,?,?,?,?)").bind(kind,r.effective,r.validUntil,r.url,r.sourceHash,r.hash,JSON.stringify(r.data),r.raw,now));
     statements.push(new AuditService(db).prepareRecord({entityType:'hr_payroll_rule',entityKey:kind,action:'hr_payroll_rule.imported',actorEmployeeId:null,requestId:crypto.randomUUID(),after:{effectiveDate:r.effective,source:r.url,hash:r.hash}}));}
+   if(r.supplement){const p=r.supplement,found=await db.prepare('SELECT id FROM hr_payroll_supplement_versions WHERE effective_date=? AND content_hash=?').bind(p.effective,p.hash).first();
+    if(!found){statements.push(db.prepare('INSERT INTO hr_payroll_supplement_versions(effective_date,payload_json,source_url,source_hash,content_hash,source_text,created_at) VALUES(?,?,?,?,?,?,?)').bind(p.effective,JSON.stringify(p.data),SUPPLEMENT_SOURCE,p.sourceHash,p.hash,p.raw,now));statements.push(new AuditService(db).prepareRecord({entityType:'hr_payroll_rule',entityKey:'health_supplement',action:'hr_payroll_rule.imported',actorEmployeeId:null,requestId:crypto.randomUUID(),after:{effectiveDate:p.effective,source:SUPPLEMENT_SOURCE,hash:p.hash}}));}
+   }
    statements.push(db.prepare("UPDATE hr_payroll_sync_state SET success_at=?,error='',blocking=0,lease_until=NULL WHERE kind=? AND lease_until=?").bind(now,kind,lease));
    await db.batch(statements);results.push({kind,ok:true,message:existing?'官方內容未變':'已導入 '+r.effective});
   }catch(e){const message=e instanceof Error?e.message:'官方表更新失敗',blocking=/^官方來源HTTP |abort|timeout|fetch failed|network|failed to fetch|timed out/i.test(message)?0:1;await db.prepare("UPDATE hr_payroll_sync_state SET error=?,blocking=max(blocking,?),lease_until=NULL WHERE kind=? AND lease_until=?").bind(message.slice(0,500),blocking,kind,lease).run();results.push({kind,ok:false,message});}
@@ -146,6 +158,6 @@ export async function syncPayrollRules(db:D1Database,now:string,transport:typeof
  return results;
 }
 export async function payrollRuleStatus(db:D1Database){
- const [versions,states]=await Promise.all([db.prepare('SELECT id,kind,effective_date,valid_until,source_url,source_hash,created_at FROM hr_payroll_rule_versions ORDER BY kind,effective_date DESC,id DESC LIMIT 201').all(),db.prepare('SELECT kind,checked_at,success_at,error FROM hr_payroll_sync_state ORDER BY kind').all()]);
- if((versions.results??[]).length>200)throw new HrValidationError('limit','版本超過單次查詢上限');return {versions:versions.results??[],states:states.results??[]};
+ const [versions,states,supplements]=await Promise.all([db.prepare('SELECT id,kind,effective_date,valid_until,source_url,source_hash,created_at FROM hr_payroll_rule_versions ORDER BY kind,effective_date DESC,id DESC LIMIT 201').all(),db.prepare('SELECT kind,checked_at,success_at,error FROM hr_payroll_sync_state ORDER BY kind').all(),db.prepare("SELECT id,'health_supplement' AS kind,effective_date,'9999-12-31' AS valid_until,source_url,source_hash,created_at FROM hr_payroll_supplement_versions ORDER BY effective_date DESC,id DESC LIMIT 201").all()]);
+ if((versions.results??[]).length>200)throw new HrValidationError('limit','版本超過單次查詢上限');return {versions:[...(versions.results??[]),...(supplements.results??[])],states:states.results??[]};
 }

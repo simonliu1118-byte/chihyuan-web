@@ -8,7 +8,7 @@ const {HrPayrollService}=await compiled('worker/hr/hr-payroll-service.ts');
 const {HrAttendanceCorrectionService}=await compiled('worker/hr/hr-attendance-correction.ts');
 const {officialUrl,officialText,normalizeTax,normalizeHealth,parseCsv,syncPayrollRules}=await compiled('worker/hr/hr-payroll-import.ts');
 const {checkLeaveQuota}=await compiled('shared/hr-leave.ts');
-const profile={attendanceEnabled:true,attendanceAmount:3000,laborEnabled:false,employmentInsurance:false,laborBasis:0,healthEnabled:false,healthBasis:0,dependents:0,healthAtMonthEnd:false,pensionEnabled:false,pensionBasis:0,pensionEmployerRate:6,pensionSelfRate:0,insuredFrom:'2025-01-01',insuredTo:null,occupationalBasis:0,occupationalRate:0,taxResidence:'resident',taxMethod:'table',taxDependents:0};
+const profile={attendanceEnabled:true,attendanceAmount:3000,laborEnabled:false,employmentInsurance:false,laborBasis:0,healthEnabled:false,healthBasis:0,dependents:0,healthAtMonthEnd:false,pensionEnabled:false,pensionBasis:0,pensionEmployerRate:6,pensionSelfRate:0,insuredFrom:'2025-01-01',insuredTo:null,occupationalBasis:0,occupationalRate:0,taxResidence:'resident',taxMethod:'table',taxDependents:0,taxSalaryKind:'primary',nhiSupplementCategory:'exempt',nhiExemptionReference:'合成已核對免扣資料',nhiUnitKey:'合成投保單位'};
 const rules=[{id:1,kind:'tax',effective_date:'2026-01-01',valid_until:'2026-12-31',source_url:'https://www.ntbt.gov.tw/test',source_hash:'test',data:{rows:[{from:80001,to:500000,amounts:[2020,0]}],nonresidentThreshold:44250}},{id:2,kind:'labor',effective_date:'2026-01-01',valid_until:'2026-12-31',source_url:'https://apiservice.mol.gov.tw/test',source_hash:'test2',data:{minimum:29500,rows:[{basis:30300,laborRate:11.5,employmentRate:1,worker:758,employer:2651}]}}];
 const salary=[{id:1,effective_date:'2025-01-01',payment_type:'monthly',base_amount:30000,allowances:[]}];
 const day=(patch={})=>({date:'2026-11-02',workedMinutes:480,lateMinutes:0,earlyMinutes:0,anomalies:[],normalMinutes:480,holiday:false,consecutiveSix:false,schedule:{kind:'shift',rest_label:null,code:null},overtime:null,...patch});
@@ -132,7 +132,7 @@ test('full official-shaped discovery/import is idempotent, prefills next-year mi
  const archive=JSON.parse(f.sql.prepare("SELECT source_text FROM hr_payroll_rule_versions WHERE kind='health'").get().source_text);assert.equal(archive.parserVersion,1);assert.ok(archive.resourceContext.includes('115年1月'));
  const future=f.sql.prepare("SELECT monthly_amount,hourly_amount FROM hr_minimum_wages WHERE effective_date='2027-01-01'").get();assert.equal(future.monthly_amount,30900);assert.equal(future.hourly_amount,205);
  const again=await syncPayrollRules(f.db,'2026-11-16T10:00:00Z',sources.fetcher);assert.ok(again.every(r=>r.ok));assert.equal(f.sql.prepare('SELECT COUNT(*) n FROM hr_payroll_rule_versions').get().n,4);
- const audits=f.sql.prepare("SELECT COUNT(*) n FROM audit_events WHERE action='hr_payroll_rule.imported'").get().n;assert.equal(audits,4);
+ const audits=f.sql.prepare("SELECT COUNT(*) n FROM audit_events WHERE action='hr_payroll_rule.imported'").get().n;assert.equal(audits,5);
  sources.bodies.set('https://info.nhi.gov.tw/health','<html>site error</html>');await syncPayrollRules(f.db,'2026-11-17T10:00:00Z',sources.fetcher);
  assert.equal(f.sql.prepare("SELECT blocking FROM hr_payroll_sync_state WHERE kind='health'").get().blocking,1);assert.equal(f.sql.prepare("SELECT COUNT(*) n FROM hr_payroll_rule_versions WHERE kind='health'").get().n,1);
  const taxSource='https://www.etax.nat.gov.tw/etwmain/tax-info/understanding/tax-q-and-a/national/individual-income-tax/withheld-rule/rule/NM11BZY';sources.bodies.set(taxSource,sources.bodies.get(taxSource).replace('扣繳5%','扣繳7%'));await syncPayrollRules(f.db,'2026-11-18T10:00:00Z',sources.fetcher);assert.equal(f.sql.prepare("SELECT blocking FROM hr_payroll_sync_state WHERE kind='tax'").get().blocking,1);
@@ -157,7 +157,7 @@ const {handleHrRoute}=await compiled('worker/http/hr-routes.ts');
 test('authenticated ADMIN receives only explicit correction capability, never payroll, salary or employee records',async()=>{
  const f=botCenterFixture('ADMIN');try{seed(f);
  const call=async(path,method='GET',body)=>handleHrRoute(new Request('https://acceptance.test/api/business/hr'+path,{method,headers:{cookie:'cyweb_identity_session=cyid_'+'a'.repeat(64),'content-type':'application/json'},body:body===undefined?undefined:JSON.stringify(body)}),f.env,'scope-test');
- for(const path of ['/employees','/payroll/runs?month=2026-11','/payroll/profiles/1','/settings/payroll-rules','/employees/1/attendance?month=2026-11'])assert.equal((await call(path)).status,403,path);
+ for(const path of ['/employees','/payroll/runs?month=2026-11','/payroll/profiles/1','/payroll/legal-cases/1','/payroll/corrections/1?month=2026-11','/payroll/employer-supplement?month=2026-12','/settings/payroll-rules','/employees/1/attendance?month=2026-11'])assert.equal((await call(path)).status,403,path);
  assert.equal((await call('/attendance-corrections?storeId=1&month=2026-11')).status,403);
  await new HrAttendanceCorrectionService(f.db,1,'SUPER_ADMIN').grant({memberId:1,storeId:1,revision:0,enabled:true,reason:'測試指定'},ctx);
  const capability=await (await call('/attendance-corrections/capabilities')).json();assert.equal(capability.data.payroll,false);assert.equal(capability.data.stores.length,1);
@@ -199,4 +199,69 @@ test('manual paid days cannot reduce an ordinary full-month salary without an un
 test('an unpaid-period flag cannot authorize paying zero against actual recorded normal work',()=>{
  const r=calculatePayroll({employeeId:1,month:'2026-11',payDate:'2026-12-05',paidDays:0},{hireDate:'2025-01-01',terminationDate:null,hasUnpaidPeriod:true},profile,salary,[day()],[],rules);
  assert.ok(r.issues.some(x=>x.includes('少於已記錄正常出勤')));
+});
+const {HrPayrollLegalService}=await compiled('worker/hr/hr-payroll-legal-service.ts');
+const isoNext=(d,n)=>new Date(Date.parse(d+'T00:00:00Z')+n*86400000).toISOString().slice(0,10);
+function calendarLeaves(from,count,code='產'){return Array.from({length:count},(_,i)=>leave(code,480,isoNext(from,i),{id:i+1,whole_day:1,event_date:from,event_quota_days:count}));}
+const legalCase=(from,count,patch={})=>({id:1,kind:'maternity',eventDate:from,from,to:isoNext(from,count-1),monthlyBasis:33000,averageDaily:1100,offsets:{},reference:'合成已核對工資與事件資料',active:true,...patch});
+test('continuous maternity includes future/year-boundary rows; half pay preserves attendance and February monthly floor',()=>{
+ const full=calculatePayroll({employeeId:1,month:'2026-02',payDate:'2026-03-05'},{hireDate:'2025-01-01',terminationDate:null},profile,salary,Array.from({length:28},(_,i)=>day({date:isoNext('2026-02-01',i),workedMinutes:0})),calendarLeaves('2026-01-15',56),rules,[],[],{legalCases:[legalCase('2026-01-15',56)]});assert.deepEqual(full.issues,[]);assert.equal(full.net,33000);
+ const half=calculatePayroll({employeeId:1,month:'2026-02',payDate:'2026-03-05'},{hireDate:'2026-01-01',terminationDate:null},profile,salary,Array.from({length:28},(_,i)=>day({date:isoNext('2026-02-01',i),workedMinutes:0})),calendarLeaves('2026-02-01',56),rules,[],[],{legalCases:[legalCase('2026-02-01',56)]});assert.deepEqual(half.issues,[]);assert.equal(half.attendanceAmount,3000);assert.equal(half.net,18000);
+ const broken=calendarLeaves('2026-01-15',56).filter(l=>l.work_date!=='2026-02-07');const r=calculatePayroll({employeeId:1,month:'2026-02',payDate:'2026-03-05'},{hireDate:'2025-01-01',terminationDate:null},profile,salary,[day({date:'2026-02-01'})],broken,rules,[],[],{legalCases:[legalCase('2026-01-15',56)]});assert.ok(r.issues.some(s=>s.includes('完整連續')));
+});
+test('five-day miscarriage maternity is unpaid without cancelling attendance; occupational offsets cannot exceed compensation',()=>{
+ const r=calculatePayroll({employeeId:1,month:'2026-11',payDate:'2026-12-05'},{hireDate:'2025-01-01',terminationDate:null},profile,salary,Array.from({length:30},(_,i)=>day({date:isoNext('2026-11-01',i),workedMinutes:0})),calendarLeaves('2026-11-01',5),rules,[],[],{legalCases:[legalCase('2026-11-01',5)]});assert.deepEqual(r.issues,[]);assert.equal(r.net,28000);assert.equal(r.attendanceAmount,3000);
+ const injury=calculatePayroll({employeeId:1,month:'2026-11',payDate:'2026-12-05'},{hireDate:'2025-01-01',terminationDate:null},profile,salary,Array.from({length:30},(_,i)=>day({date:isoNext('2026-11-01',i),workedMinutes:0})),calendarLeaves('2026-11-01',30,'傷'),rules,[],[],{legalCases:[legalCase('2026-11-01',30,{kind:'occupational',offsets:{'2026-11':5000}})]});assert.deepEqual(injury.issues,[]);assert.equal(injury.net,28000);assert.equal(injury.lines.find(l=>l.label==='所得稅扣繳').amount,0);
+});
+test('midmonth insurance facts and pension bases split by date; health uses month-end facts',()=>{
+ const p={...profile,attendanceEnabled:false,laborEnabled:true,employmentInsurance:true,laborBasis:30300,pensionEnabled:true,pensionBasis:30300,pensionFrom:'2025-01-01',healthEnabled:true,healthAtMonthEnd:true,healthBasis:30300};
+ const rs=[...rules,{id:3,kind:'pension',effective_date:'2026-01-01',valid_until:'9999-12-31',source_url:'synthetic',data:{amounts:[30300,31800]}},{id:4,kind:'health',effective_date:'2026-01-01',valid_until:'9999-12-31',source_url:'synthetic',data:{rows:[{basis:30300,worker:[470,940,1410,1880],employer:1466},{basis:31800,worker:[493,986,1479,1972],employer:1539}]}}];rs[1]={...rules[1],data:{...rules[1].data,rows:[...rules[1].data.rows,{basis:31800,laborRate:11.5,employmentRate:1,worker:795,employer:2782}]}};
+ const r=calculatePayroll({employeeId:1,month:'2026-11',payDate:'2026-12-05'},{hireDate:'2025-01-01',terminationDate:null},p,salary,[day()],[],rs,[],[],{profiles:[{effectiveDate:'2025-01-01',settings:p},{effectiveDate:'2026-11-16',settings:{...p,laborBasis:31800,pensionBasis:31800,healthBasis:31800}}]});assert.deepEqual(r.issues,[]);assert.equal(r.lines.find(l=>l.label==='雇主勞退').amount,1863);assert.equal(r.lines.find(l=>l.label==='健保').amount,493);assert.ok(r.lines.find(l=>l.label==='勞保').detail.includes('15天'));
+});
+test('legal facts append and fence stale editors; changes invalidate an unissued payroll snapshot',async()=>{
+ const f=botCenterFixture();try{seed(f);const legal=new HrPayrollLegalService(f.db),s=new HrPayrollService(f.db);await s.saveProfile(1,{settings:profile,effectiveDate:'2026-01-01',reason:'合成',expectedId:0},ctx);const run=await s.calculate({employeeId:1,month:'2026-11',payDate:'2026-12-05'},ctx);
+ const input={kind:'maternity',eventDate:'2026-11-01',from:'2026-11-01',to:'2026-12-26',monthlyBasis:33000,averageDaily:1100,month:'2026-11',offset:0,reference:'合成基準資料',reason:'合成核對',active:true,expectedId:0};await legal.save(1,input,ctx);await assert.rejects(legal.save(1,input,ctx));await assert.rejects(s.transition(run.id,{action:'confirm',revision:run.revision,reason:'合成'},ctx),/重算/);assert.equal((await legal.list(1)).length,1);
+ }finally{f.sql.close();}
+});
+const {paymentTaxes}=await compiled('shared/hr-payroll-supplement.ts');
+const {employerSupplement}=await compiled('worker/hr/hr-payroll-employer.ts');
+const supplementPolicy={id:1,effectiveDate:'2021-01-01',rate:2.11,cap:10000000,multiple:4,source:'https://www.nhi.gov.tw/synthetic'};
+const ownerBonus={...profile,nhiSupplementCategory:'own',healthBasis:30300,bonusOpeningYear:2026,bonusOpeningThrough:'2025-12-31',bonusOpeningAmount:0,bonusOpeningReference:'合成核對年度期初'};
+test('bonus health premium uses annual accumulated excess, exact cap and separate withholding; missing opening is never guessed',()=>{
+ const issues=[];const p=paymentTaxes('2026-12-05',33000,200000,ownerBonus,rules[0].data,{policy:supplementPolicy},s=>issues.push(s));assert.deepEqual(issues,[]);assert.equal(p.taxBonus,10000);assert.equal(p.nhiPremium,1663);
+ const prior=[{date:'2026-05-05',regular:33000,bonus:100000,taxRegular:0,taxBonus:5000,nhiIncome:133000,nhiPremium:0}];assert.equal(paymentTaxes('2026-12-05',33000,50000,ownerBonus,rules[0].data,{policy:supplementPolicy,paidIncome:prior},s=>issues.push(s)).nhiPremium,608);
+ assert.equal(paymentTaxes('2026-12-05',33000,50000,{...ownerBonus,bonusOpeningThrough:'2026-06-30'},rules[0].data,{policy:supplementPolicy,paidIncome:prior},s=>issues.push(s)).nhiPremium,608);
+ assert.equal(paymentTaxes('2026-12-05',33000,20000000,ownerBonus,rules[0].data,{policy:supplementPolicy},s=>issues.push(s)).nhiPremium,211000);
+ paymentTaxes('2026-12-05',33000,200000,{...ownerBonus,bonusOpeningYear:undefined},rules[0].data,{policy:supplementPolicy},s=>issues.push(s));assert.ok(issues.some(s=>s.includes('期初累計')));
+});
+test('secondary salary has its own withholding threshold and supplemental health minimum; same-day payouts cannot bypass a threshold',()=>{
+ const p={...profile,taxSalaryKind:'secondary',nhiSupplementCategory:'other'},issues=[],ctx={policy:supplementPolicy,paymentMinimum:29500};
+ const low=paymentTaxes('2026-12-05',20000,0,p,rules[0].data,ctx,s=>issues.push(s));assert.equal(low.nhiPremium,0);assert.equal(low.taxRegular,0);
+ const next=paymentTaxes('2026-12-05',70000,0,p,rules[0].data,{...ctx,paidIncome:[{date:'2026-12-05',regular:20000,bonus:0,taxRegular:0,taxBonus:0,nhiIncome:20000,nhiPremium:0}]},s=>issues.push(s));assert.equal(next.taxRegular,4500);assert.equal(next.nhiPremium,1899);assert.deepEqual(issues,[]);
+});
+test('employer supplemental premium is one payer-month statement, never an employee deduction',async()=>{
+ const f=botCenterFixture();try{seed(f);const s=new HrPayrollService(f.db);const p={...ownerBonus,healthEnabled:true,healthAtMonthEnd:true,healthFrom:'2025-01-01',healthTo:null};await s.saveProfile(1,{settings:p,effectiveDate:'2026-01-01',reason:'合成',expectedId:0},ctx);
+ f.sql.prepare("INSERT INTO hr_payroll_rule_versions(kind,effective_date,valid_until,source_url,source_hash,payload_json,source_text,created_at) VALUES('health','2026-01-01','9999-12-31','https://info.nhi.gov.tw/synthetic','synthetic',?,'synthetic',?)").run(JSON.stringify({rows:[{basis:30300,worker:[470,940,1410,1880],employer:1466}]}),ctx.now);
+ f.sql.prepare("INSERT INTO hr_payroll_supplement_versions(effective_date,payload_json,source_url,source_hash,content_hash,source_text,created_at) VALUES('2021-01-01',?,'https://www.nhi.gov.tw/synthetic','synthetic','synthetic','synthetic',?)").run(JSON.stringify({rate:2.11,cap:10000000,multiple:4}),ctx.now);
+ let r=await s.calculate({employeeId:1,month:'2026-11',payDate:'2026-12-05',bonusAmount:100000},ctx);assert.deepEqual(r.result.issues,[]);assert.equal(r.result.net,127530);assert.equal(r.result.nhiPremium,0);
+ r=await s.transition(r.id,{action:'confirm',revision:r.revision,reason:'合成核對'},ctx);await s.transition(r.id,{action:'pay',revision:r.revision,reason:'合成已發'},ctx);
+ const statement=await employerSupplement(f.db,'2026-12','合成投保單位');assert.deepEqual(statement.statement.issues,[]);assert.equal(statement.statement.premium,2167);assert.equal(statement.statement.income,133000);assert.equal(statement.statement.basis,30300);assert.equal((await s.get(r.id)).result.net,127530);
+ }finally{f.sql.close();}
+});
+const {HrPayrollCorrections}=await compiled('worker/hr/hr-payroll-corrections.ts');
+test('paid salary corrections keep the original, require recovery consent, fence refunds, and reserve a delta only once',async()=>{
+ const f=botCenterFixture();try{seed(f);const s=new HrPayrollService(f.db),corrections=new HrPayrollCorrections(f.db);await s.saveProfile(1,{settings:profile,effectiveDate:'2026-01-01',reason:'合成',expectedId:0},ctx);
+ let original=await s.calculate({employeeId:1,month:'2026-10',payDate:'2026-11-05'},ctx);original=await s.transition(original.id,{action:'confirm',revision:original.revision,reason:'合成'},ctx);original=await s.transition(original.id,{action:'pay',revision:original.revision,reason:'合成'},ctx);const frozen=JSON.stringify(original.result);
+ const input={sourceRunId:original.id,kind:'salary_topup',amount:1000,reference:'合成已核定補發差額',consentReference:'',reason:'合成核對',requestKey:'synthetic-correction-1'};
+ await corrections.create(1,'2026-11',input,ctx);await corrections.create(1,'2026-11',input,ctx);assert.equal((await corrections.list(1,'2026-11')).entries.length,1);
+ await assert.rejects(corrections.create(1,'2026-11',{...input,requestKey:'bad-recovery',kind:'salary_recovery'},ctx),/同意/);
+ await assert.rejects(corrections.create(1,'2026-11',{...input,requestKey:'too-much',kind:'salary_recovery',amount:33001,consentReference:'合成員工明確同意'},ctx),/超過/);
+ let r=await s.calculate({employeeId:1,month:'2026-11',payDate:'2026-12-05'},ctx);assert.deepEqual(r.result.issues,[]);assert.equal(r.result.net,34000);assert.equal(r.result.corrections.length,1);
+ r=await s.transition(r.id,{action:'confirm',revision:r.revision,reason:'合成'},ctx);assert.equal(f.sql.prepare('SELECT COUNT(*) n FROM hr_payroll_correction_uses WHERE is_active=1').get().n,1);
+ await assert.rejects(corrections.cancel(1,'2026-11',{id:r.result.corrections[0],revision:1,reason:'合成不得直接撤銷已套用'},ctx));
+ await s.transition(r.id,{action:'reopen',revision:r.revision,reason:'合成重算'},ctx);assert.equal(f.sql.prepare('SELECT COUNT(*) n FROM hr_payroll_correction_uses WHERE is_active=1').get().n,0);
+ r=await s.calculate({employeeId:1,month:'2026-11',payDate:'2026-12-05'},ctx);r=await s.transition(r.id,{action:'confirm',revision:r.revision,reason:'合成'},ctx);await s.transition(r.id,{action:'pay',revision:r.revision,reason:'合成'},ctx);
+ assert.equal(JSON.stringify((await s.get(original.id)).result),frozen);assert.equal(f.sql.prepare('SELECT COUNT(*) n FROM hr_payroll_correction_uses WHERE is_active=1').get().n,1);
+ await assert.rejects(corrections.create(1,'2026-11',{...input,requestKey:'late-new-entry'},ctx),/目標月份/);
+ }finally{f.sql.close();}
 });

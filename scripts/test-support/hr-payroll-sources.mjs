@@ -18,6 +18,7 @@ export function payrollSources(){
  bodies.set('https://www.ntbt.gov.tw/tax',tax);
  bodies.set('https://www.etax.nat.gov.tw/etwmain/tax-info/understanding/tax-q-and-a/national/individual-income-tax/withheld-rule/rule/NM11BZY','115年度為90,501元，按照全月給付總額扣繳5%，每月應扣繳稅額不超過2,000元者，免予扣繳；非居住者按照全月給付總額扣繳18%，最低工資之1.5倍以下扣繳6%。');
  bodies.set('https://www.mol.gov.tw/1607/28162/28166/28180/99861/28184/29016/','民國114年10月21日發布，自115年1月1日起實施，訂定每月最低工資為29,500元，每小時最低工資為196元。民國115年10月16日發布，自116年1月1日起實施，訂定每月最低工資為30,900元，每小時最低工資為205元。');
+ bodies.set('https://www.nhi.gov.tw/ch/cp-4516-74b0f-2613-1.html','最新110.01.01更新。費率2.11%，投保金額4倍，單次以1,000萬元為限。兼職薪資所得達基本工資；雇主薪資總額減投保金額總額。');
  const calls=[];
  const fetcher=async(url,options)=>{calls.push(String(url));const body=bodies.get(String(url));return new Response(body??'not found',{status:body==null?404:200,headers:{'content-type':'text/plain;charset=utf-8'}});};
  return {bodies,calls,fetcher};

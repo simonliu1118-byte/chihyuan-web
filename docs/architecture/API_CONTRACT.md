@@ -684,3 +684,5 @@ GET `/api/business/items/platforms`既有平台回應新增`feeCategories: [{id,
 ## V0.21.0 每月薪資及指定更正（工作分支，待Claude審查）
 
 新增`/api/business/hr/payroll/*`、`/settings/payroll-rules`、`/settings/attendance-correction-grants`，全部超管。`/attendance-corrections`及`/attendance-corrections/capabilities`為唯一具名ADMIN門市更正例外；Session及啟用帳號仍必須驗證，USER無更正能力。完整方法、revision／來源快照／Audit、錯誤及未涵蓋情境見[HR_PAYROLL_CONTRACT](HR_PAYROLL_CONTRACT.md)。尚未合併／部署。
+
+V0.21.0 Build2：超管新增GET／POST `/payroll/legal-cases/:employeeId`（expectedId、核對來源）、GET／POST／PATCH `/payroll/corrections/:employeeId?month=YYYY-MM`（追加差額requestKey／撤銷revision）與GET `/payroll/employer-supplement?month=YYYY-MM&unit=...`；均沿前述`/api/business/hr`前綴及既有SA gate。calculate可帶非每月bonusAmount，同日給付，來源同時含給付日profile、補充保費版、已發薪年累計及差額。沒有AI寫入或政府申報接口；細節與邊界仍以[薪資契約](HR_PAYROLL_CONTRACT.md)為準。

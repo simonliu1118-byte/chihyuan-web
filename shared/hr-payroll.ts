@@ -1,3 +1,6 @@
+import {paymentTaxes,type PaymentTaxContext} from './hr-payroll-supplement';
+import {legalCalendarPay,type PayrollLegalCase} from './hr-payroll-legal';
+import {payrollInsurance,type EffectivePayrollProfile} from './hr-payroll-insurance';
 /** Payroll values are computed by the Worker. UI imports types only. */
 export type RuleKind='labor'|'pension'|'health'|'tax';
 export interface PayrollProfile {
@@ -9,6 +12,8 @@ export interface PayrollProfile {
  healthFrom?:string|null;healthTo?:string|null;pensionFrom?:string|null;pensionTo?:string|null;
  occupationalBasis:number;occupationalRate:number;
  taxResidence:'resident'|'nonresident';taxMethod:'table'|'percent';taxDependents:number;
+ taxSalaryKind?:'primary'|'secondary';nhiSupplementCategory?:'own'|'other'|'exempt';nhiExemptionReference?:string;nhiUnitKey?:string;
+ bonusOpeningYear?:number;bonusOpeningThrough?:string;bonusOpeningAmount?:number;bonusOpeningReference?:string;
  weeklyHours?:number;hourlyAllowanceHours?:number;
 }
 export interface PayrollRule {
@@ -18,7 +23,7 @@ export interface PayrollRule {
 export interface LaborTable {rows:{basis:number;laborRate:number;employmentRate:number;worker:number;employer:number}[];minimum:number}
 export interface PensionTable {amounts:number[]}
 export interface HealthTable {rows:{basis:number;worker:number[];employer:number}[]}
-export interface TaxTable {rows:{from:number;to:number;amounts:number[]}[];nonresidentThreshold:number}
+export interface TaxTable {rows:{from:number;to:number;amounts:number[]}[];nonresidentThreshold:number;nonMonthlyThreshold?:number}
 export interface PayrollSalary {id:number;effective_date:string;payment_type:'monthly'|'hourly';base_amount:number;allowances:{amount:number;item_name:string;is_regular:number}[]}
 export interface PayrollLeave {id:number;work_date:string;code:string;minutes:number;whole_day:number;pay_ratio:number|null;payroll_protection:string|null;event_date:string|null;event_quota_days:number|null;cancelled_at:string|null}
 export interface PayrollDay {
@@ -27,11 +32,15 @@ export interface PayrollDay {
  schedule:{kind:string;rest_label:string|null;code:string|null;marker?:string|null}|null;
  overtime:{minutes:number;settlement:string}|null;
 }
-export interface PayrollInput {employeeId:number;month:string;payDate:string;paidDays?:number;reason?:string}
+export interface PayrollCorrection {id:number;sourceRunId:number;kind:string;amount:number;reason:string;reference:string}
+export interface PayrollContext extends PaymentTaxContext {profiles?:readonly EffectivePayrollProfile[];legalCases?:readonly PayrollLegalCase[];corrections?:readonly PayrollCorrection[]}
+export interface PayrollInput {employeeId:number;month:string;payDate:string;paidDays?:number;reason?:string;bonusAmount?:number}
 export interface PayrollCashout {key:string;date:string;label:string;minutes:number;amount:number;taxExempt:number;detail:string}
 export interface PayrollLine {date:string;label:string;amount:number;minutes?:number;detail:string;kind:'earning'|'deduction'|'employer'}
 export interface PayrollResult {
  employeeId:number;month:string;payDate:string;gross:number;deductions:number;net:number;employer:number;
+ nhiPolicyVersion?:{id:number;effectiveDate:string;source:string};
+ corrections?:number[];nhiPremium?:number;regularTaxable?:number;bonusGross?:number;taxRegular?:number;taxBonus?:number;nhiIncome?:number;nhiUnitKey?:string;
  attendanceAmount:number;lines:PayrollLine[];issues:string[];ruleVersions:{id:number;kind:RuleKind;source:string}[];
  wageRates?:{date:string;hourly:number}[];cashouts?:{key:string;minutes:number;amount:number}[];
  overtimeTaxBands?:{date:string;minutes:number;exemptMinutes:number;kind:'ordinary'|'rest'|'holiday'|'regular';monthly:boolean}[];
@@ -60,7 +69,7 @@ export function selectRule(rules:readonly PayrollRule[],kind:RuleKind,at:string)
   .find(r=>r.valid_until>=at)??null;
 }
 export function calculatePayroll(input:PayrollInput,employee:{hireDate:string;terminationDate:string|null;employmentType?:string;hasUnpaidPeriod?:boolean},profile:PayrollProfile|null,
- salaries:readonly PayrollSalary[],days:readonly PayrollDay[],leaves:readonly PayrollLeave[],rules:readonly PayrollRule[],cashouts:readonly PayrollCashout[]=[],minimumWages:readonly {effective_date:string;monthly_amount:number;hourly_amount:number}[]=[]):PayrollResult {
+ salaries:readonly PayrollSalary[],days:readonly PayrollDay[],leaves:readonly PayrollLeave[],rules:readonly PayrollRule[],cashouts:readonly PayrollCashout[]=[],minimumWages:readonly {effective_date:string;monthly_amount:number;hourly_amount:number}[]=[],context:PayrollContext={}):PayrollResult {
  const issues:string[]=[],lines:PayrollLine[]=[],refs=new Map<number,PayrollRule>();
  const add=(kind:PayrollLine['kind'],label:string,amount:number,detail:string,date='',minutes?:number)=>{
   if(!finite(amount)){issues.push(label+'金額無效');return;}
@@ -121,6 +130,7 @@ export function calculatePayroll(input:PayrollInput,employee:{hireDate:string;te
   return s.payment_type==='monthly'?Math.max(s.base_amount+s.allowances.reduce((n,a)=>n+a.amount,0)+up(rateAttendance),minimum*weeklyRatio)/divisor:s.base_amount+(profile.hourlyAllowanceHours?(s.allowances.reduce((n,a)=>n+a.amount,0)+up(attendance))/profile.hourlyAllowanceHours:0);
  };
 
+ const baseByDate=new Map<string,number>();
  if(current.payment_type==='monthly'){
   const start=input.month+'-01',stop=last,ordered=[...salaries].filter(s=>s.effective_date<=stop).sort((a,b)=>a.effective_date.localeCompare(b.effective_date)||a.id-b.id);
   const segments:{salary:PayrollSalary;days:number;from:string;to:string}[]=[];
@@ -131,6 +141,8 @@ export function calculatePayroll(input:PayrollInput,employee:{hireDate:string;te
   }
   const sumDays=segments.reduce((n,s)=>n+s.days,0),adjust=sumDays?((input.paidDays??sumDays)/sumDays):0;
   for(const segment of segments){
+   const count=(Date.parse(segment.to)-Date.parse(segment.from))/86400000+1;
+   for(let at=Date.parse(segment.from);at<=Date.parse(segment.to);at+=86400000)baseByDate.set(new Date(at).toISOString().slice(0,10),(segment.salary.base_amount+segment.salary.allowances.reduce((n,a)=>n+a.amount,0))*segment.days/30*adjust/count);
    if(segment.salary.payment_type!=='monthly'){issues.push('月中月薪／時薪方式異動須先核對分段計薪');continue;}
    add('earning','本薪',segment.salary.base_amount*segment.days/30*adjust,`${segment.from}～${segment.to}，30天制 ${segment.days} 天`,segment.from);
    for(const a of segment.salary.allowances)add('earning',a.item_name,a.amount*segment.days/30*adjust,'取該段生效主檔津貼',segment.from);
@@ -157,15 +169,7 @@ export function calculatePayroll(input:PayrollInput,employee:{hireDate:string;te
   }else if(l.code==='生'){
    const extra=Math.min(l.minutes,Math.max(0,physYtd+l.minutes-1440));physYtd+=l.minutes;sickYtd+=extra;ratio=0.5;
   }else if(l.code==='事'||l.code==='家')ratio=0;
-  else if(l.code==='產'){
-   const start=l.event_date;
-   if(l.whole_day!==1)issues.push(l.work_date+' 產假須核對連續曆日，不以零碎時段直接套月薪給薪');
-   if(!start)issues.push(l.work_date+' 產假缺少事件起日');
-   const six=new Date(employee.hireDate+'T00:00:00Z');six.setUTCMonth(six.getUTCMonth()+6);
-   ratio=start&&start>=six.toISOString().slice(0,10)?1:0.5;
-   if(ratio===0.5)issues.push(l.work_date+' 未滿六個月產假須核對連續曆日與不足月給薪，不直接以一般請假時數扣薪');
-   if(l.event_quota_days!=null&&l.event_quota_days<28)issues.push(l.work_date+' 流產產假須核對個別給薪規定');
-  }else if(l.code==='傷')issues.push(l.work_date+' 公傷病補償須核對原領工資及保險給付');
+  else if(l.code==='產'||l.code==='傷')continue;
   else if(!['特','婚','喪','檢','陪','公','國','補','換','獎'].includes(l.code)){
    if(l.pay_ratio==null)issues.push(l.work_date+' '+l.code+' 尚未設定給薪比例');else ratio=l.pay_ratio;
   }
@@ -175,6 +179,8 @@ export function calculatePayroll(input:PayrollInput,employee:{hireDate:string;te
    else if(ratio>0)add('earning',l.code+'假工資',amount*ratio,'法定給薪；與實際出勤分開',l.work_date,l.minutes);
   }
  }
+ const calendar=legalCalendarPay(input.month,employee.hireDate,profile,salaries,actualLeaves,context.legalCases??[],baseByDate,paidDays.length?attendance/paidDays.length:0,s=>issues.push(s),paidDays);
+ for(const a of calendar.adjustments)add(a.kind,a.label,a.amount,a.detail);
  if(wageLoss)add('deduction','請假未給工資',wageLoss,'逐假別依法給薪，月底合計後捨去不足一元');
  let lateLoss=0,earlyLoss=0,absentLoss=0,otTotal=0,taxExemptOvertime=0,taxOvertimeMinutes=0;
  const overtimeTaxBands:NonNullable<PayrollResult['overtimeTaxBands']>=[];
@@ -218,48 +224,25 @@ export function calculatePayroll(input:PayrollInput,employee:{hireDate:string;te
   const table=need('labor',input.month+'-01')?.data as LaborTable|undefined;
   if(table?.minimum){
    const wage=lines.filter(l=>l.kind==='earning'&&!['加班費','加班明細'].includes(l.label)).reduce((n,l)=>n+l.amount,0);
-   const permitted=(wageLoss+lateLoss+earlyLoss+absentLoss)/Math.max(monthlyWage,1);
+   const permitted=(wageLoss+calendar.permittedLoss+lateLoss+earlyLoss+absentLoss)/Math.max(monthlyWage,1);
    const floor=Math.max(0,minimum*weeklyRatio*(factor-permitted));
-   const after=wage-down(wageLoss)-down(lateLoss)-down(earlyLoss)-down(absentLoss);
+   const after=wage-down(wageLoss)-down(calendar.permittedLoss)-down(lateLoss)-down(earlyLoss)-down(absentLoss);
    if(after<up(floor))add('earning','最低工資補足',up(floor)-after,'不因薪資結構／全勤扣發而低於法定最低工資扣除合法未給工資後之餘額');
   }
  }
- const insuranceAt=input.month+'-01',insured=profile.insuredFrom?insuranceDays(profile.insuredFrom,profile.insuredTo,input.month):0;
- if(profile.laborEnabled){const rule=need('labor',insuranceAt);if(rule){const table=rule.data as LaborTable,row=table.rows.find(r=>r.basis===profile.laborBasis);
-  if(!row)issues.push('勞保投保金額不在適用官方表內');
-  else{const ei=profile.employmentInsurance?row.employmentRate:0;
-   const premium=(rate:number,share:number)=>insured===30?round(profile.laborBasis*rate/100*share):round(Math.trunc(profile.laborBasis*rate/100*share/30*10000)/10000*insured);
-   if(profile.employmentInsurance&&insured===30&&(premium(row.laborRate,0.2)+premium(ei,0.2)!==row.worker||premium(row.laborRate,0.7)+premium(ei,0.7)!==row.employer))issues.push('勞保／就保分項金額與官方合計表不一致');
-   add('deduction','勞保',premium(row.laborRate,0.2),'一般受僱者；按在保天數、勞保與就保分別舍入');
-   add('deduction','就保',premium(ei,0.2),'僅適用就保者計收');
-   add('employer','雇主勞保',premium(row.laborRate,0.7),'公司負擔，不扣員工');add('employer','雇主就保',premium(ei,0.7),'公司負擔，不扣員工');
-  }
- }}
- const healthFrom=profile.healthFrom??profile.insuredFrom,healthTo=profile.healthTo??profile.insuredTo;
- if(profile.healthEnabled&&profile.healthAtMonthEnd&&healthFrom&&healthFrom<=last&&(!healthTo||healthTo>=last)){const rule=need('health',last);if(rule){const row=(rule.data as HealthTable).rows.find(r=>r.basis===profile.healthBasis);
-  if(!row)issues.push('健保投保金額不在適用官方表內');else{add('deduction','健保',row.worker[Math.min(profile.dependents,3)],'官方一般受僱者全月負擔表；眷屬最多計3口');add('employer','雇主健保',row.employer,'官方投保單位全月金額；公司成本');}
- }}
- let self=0;
- if(profile.pensionEnabled){const rule=need('pension',insuranceAt);if(rule){if(!(rule.data as PensionTable).amounts.includes(profile.pensionBasis))issues.push('勞退提繳金額不在適用官方表內');
-  const from=profile.pensionFrom??profile.insuredFrom,days=from?insuranceDays(from,profile.pensionTo??profile.insuredTo,input.month):0;
-  self=round(profile.pensionBasis*profile.pensionSelfRate/100*days/30);
-  add('deduction','勞退個人自提',self,'個人自提獨立列示');add('employer','雇主勞退',profile.pensionBasis*profile.pensionEmployerRate/100*days/30,'公司負擔，不扣員工');
- }}
- if(profile.occupationalRate)add('employer','職災保險',profile.occupationalBasis*profile.occupationalRate/100*insured/30,'適用單位費率；公司負擔');
+ const self=payrollInsurance(input.month,context.profiles??[{effectiveDate:firstEligible,settings:profile}],rules,add,s=>issues.push(s),need,insuranceDays);
  const earned=()=>lines.filter(l=>l.kind==='earning').reduce((n,l)=>n+l.amount,0),deducted=()=>lines.filter(l=>l.kind==='deduction').reduce((n,l)=>n+l.amount,0);
  for(const c of cashouts)add('earning',c.label,c.amount,c.detail,c.date,c.minutes);
  const exemptOvertime=Math.min(up(otTotal),up(taxExemptOvertime))+cashouts.reduce((n,c)=>n+Math.min(up(c.amount),up(c.taxExempt)),0);
- const taxable=Math.max(0,earned()-deducted()+lines.filter(l=>l.kind==='deduction'&&['勞保','就保','健保'].includes(l.label)).reduce((n,l)=>n+l.amount,0)-exemptOvertime);
+ for(const c of context.corrections??[])if(c.kind==='salary_topup')add('earning','前期工資補發',c.amount,`原已發薪#${c.sourceRunId}；${c.reason}；${c.reference}`);
+ const bonus=input.bonusAmount??0;if(bonus)add('earning','非每月給付獎金',bonus,'本次實際發放獎金，與固定月額津貼分開');
+ const taxable=Math.max(0,earned()-bonus-deducted()+lines.filter(l=>l.kind==='deduction'&&['勞保','就保','健保'].includes(l.label)).reduce((n,l)=>n+l.amount,0)-exemptOvertime-Math.floor(calendar.exemptCompensation+1e-8));
  const taxRule=need('tax',input.payDate);
- if(taxRule){const tax=taxRule.data as TaxTable;let amount=0;
-  if(profile.taxResidence==='nonresident')amount=down(taxable*(taxable<=tax.nonresidentThreshold?0.06:0.18));
-  else if(profile.taxMethod==='percent'){amount=down(taxable*0.05);if(amount<=2000)amount=0;}
-  else {const row=tax.rows.find(r=>taxable>=r.from&&taxable<=r.to);if(row&&profile.taxDependents<row.amounts.length)amount=row.amounts[profile.taxDependents];
-   else if(taxable<tax.rows[0].from)amount=0;else issues.push('薪資／扶養人數超過官方扣繳表，請核對法定公式，不套最高一格');
-  }
-  add('deduction','所得稅扣繳',amount,'按實際給付日期與申報扣繳方式選表，非全年所得稅結算');
- }
+ const payment=paymentTaxes(input.payDate,taxable,bonus,profile,taxRule?.data as TaxTable|undefined,{...context,paymentMinimum:[...minimumWages].filter(w=>w.effective_date<=input.payDate).at(-1)?.monthly_amount},s=>issues.push(s));
+ if(taxRule){add('deduction','所得稅扣繳',payment.taxRegular,'依給付月累計薪資、本人方式／本職或兼職身分，扣除同月已扣額');if(payment.taxBonus)add('deduction','非每月獎金扣繳',payment.taxBonus,'獎金依當次給付額及官方起扣點判定');}
+ if(payment.nhiPremium)add('deduction','健保補充保費',payment.nhiPremium,'依給付時身分、獎金年累計／兼職單次門檻及官方生效費率');
+ for(const c of context.corrections??[])if(c.kind!=='salary_topup'){const refund=c.kind==='tax_refund'||c.kind==='insurance_refund';const label:Record<string,string>={salary_recovery:'經同意追回前期溢領',insurance_charge:'前期保費補扣',insurance_refund:'前期保費退還',tax_charge:'前期扣繳稅補扣',tax_refund:'前期扣繳稅退還'};add(refund?'earning':'deduction',label[c.kind]??'前期更正',c.amount,`原已發薪#${c.sourceRunId}；${c.reason}；${c.reference}`);}
  const gross=earned(),deductions=deducted(),net=gross-deductions;
  if(net<0)issues.push('扣項超過應發工資，須先核對，不自動產生負實領');
- return {employeeId:input.employeeId,month:input.month,payDate:input.payDate,gross,deductions,net,employer:lines.filter(l=>l.kind==='employer').reduce((n,l)=>n+l.amount,0),attendanceAmount:up(attendance),lines,issues:[...new Set(issues)],ruleVersions:[...refs.values()].map(r=>({id:r.id,kind:r.kind,source:r.source_url})),wageRates:paidDays.map(d=>({date:d.date,hourly:rateAt(d.date)})),cashouts:cashouts.map(c=>({key:c.key,minutes:c.minutes,amount:up(c.amount)})),overtimeTaxBands};
+ return {employeeId:input.employeeId,month:input.month,payDate:input.payDate,gross,deductions,net,employer:lines.filter(l=>l.kind==='employer').reduce((n,l)=>n+l.amount,0),nhiPolicyVersion:context.policy?{id:context.policy.id,effectiveDate:context.policy.effectiveDate,source:context.policy.source}:undefined,corrections:(context.corrections??[]).map(c=>c.id),nhiPremium:payment.nhiPremium,regularTaxable:payment.regularTaxable,bonusGross:payment.bonusGross,taxRegular:payment.taxRegular,taxBonus:payment.taxBonus,nhiIncome:payment.nhiIncome,nhiUnitKey:(context.paymentProfile??profile).nhiUnitKey,attendanceAmount:up(attendance),lines,issues:[...new Set(issues)],ruleVersions:[...refs.values()].map(r=>({id:r.id,kind:r.kind,source:r.source_url})),wageRates:paidDays.map(d=>({date:d.date,hourly:rateAt(d.date)})),cashouts:cashouts.map(c=>({key:c.key,minutes:c.minutes,amount:up(c.amount)})),overtimeTaxBands};
 }

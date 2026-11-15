@@ -142,9 +142,10 @@ export class HrLeaveService{
   const typeId=integer(v.leaveTypeId,"leaveTypeId",true),types=await this.types(),type=types.find(t=>t.id===typeId);
   if(!type||type.needs_form===0||type.is_active===0)throw new HrValidationError("leaveTypeId","假別不存在、停用或不需建立假單");
   const wholeDay=v.wholeDay===true;
+  if(type.code==='產'&&!wholeDay)throw new HrValidationError("wholeDay","產假依法連續曆日計算，請選完整法定期間，不以零碎時段拆請");
   const payrollProtection=v.payrollProtection??null;
   if(!(payrollProtection===null||payrollProtection==='family_care'&&type.code==='事'||['pregnancy_loss','pregnancy_rest'].includes(String(payrollProtection))&&['病','院'].includes(type.code)))throw new HrValidationError('payrollProtection','法定保護事由與假別不符');
-  if(wholeDay&&employee.employment_type!=="full")throw new HrValidationError("wholeDay","半職與兼職僅能請時數");
+  if(wholeDay&&employee.employment_type!=="full"&&type.code!=="產")throw new HrValidationError("wholeDay","半職與兼職僅能請時數");
   const start=ymd(v.from??v.date),end=ymd(v.to??v.date??start);
   const cells=(await this.db.prepare("SELECT s.*,t.code AS leave_code FROM hr_schedule_days s LEFT JOIN hr_leave_types t ON t.id=s.leave_type_id WHERE s.employee_id=? AND s.work_date BETWEEN ? AND ? ORDER BY s.work_date LIMIT 370").bind(employeeId,start,end).all<Cell&{leave_code:string|null}>()).results??[];
   const list=wholeDay?leaveDates({from:start,to:end},cells.map(x=>({date:x.work_date,kind:x.kind,offMark:x.off_mark,leaveCode:x.leave_code})),{countsCalendarDays:!!type.counts_calendar_days}):[start];
@@ -160,7 +161,7 @@ export class HrLeaveService{
   const shifts=(await this.db.prepare("SELECT id,start_time,end_time,break_start,break_end FROM hr_shift_types LIMIT 100").all<{id:number;start_time:string;end_time:string;break_start:string|null;break_end:string|null}>()).results??[];
   const minutes=list.map(d=>{
    const cell=cells.find(x=>x.work_date===d),shift=shifts.find(x=>x.id===cell?.shift_type_id);
-   return leaveMinutes(employee.employment_type,{date:d,kind:cell?.kind},shift?{startTime:shift.start_time,endTime:shift.end_time,breakStart:shift.break_start,breakEnd:shift.break_end}:null,
+   return type.code==='產'&&wholeDay?480:leaveMinutes(employee.employment_type,{date:d,kind:cell?.kind},shift?{startTime:shift.start_time,endTime:shift.end_time,breakStart:shift.break_start,breakEnd:shift.break_end}:null,
     {wholeDay,startTime:v.startTime as string|undefined,endTime:v.endTime as string|undefined,minutes:v.minutes as number|undefined});
   });
   if(type.requires_reason&&!String(v.reason??"").trim())throw new HrValidationError("reason","事假必須填事由");
@@ -168,6 +169,7 @@ export class HrLeaveService{
   const eventDate=v.eventDate?ymd(v.eventDate):null,eventQuotaDays=v.eventQuotaDays===undefined?null:Number(v.eventQuotaDays);
   if(type.event_quota_options&&(!eventQuotaDays||!type.event_quota_options.split(",").map(Number).includes(eventQuotaDays)))
     throw new HrValidationError("eventQuotaDays","須選擇事件額度天數");
+  if(type.code==='產'&&((Date.parse(end)-Date.parse(start))/86400000+1!==eventQuotaDays||list.length!==eventQuotaDays))throw new HrValidationError("dates","產假日期須完整連續，包含例假、休息日及假日，與所選法定天數一致");
   const prior=await this.records(employeeId,new Date(Date.parse(start+"T00:00:00Z")-732*86400000).toISOString().slice(0,10),end);
   const candidate:LeaveEntry[]=list.map((d,i)=>({leaveTypeId:typeId,workDate:d,minutes:minutes[i],eventDate,eventQuotaDays}));
   const errors=checkLeaveQuota({id:type.id,code:type.code,quotaDays:type.quota_days,quotaPeriod:type.quota_period,eventQuotaOptions:type.event_quota_options},

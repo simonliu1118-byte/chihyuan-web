@@ -1,3 +1,6 @@
+import {HrPayrollCorrections} from '../hr/hr-payroll-corrections';
+import {employerSupplement} from '../hr/hr-payroll-employer';
+import {HrPayrollLegalService} from '../hr/hr-payroll-legal-service';
 import {HrPayrollService,payrollMonth} from '../hr/hr-payroll-service';
 import {payrollRuleStatus,syncPayrollRules} from '../hr/hr-payroll-import';
 import {HrAttendanceCorrectionService} from '../hr/hr-attendance-correction';
@@ -11,6 +14,9 @@ export async function handleHrPayrollRoute(request:Request,db:D1Database,ctx:HrC
  const body=async()=>object(await request.json());
  try{
   const service=new HrPayrollService(db),profile=/^\/payroll\/profiles\/(\d+)$/.exec(path),run=/^\/payroll\/runs\/(\d+)$/.exec(path),review=/^\/payroll\/reviews\/(\d+)$/.exec(path);
+  const legal=/^\/payroll\/legal-cases\/(\d+)$/.exec(path);if(legal){const l=new HrPayrollLegalService(db);if(request.method==='GET')return success(await l.list(+legal[1]),id);if(request.method==='POST')return success(await l.save(+legal[1],await body(),ctx),id);}
+  if(path==='/payroll/employer-supplement'&&request.method==='GET')return success(await employerSupplement(db,payrollMonth(u.searchParams.get('month')),u.searchParams.get('unit')??''),id);
+  const correction=/^\/payroll\/corrections\/(\d+)$/.exec(path);if(correction){const c=new HrPayrollCorrections(db),month=payrollMonth(u.searchParams.get('month'));if(request.method==='GET')return success(await c.list(+correction[1],month),id);if(request.method==='POST')return success(await c.create(+correction[1],month,await body(),ctx),id);if(request.method==='PATCH')return success(await c.cancel(+correction[1],month,await body(),ctx),id);}
   if(path==='/payroll/options'&&request.method==='GET'){
    const [members,stores]=await Promise.all([db.prepare('SELECT id,employee_no,display_name FROM app_members WHERE is_active=1 ORDER BY employee_no,id LIMIT 501').all(),db.prepare('SELECT id,name FROM hr_stores ORDER BY sort_order,id LIMIT 101').all()]);
    if((members.results??[]).length>500||(stores.results??[]).length>100)throw new HrValidationError('limit','選項超過單次安全上限');

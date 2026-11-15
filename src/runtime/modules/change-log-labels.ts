@@ -37,7 +37,7 @@ export const actionLabels: Record<string,string> = {
   "hr_comp_time.extended":"延長補休到期日","hr_comp_time.settled":"到期補休轉加班費",
   "hr_roster.updated":"更新月排班表","hr_attendance.updated":"更新打卡紀錄",
   "hr_attendance.corrected":"更正誤打下班卡","hr_attendance_grant.updated":"調整指定管理員出勤更正授權",
-  "hr_payroll_rule.imported":"導入官方薪資級距","hr_payroll_profile.created":"新增生效計薪與投保設定",
+  "hr_payroll_correction.created":"建立前期薪資更正","hr_payroll_correction.voided":"撤銷未套用薪資更正","hr_payroll_legal.recorded":"核對法定假別計薪基準","hr_payroll_rule.imported":"導入官方薪資級距","hr_payroll_profile.created":"新增生效計薪與投保設定",
   "hr_payroll.calculated":"計算每月薪資草稿","hr_payroll.confirm":"確認薪資","hr_payroll.pay":"標記已發薪","hr_payroll.reopen":"撤回薪資確認",
   "hr_payroll_review.updated":"確認特殊出勤原因","hr_leave.payroll_protection":"設定假單法定全勤保護",
   "hr_employee.created":"新增人事資料","hr_employee.updated":"修改人事資料",

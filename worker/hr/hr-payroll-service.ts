@@ -21,8 +21,11 @@ export function validatePayrollProfile(raw:unknown):PayrollProfile{
   pensionFrom:nullableDate(v.pensionFrom,'pensionFrom'),pensionTo:nullableDate(v.pensionTo,'pensionTo'),
   occupationalBasis:number(v.occupationalBasis,'occupationalBasis'),occupationalRate:Number(v.occupationalRate),
   taxResidence:v.taxResidence as PayrollProfile['taxResidence'],taxMethod:v.taxMethod as PayrollProfile['taxMethod'],taxDependents:number(v.taxDependents,'taxDependents',99),
+  taxSalaryKind:v.taxSalaryKind as PayrollProfile['taxSalaryKind'],nhiSupplementCategory:v.nhiSupplementCategory as PayrollProfile['nhiSupplementCategory'],nhiExemptionReference:typeof v.nhiExemptionReference==='string'?v.nhiExemptionReference.trim():'',nhiUnitKey:typeof v.nhiUnitKey==='string'?v.nhiUnitKey.trim():'',
+  bonusOpeningYear:v.bonusOpeningYear==null?undefined:number(v.bonusOpeningYear,'bonusOpeningYear',2099),bonusOpeningThrough:nullableDate(v.bonusOpeningThrough,'bonusOpeningThrough')??undefined,bonusOpeningAmount:v.bonusOpeningAmount==null?undefined:number(v.bonusOpeningAmount,'bonusOpeningAmount',1000000000),bonusOpeningReference:typeof v.bonusOpeningReference==='string'?v.bonusOpeningReference.trim():'',
   weeklyHours:hours(v.weeklyHours,'weeklyHours',40),hourlyAllowanceHours:hours(v.hourlyAllowanceHours,'hourlyAllowanceHours',744),
  };
+ if(p.taxSalaryKind!=null&&!['primary','secondary'].includes(p.taxSalaryKind)||p.nhiSupplementCategory!=null&&!['own','other','exempt'].includes(p.nhiSupplementCategory))throw new HrValidationError('paymentFacts','所得／補充保費身分不正確');
  if(!['resident','nonresident'].includes(p.taxResidence)||!['table','percent'].includes(p.taxMethod))throw new HrValidationError('taxMethod','扣繳身分及方式必填');
  if([p.pensionEmployerRate,p.pensionSelfRate,p.occupationalRate].some(x=>!Number.isFinite(x)||x<0||x>100||Math.abs(x*10000-Math.round(x*10000))>1e-7))throw new HrValidationError('rate','費率格式錯誤');
  if(p.pensionSelfRate>6||p.pensionEnabled&&p.pensionEmployerRate<6)throw new HrValidationError('pension','雇主提繳不得低於6%，自提不得超過6%');
@@ -40,12 +43,12 @@ const SOURCE_SQL=`WITH p AS (SELECT ?1 AS eid,?2 AS month,?3 AS last,?4 AS paid)
  'salaries',${array('hr_salary_records,p','id,effective_date,payment_type,base_amount','employee_id=p.eid AND effective_date<=p.last','effective_date,id',501)},
  'allowances',${array('hr_salary_allowances','id,salary_record_id,item_type_id,amount,is_regular','salary_record_id IN (SELECT id FROM hr_salary_records,p WHERE employee_id=p.eid AND effective_date<=p.last)','id',2001)},
  'types',${array('hr_salary_item_types','id,name','1=1','id',201)},
- 'profiles',${array('hr_payroll_profiles,p','id,effective_date,settings_json','employee_id=p.eid AND effective_date<=p.last','effective_date,id',501)},
+ 'profiles',${array('hr_payroll_profiles,p','id,effective_date,settings_json','employee_id=p.eid AND effective_date<=max(p.last,p.paid)','effective_date,id',501)},
  'status',${array('hr_status_changes,p','id,effective_date,next_status','employee_id=p.eid AND effective_date<=p.last','effective_date,id',501)},
  'punches',${array('hr_attendance_days,p','id,work_date,in1,out1,in2,out2,note,revision','employee_id=p.eid AND work_date BETWEEN p.month||\'-01\' AND p.last','work_date',32)},
  'schedules',${array('hr_schedule_days,p','id,work_date,kind,off_mark,rest_label,marker,shift_type_id,leave_type_id,hours,start_time,end_time','employee_id=p.eid AND work_date BETWEEN date(p.month||\'-01\',\'-7 days\') AND p.last','work_date',40)},
  'shifts',${array('hr_shift_types','id,start_time,end_time,break_start,break_end,normal_minutes','1=1','id',201)},
- 'leaves',${array('hr_leave_records,p','id,work_date,leave_type_id,minutes,whole_day,start_time,end_time,event_date,event_quota_days,payroll_protection,cancelled_at','employee_id=p.eid AND work_date BETWEEN substr(p.month,1,4)||\'-01-01\' AND p.last','work_date,id',3001)},
+ 'leaves',${array('hr_leave_records,p','id,work_date,leave_type_id,minutes,whole_day,start_time,end_time,event_date,event_quota_days,payroll_protection,cancelled_at',"employee_id=p.eid AND (work_date BETWEEN substr(p.month,1,4)||'-01-01' AND p.last OR (leave_type_id IN (SELECT id FROM hr_leave_types WHERE code IN('產','傷')) AND work_date BETWEEN date(p.month||'-01','-120 days') AND date(p.last,'+120 days')))",'work_date,id',3001)},
  'leaveTypes',${array('hr_leave_types','id,code,pay_ratio,counts_calendar_days','1=1','id',201)},
  'overtime',${array('hr_overtime_days,p','id,work_date,minutes,settlement,revision','employee_id=p.eid AND work_date BETWEEN p.month||\'-01\' AND p.last','work_date',32)},
  'holidays',${array('hr_holidays,p','date,name','date BETWEEN p.month||\'-01\' AND p.last','date',40)},
@@ -57,12 +60,16 @@ const SOURCE_SQL=`WITH p AS (SELECT ?1 AS eid,?2 AS month,?3 AS last,?4 AS paid)
  'history',${array(`(SELECT r.id,r.month,r.revision,json_extract(r.result_json,'$.wageRates') AS wage_rates,json_extract(r.result_json,'$.overtimeTaxBands') AS tax_bands FROM hr_payroll_runs r,p WHERE r.employee_id=p.eid AND r.status='paid' AND r.month<p.month)`,'id,month,revision,wage_rates,tax_bands','1=1','month,id',501)},
  'consumed',${array(`(SELECT c.source_key,c.minutes,c.amount FROM hr_payroll_consumptions c JOIN hr_payroll_runs r ON r.id=c.run_id,p WHERE c.employee_id=p.eid AND c.active=1 AND r.month!=p.month)`,'source_key,minutes,amount','1=1','source_key',1001)},
  'rules',${array('hr_payroll_rule_versions r,p','id,kind,effective_date,valid_until,source_url,source_hash,payload_json',`effective_date<=max(p.last,p.paid) AND ((kind='tax' AND id=(SELECT v.id FROM hr_payroll_rule_versions v WHERE v.kind='tax' AND v.effective_date<=p.paid ORDER BY v.effective_date DESC,v.id DESC LIMIT 1)) OR (kind!='tax' AND ((effective_date>p.month||'-01' AND effective_date<=p.last) OR id=(SELECT v.id FROM hr_payroll_rule_versions v WHERE v.kind=r.kind AND v.effective_date<=p.month||'-01' ORDER BY v.effective_date DESC,v.id DESC LIMIT 1))))`,'kind,effective_date,id',201)},
+ 'legalCases',${array('hr_payroll_legal_cases,p','id,kind,event_date,from_date,to_date,monthly_basis,average_daily,offsets_json,reference,is_active','employee_id=p.eid','id',501)},
+ 'nhiPolicies',${array('hr_payroll_supplement_versions,p','id,effective_date,payload_json,source_url','effective_date<=p.paid','effective_date DESC,id DESC',2)},
+ 'paidIncome',${array(`(SELECT id,pay_date,json_extract(result_json,'$.regularTaxable') AS regular,json_extract(result_json,'$.bonusGross') AS bonus,json_extract(result_json,'$.taxRegular') AS taxRegular,json_extract(result_json,'$.taxBonus') AS taxBonus,json_extract(result_json,'$.nhiIncome') AS nhiIncome,json_extract(result_json,'$.nhiPremium') AS nhiPremium FROM hr_payroll_runs,p WHERE employee_id=p.eid AND status='paid' AND pay_date<=p.paid AND substr(pay_date,1,4)=substr(p.paid,1,4))`,'id,pay_date,regular,bonus,taxRegular,taxBonus,nhiIncome,nhiPremium','1=1','pay_date,id',501)},
+ 'corrections',${array(`(SELECT c.id,c.source_run_id,c.kind,c.amount,c.reference,c.reason,c.revision FROM hr_payroll_corrections c,p WHERE c.employee_id=p.eid AND c.target_month=p.month AND c.is_active=1 AND NOT EXISTS(SELECT 1 FROM hr_payroll_correction_uses u JOIN hr_payroll_runs r ON r.id=u.run_id WHERE u.correction_id=c.id AND u.is_active=1 AND r.status='paid'))`,'id,source_run_id,kind,amount,reference,reason,revision','1=1','id',201)},
  'syncBlocks',${array('hr_payroll_sync_state','kind,error','blocking=1','kind',5)}
- ,'wages',${array('hr_minimum_wages,p','effective_date,monthly_amount,hourly_amount','effective_date<=p.last','effective_date',101)}
+ ,'wages',${array('hr_minimum_wages,p','effective_date,monthly_amount,hourly_amount','effective_date<=max(p.last,p.paid)','effective_date',101)}
  ) AS body FROM p`;
 type Row=Record<string,string|number|null>;
 interface RunRow extends Row {id:number;employee_id:number;month:string;pay_date:string;status:'draft'|'confirmed'|'paid'|'void';revision:number;input_json:string;result_json:string;source_json:string}
-interface Snapshot {employee:Row|null;salaries:Row[];allowances:Row[];types:Row[];profiles:Row[];status:Row[];punches:Row[];schedules:Row[];shifts:Row[];leaves:Row[];leaveTypes:Row[];overtime:Row[];holidays:Row[];reviews:Row[];settlements:Row[];rules:Row[];syncBlocks:Row[];annualYears:Row[];exclusions:Row[];annualUses:Row[];history:Row[];consumed:Row[];wages:{effective_date:string;monthly_amount:number;hourly_amount:number}[]}
+interface Snapshot {corrections:Row[];nhiPolicies:Row[];paidIncome:Row[];legalCases:Row[];employee:Row|null;salaries:Row[];allowances:Row[];types:Row[];profiles:Row[];status:Row[];punches:Row[];schedules:Row[];shifts:Row[];leaves:Row[];leaveTypes:Row[];overtime:Row[];holidays:Row[];reviews:Row[];settlements:Row[];rules:Row[];syncBlocks:Row[];annualYears:Row[];exclusions:Row[];annualUses:Row[];history:Row[];consumed:Row[];wages:{effective_date:string;monthly_amount:number;hourly_amount:number}[]}
 const end=(month:string)=>new Date(Date.UTC(+month.slice(0,4),+month.slice(5),0)).toISOString().slice(0,10);
 export class HrPayrollService {
  constructor(private db:D1Database){}
@@ -78,13 +85,13 @@ export class HrPayrollService {
  }
  private input(raw:unknown):PayrollInput{const v=object(raw),month=payrollMonth(v.month),payDate=date(v.payDate,'payDate'),paidDays=v.paidDays==null?undefined:number(v.paidDays,'paidDays',30),reason=typeof v.reason==='string'?v.reason.trim():'';
   if(paidDays!=null&&!reason)throw new HrValidationError('reason','指定計薪天數須填原因');
-  return {employeeId:integer(v.employeeId,'employeeId',true),month,payDate,paidDays,reason};
+  return {employeeId:integer(v.employeeId,'employeeId',true),month,payDate,paidDays,reason,bonusAmount:v.bonusAmount==null?0:number(v.bonusAmount,'bonusAmount',1000000000)};
  }
  private async source(input:PayrollInput){
   const args=[input.employeeId,input.month,end(input.month),input.payDate] as const;
   const row=await this.db.prepare(SOURCE_SQL).bind(...args).first<{body:string}>();if(!row?.body||row.body.length>700000)throw new HrValidationError('source','計薪來源超過安全上限');
   const data=JSON.parse(row.body) as Snapshot;if(!data.employee)throw new HrValidationError('employeeId','員工不存在',404);
-  for(const [key,max] of Object.entries({salaries:500,allowances:2000,profiles:500,status:500,types:200,leaveTypes:200,shifts:200,leaves:3000,rules:200,settlements:500,annualYears:100,exclusions:100,annualUses:5000,history:500,consumed:1000,wages:100}))if((data[key as keyof Snapshot] as Row[]).length>max)throw new HrValidationError('limit','計薪來源 '+key+' 超過單次安全上限');
+  for(const [key,max] of Object.entries({salaries:500,allowances:2000,profiles:500,status:500,types:200,leaveTypes:200,shifts:200,leaves:3000,rules:200,settlements:500,annualYears:100,exclusions:100,annualUses:5000,history:500,consumed:1000,wages:100,legalCases:500,paidIncome:500,corrections:200}))if((data[key as keyof Snapshot] as Row[]).length>max)throw new HrValidationError('limit','計薪來源 '+key+' 超過單次安全上限');
   return {json:row.body,data,args,hash:await sha256(row.body)};
  }
  private compute(input:PayrollInput,s:Snapshot):PayrollResult{
@@ -113,7 +120,9 @@ export class HrPayrollService {
   const effectiveStatus=s.status.filter(r=>String(r.effective_date)<=input.month+'-01').at(-1);
   const hasUnpaidPeriod=effectiveStatus?.next_status==='leave'||s.status.some(r=>String(r.effective_date)>input.month+'-01'&&r.next_status==='leave');
   const employee={hasUnpaidPeriod,hireDate:String(e.hire_date),terminationDate:e.termination_date as string|null,employmentType:String(e.employment_type)};
-  const preliminary=calculatePayroll(input,employee,settings,salaries,days,leaves,rules,[],s.wages);
+  const paymentProfile=s.profiles.filter(p=>String(p.effective_date)<=input.payDate).at(-1),policy=s.nhiPolicies[0];
+  const payrollContext={corrections:s.corrections.map(c=>({id:Number(c.id),sourceRunId:Number(c.source_run_id),kind:String(c.kind),amount:Number(c.amount),reference:String(c.reference),reason:String(c.reason)})),requirePaymentFacts:true,paymentProfile:paymentProfile?JSON.parse(String(paymentProfile.settings_json)) as PayrollProfile:undefined,policy:policy?{id:Number(policy.id),effectiveDate:String(policy.effective_date),source:String(policy.source_url),...JSON.parse(String(policy.payload_json))}:null,paidIncome:s.paidIncome.map(p=>({date:String(p.pay_date),regular:Number(p.regular??0),bonus:Number(p.bonus??0),taxRegular:Number(p.taxRegular??0),taxBonus:Number(p.taxBonus??0),nhiIncome:Number(p.nhiIncome??0),nhiPremium:Number(p.nhiPremium??0)})),legalCases:s.legalCases.map(c=>({id:Number(c.id),kind:c.kind as 'maternity'|'occupational',eventDate:String(c.event_date),from:String(c.from_date),to:String(c.to_date),monthlyBasis:Number(c.monthly_basis),averageDaily:Number(c.average_daily),offsets:JSON.parse(String(c.offsets_json)),reference:String(c.reference),active:c.is_active===1})),profiles:s.profiles.map(p=>({effectiveDate:String(p.effective_date),settings:JSON.parse(String(p.settings_json)) as PayrollProfile}))};
+  const preliminary=calculatePayroll(input,employee,settings,salaries,days,leaves,rules,[],s.wages,payrollContext);
   const priorRate=(at:string)=>{if(at.startsWith(input.month))return preliminary.wageRates?.find(r=>r.date===at)?.hourly??null;const history=s.history.find(h=>h.month===at.slice(0,7));if(!history?.wage_rates)return null;const rates=JSON.parse(String(history.wage_rates)) as {date:string;hourly:number}[];return rates.find(r=>r.date===at)?.hourly??null;};
   const cashouts:PayrollCashout[]=[],pending:string[]=[],consumed=new Set(s.consumed.map(c=>String(c.source_key)));
   for(const row of s.settlements){const key='comp:'+row.id;if(consumed.has(key))continue;
@@ -145,17 +154,17 @@ export class HrPayrollService {
     annual('annual:'+row.periodStart,terminated,Math.max(0,row.entitledMinutes-row.usedCurrentDays*480),statutory(i)-row.usedCurrentDays*480);
    }
   }
-  const result=calculatePayroll(input,employee,settings,salaries,days,leaves,rules,cashouts,s.wages);
+  const result=calculatePayroll(input,employee,settings,salaries,days,leaves,rules,cashouts,s.wages,payrollContext);
   result.issues.push(...pending);
+  if(s.paidIncome.some(p=>String(p.pay_date).slice(0,7)===input.payDate.slice(0,7)&&p.regular==null))result.issues.push('同給付月有舊版薪資缺少扣繳累計基準，須先核對，不能將其當0');
   if(terminated&&e.employment_type!=='full'&&periods.some(p=>!p.entitledMinutes))result.issues.push('離職特休結清缺少部分工時歷年固定額度，請先補齊特休年度');
   for(const row of s.syncBlocks)result.issues.push(String(row.kind)+' 官方資料驗證異常，須先處理更新狀態');
-  if(s.rules.some(r=>r.kind!=='tax'&&String(r.effective_date)>input.month+'-01'&&String(r.effective_date)<=end(input.month)))result.issues.push('本月有法定表分段生效，須先核對分段保費／提繳');
   for(const d of days){
    if(d.anomalies.includes('曠職')&&review.get(d.date)?.kind!=='absence')result.issues.push(d.date+' 未打卡須先補正或明確確認曠班');
    if(d.schedule?.rest_label==='regular'&&review.get(d.date)?.kind==='regular_emergency')result.issues=result.issues.filter(x=>x!==d.date+' 例假出勤須另確認法定緊急事由及補假');
   }
   if(e.skip_roster_checks!==1&&e.employment_type!=='casual'&&!s.schedules.some(r=>String(r.work_date).startsWith(input.month)))result.issues.push('本月尚無班表資料');
-  if(s.profiles.some(r=>String(r.effective_date)>firstEligible))result.issues.push('月中投保設定異動：須先分段核對，不能以月底設定套整月');
+  if(s.profiles.some(r=>String(r.effective_date)>firstEligible&&String(r.effective_date)<=end(input.month)&&['attendanceEnabled','attendanceAmount','weeklyHours','hourlyAllowanceHours'].some(k=>JSON.parse(String(r.settings_json))[k]!==JSON.parse(String(profile?.settings_json??'{}'))[k])))result.issues.push('月中全勤／約定工時異動須分段核對；投保項目已依生效日自動分段');
   if(hasUnpaidPeriod&&input.paidDays==null)result.issues.push('本月含留職停薪：請確認30天制實際計薪天數及原因，不能預設發整月');
   return result;
  }
@@ -189,6 +198,8 @@ export class HrPayrollService {
   statements.push(this.db.prepare("UPDATE hr_payroll_runs SET status=?,revision=revision+1,updated_at=?,updated_by=?,reason=?,confirmed_at=CASE WHEN ?='confirmed' THEN ? ELSE confirmed_at END,paid_at=CASE WHEN ?='paid' THEN ? ELSE paid_at END WHERE id=? AND revision=?")
    .bind(status,ctx.now,ctx.actor,reason,status,ctx.now,status,ctx.now,id,revision));
   if(action==='confirm'){const result=JSON.parse(String(row.result_json)) as PayrollResult;for(const c of result.cashouts??[])statements.push(this.db.prepare('INSERT INTO hr_payroll_consumptions(employee_id,run_id,source_key,minutes,amount,created_at) VALUES(?,?,?,?,?,?)').bind(row.employee_id,id,c.key,c.minutes,c.amount,ctx.now));}
+  if(action==='confirm'){const result=JSON.parse(String(row.result_json)) as PayrollResult;for(const correction of result.corrections??[])statements.push(this.db.prepare('INSERT INTO hr_payroll_correction_uses(correction_id,run_id,created_at) VALUES(?,?,?)').bind(correction,id,ctx.now));}
+  if(action==='reopen')statements.push(this.db.prepare('UPDATE hr_payroll_correction_uses SET is_active=0 WHERE run_id=? AND is_active=1').bind(id));
   if(action==='reopen')statements.push(this.db.prepare('UPDATE hr_payroll_consumptions SET active=0 WHERE run_id=? AND active=1').bind(id));
   statements.push(new AuditService(this.db).prepareRecord({entityType:'hr_payroll',entityKey:String(id),action:'hr_payroll.'+action,actorEmployeeId:ctx.actor,requestId:ctx.requestId,before:{status:row.status,revision},after:{status,reason,sourceHash:row.source_hash}}));
   await this.db.batch(statements);return this.get(id);

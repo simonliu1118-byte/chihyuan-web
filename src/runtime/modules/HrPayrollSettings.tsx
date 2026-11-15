@@ -7,7 +7,7 @@ import {enterAdvancesFields} from '../../ui/foundation/enter-advance';
 interface Version {id:number;kind:string;effective_date:string;valid_until:string;source_url:string;source_hash:string}
 interface State {kind:string;checked_at:string;success_at:string|null;error:string}
 interface Grant {id:number;member_id:number;store_id:number;is_active:number;revision:number;employee_no:string;display_name:string;store_name:string}
-const ROOT='/api/business/hr',labels:Record<string,string>={labor:'勞保／就保',pension:'勞退',health:'健保',tax:'薪資扣繳'};
+const ROOT='/api/business/hr',labels:Record<string,string>={labor:'勞保／就保',pension:'勞退',health:'健保',tax:'薪資扣繳',health_supplement:'健保補充保費'};
 export function HrPayrollSettings(){
  const [versions,setVersions]=useState<Version[]>([]),[states,setStates]=useState<State[]>([]),[grants,setGrants]=useState<Grant[]>([]),[members,setMembers]=useState<{id:number;employee_no:string;display_name:string}[]>([]),[stores,setStores]=useState<{id:number;name:string}[]>([]);
  const request=useLatestRequest('payroll-settings');const [ready,setReady]=useState(false);
@@ -23,7 +23,7 @@ export function HrPayrollSettings(){
   {error?<p role="alert" className="cy-op-notice danger">{error}</p>:null}{notice?<p role="status">{notice}</p>:null}
   <section className="cy-op-panel"><h3>法定級距與年度更新</h3><p>每天檢查官方資料，按生效日自動導入新版本。來源異常會顯示在此；新表不改寫已確認薪資。</p><button type="button" className="cy-op-button" disabled={busy} onClick={()=>void sync()}>立即檢查官方資料</button>
    <div className="cy-op-table-wrap"><table className="cy-op-table cy-rt"><thead><tr><th>項目</th><th>最近檢查</th><th>最近成功</th><th>狀態</th></tr></thead><tbody>{states.map(s=><tr key={s.kind}><td data-label="項目">{labels[s.kind]}</td><td data-label="最近檢查">{s.checked_at}</td><td data-label="最近成功">{s.success_at||'尚未成功'}</td><td data-label="狀態">{s.error||'正常'}</td></tr>)}</tbody></table></div>
-   <div className="cy-op-table-wrap"><table className="cy-op-table cy-rt"><thead><tr><th>項目</th><th>版本</th><th>生效日</th><th>適用迄日</th><th>官方來源</th></tr></thead><tbody>{versions.map(v=><tr key={v.id}><td data-label="項目">{labels[v.kind]}</td><td data-label="版本">{v.id}</td><td data-label="生效日">{v.effective_date}</td><td data-label="適用迄日">{v.valid_until==='9999-12-31'?'至下次變更':v.valid_until}</td><td data-label="官方來源"><a href={v.source_url} target="_blank" rel="noreferrer">查看官方表</a></td></tr>)}</tbody></table></div>
+   <div className="cy-op-table-wrap"><table className="cy-op-table cy-rt"><thead><tr><th>項目</th><th>版本</th><th>生效日</th><th>適用迄日</th><th>官方來源</th></tr></thead><tbody>{versions.map(v=><tr key={v.kind+v.id}><td data-label="項目">{labels[v.kind]}</td><td data-label="版本">{v.id}</td><td data-label="生效日">{v.effective_date}</td><td data-label="適用迄日">{v.valid_until==='9999-12-31'?'至下次變更':v.valid_until}</td><td data-label="官方來源"><a href={v.source_url} target="_blank" rel="noreferrer">查看官方表</a></td></tr>)}</tbody></table></div>
   </section>
   <section className="cy-op-panel"><h3>指定管理員出勤更正授權</h3><p>僅開放指定門市的下班時間更正；不含薪資與完整人事資料。啟停需填原因，接收者必須具管理員角色才生效。</p>
    <form className="cy-op-form" onKeyDown={enterAdvancesFields} onSubmit={e=>void grant(e)}><EntryFields label="出勤更正授權" columns={3} rows={[

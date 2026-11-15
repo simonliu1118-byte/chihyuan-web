@@ -1,3 +1,6 @@
+import {HrPayrollCorrections} from './HrPayrollCorrections';
+import {HrEmployerSupplement} from './HrEmployerSupplement';
+import {HrPayrollLegalCases} from './HrPayrollLegalCases';
 import {useEffect,useRef,useState,type FormEvent,type ReactElement} from 'react';
 import {apiRequest} from '../../api/client';
 import {DataViewToolbar} from '../../ui/data/DataViewToolbar';
@@ -21,8 +24,8 @@ const proposedPayday=(month:string)=>new Date(Date.UTC(+month.slice(0,4),+month.
 interface DayReview {work_date:string;kind:string;reason:string;revision:number}
 const statusLabel:Record<string,string>={draft:'草稿',confirmed:'已確認',paid:'已發薪',void:'已撤回'};
 const flags=new Set(['attendanceEnabled','laborEnabled','employmentInsurance','healthEnabled','healthAtMonthEnd','pensionEnabled']);
-const numeric=new Set(['attendanceAmount','laborBasis','healthBasis','dependents','pensionBasis','pensionEmployerRate','pensionSelfRate','occupationalBasis','occupationalRate','taxDependents','weeklyHours','hourlyAllowanceHours']);
-const fields:[keyof PayrollProfile,string,'flag'|'date'|'number'|'choice'][]=[
+const numeric=new Set(['attendanceAmount','laborBasis','healthBasis','dependents','pensionBasis','pensionEmployerRate','pensionSelfRate','occupationalBasis','occupationalRate','taxDependents','bonusOpeningYear','bonusOpeningAmount','weeklyHours','hourlyAllowanceHours']);
+const fields:[keyof PayrollProfile,string,'flag'|'date'|'number'|'choice'|'text'][]=[
  ['attendanceEnabled','適用全勤','flag'],['attendanceAmount','每月全勤金額','number'],
  ['weeklyHours','半職月薪：每週約定正常時數','number'],['hourlyAllowanceHours','時薪津貼：每月約定正常時數','number'],
  ['laborEnabled','本單位投保勞保','flag'],['employmentInsurance','適用就保','flag'],['laborBasis','已申報勞保投保金額','number'],
@@ -32,6 +35,8 @@ const fields:[keyof PayrollProfile,string,'flag'|'date'|'number'|'choice'][]=[
  ['pensionEnabled','適用勞退新制','flag'],['pensionBasis','已申報勞退提繳金額','number'],['pensionEmployerRate','雇主提繳率（%）','number'],['pensionSelfRate','個人自提率（%）','number'],
  ['pensionFrom','勞退提繳起日','date'],['pensionTo','勞退提繳迄日（可空白）','date'],
  ['occupationalBasis','職災投保金額','number'],['occupationalRate','本單位職災費率（%）','number'],
+ ['nhiUnitKey','本公司投保單位代碼','text'],['taxSalaryKind','薪資所得性質','choice'],['nhiSupplementCategory','補充保費身分','choice'],['nhiExemptionReference','補充保費免扣證明','text'],
+ ['bonusOpeningYear','獎金期初核對年度','number'],['bonusOpeningThrough','期初獎金截止日','date'],['bonusOpeningAmount','該年度系統外已發獎金','number'],['bonusOpeningReference','期初獎金核對來源','text'],
  ['taxResidence','稅務居住身分','choice'],['taxMethod','本人選擇的扣繳方式','choice'],['taxDependents','已申報配偶及扶養人數','number'],
 ];
 export function ProfileEditor({employeeId,month,onClose,onSaved}:{employeeId:number;month:string;onClose:()=>void;onSaved:()=>void}){
@@ -53,10 +58,10 @@ export function ProfileEditor({employeeId,month,onClose,onSaved}:{employeeId:num
   const change=(value:string)=>{setDraft(p=>({...p,[key]:value}));setDirty(true);};let content:ReactElement;
   if(key==='attendanceEnabled')content=<CheckField label="此員工適用全勤" disabled={busy||loading} checked={draft[key]==='true'} onChange={e=>change(String(e.target.checked))}/>;
   else if(kind==='flag')content=<select className="cy-sheet-input" disabled={busy||loading} value={draft[key]??''} onChange={e=>change(e.target.value)}><option value="">請選擇</option><option value="true">是</option><option value="false">否</option></select>;
-  else if(kind==='choice')content=<select className="cy-sheet-input" disabled={busy||loading} value={draft[key]??''} onChange={e=>change(e.target.value)}><option value="">請選擇</option>{(key==='taxResidence'?[['resident','境內居住者'],['nonresident','非居住者']]:[['table','按扣繳稅額表'],['percent','依給付額5%（居住者）']]).map(([v,t])=><option key={v} value={v}>{t}</option>)}</select>;
+  else if(kind==='choice')content=<select className="cy-sheet-input" disabled={busy||loading} value={draft[key]??''} onChange={e=>change(e.target.value)}><option value="">請選擇</option>{(({taxResidence:[['resident','境內居住者'],['nonresident','非居住者']],taxMethod:[['table','按扣繳稅額表'],['percent','依給付額5%（居住者）']],taxSalaryKind:[['primary','本職每月給付'],['secondary','兼職所得']],nhiSupplementCategory:[['own','本單位被保險人（含離職後獎金）'],['other','非本單位投保之薪資'],['exempt','依法免扣，另填證明']]} as Record<string,string[][]>)[key]??[]).map(([v,t])=><option key={v} value={v}>{t}</option>)}</select>;
   else if(kind==='date')content=<DateInput disabled={busy||loading} className="cy-sheet-input" value={draft[key]??''} onChange={change}/>;
-  else content=<input className="cy-sheet-input" disabled={busy||loading} type="number" min="0" step={key.toLowerCase().includes('rate')?'0.0001':key.endsWith('Hours')?'0.5':'1'} value={draft[key]??'0'} onChange={e=>change(e.target.value)}/>;
-  const optional=['insuredTo','healthTo','pensionTo','attendanceEnabled'].includes(key)||key==='insuredFrom'&&draft.laborEnabled!=='true'||key==='healthFrom'&&draft.healthEnabled!=='true'||key==='pensionFrom'&&draft.pensionEnabled!=='true';
+  else content=<input className="cy-sheet-input" disabled={busy||loading} type={kind==='text'?'text':'number'} min={kind==='text'?undefined:'0'} step={key.toLowerCase().includes('rate')?'0.0001':key.endsWith('Hours')?'0.5':'1'} value={draft[key]??'0'} onChange={e=>change(e.target.value)}/>;
+  const optional=['insuredTo','healthTo','pensionTo','attendanceEnabled','bonusOpeningYear','bonusOpeningThrough','bonusOpeningAmount','bonusOpeningReference'].includes(key)||key==='nhiExemptionReference'&&draft.nhiSupplementCategory!=='exempt'||key==='insuredFrom'&&draft.laborEnabled!=='true'||key==='healthFrom'&&draft.healthEnabled!=='true'||key==='pensionFrom'&&draft.pensionEnabled!=='true';
   return {label,required:!optional,content};
  });
  return <Dialog open title="薪資計算／投保設定" size="large" dismissible={!busy&&!loading} onClose={()=>void navigation.canLeave().then(ok=>{if(ok)onClose();})}>
@@ -74,21 +79,22 @@ export function ProfileEditor({employeeId,month,onClose,onSaved}:{employeeId:num
 export function HrPayrollPanel(){
  const [month,setMonth]=useState(taipeiToday().slice(0,7)),[payDate,setPayDate]=useState(()=>proposedPayday(taipeiToday().slice(0,7))),[people,setPeople]=useState<Person[]>([]),[cursor,setCursor]=useState<number|null>(null),[employee,setEmployee]=useState(0),[search,setSearch]=useState('');
  const [runs,setRuns]=useState<Run[]>([]),[detail,setDetail]=useState<Run|null>(null),[profileOpen,setProfileOpen]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState(''),[busy,setBusy]=useState(false);
+ const [bonusAmount,setBonusAmount]=useState('');
  const [paidDays,setPaidDays]=useState(''),[reason,setReason]=useState(''),[reviewDate,setReviewDate]=useState(''),[reviewKind,setReviewKind]=useState('absence');
  const [reviews,setReviews]=useState<DayReview[]>([]),[reviewReady,setReviewReady]=useState(false),[showVoided,setShowVoided]=useState(false);
  const reviewRequest=useLatestRequest(employee+'|'+month);
  async function loadReviews(){const ticket=reviewRequest.begin();setReviewReady(false);if(!employee){setReviews([]);return;}try{const rows=await apiRequest<DayReview[]>(ROOT+'/payroll/reviews/'+employee+'?month='+month);if(ticket.current()){setReviews(rows);setReviewReady(true);}}catch(e){if(ticket.current())setError(e instanceof Error?e.message:'讀取出勤確認失敗');}}
  useEffect(()=>{void loadReviews();},[employee,month]);
  const request=useLatestRequest(month),selection=useLatestRequest(employee+'|'+month),writing=useRef(false),navigation=useNavigationGuard();
- useUnsavedChangesGuard({active:!!(payDate!==proposedPayday(month)||paidDays||reason||reviewDate),blocked:busy});
+ useUnsavedChangesGuard({active:!!(payDate!==proposedPayday(month)||bonusAmount||paidDays||reason||reviewDate),blocked:busy});
  async function loadPeople(append=false){const r=await apiRequest<{items:Person[];nextCursor:number|null}>(ROOT+'/employees?limit=100'+(append&&cursor?'&cursor='+cursor:''));setPeople(p=>append?[...p,...r.items]:r.items);setCursor(r.nextCursor);}
  useEffect(()=>{void loadPeople().catch(e=>setError(String(e)));},[]);
  async function load(){const t=request.begin();try{const rows=await apiRequest<Run[]>(ROOT+'/payroll/runs?month='+month);if(t.current()){setRuns(rows);setError('');}}catch(e){if(t.current()){setRuns([]);setError(e instanceof Error?e.message:'讀取薪資失敗');}}}
  useEffect(()=>{setDetail(null);void load();},[month]);
- async function chooseMonth(value:string){if(busy||!await navigation.canLeave())return;if(!/^20\d\d-(0[1-9]|1[0-2])$/.test(value))return;setPayDate(proposedPayday(value));setPaidDays('');setReason('');setReviewDate('');setMonth(value);}
- async function chooseEmployee(value:number){if(busy||!await navigation.canLeave())return;selection.invalidate();setEmployee(value);setDetail(null);setPayDate(proposedPayday(month));setPaidDays('');setReason('');setReviewDate('');}
+ async function chooseMonth(value:string){if(busy||!await navigation.canLeave())return;if(!/^20\d\d-(0[1-9]|1[0-2])$/.test(value))return;setPayDate(proposedPayday(value));setBonusAmount('');setPaidDays('');setReason('');setReviewDate('');setMonth(value);}
+ async function chooseEmployee(value:number){if(busy||!await navigation.canLeave())return;selection.invalidate();setEmployee(value);setDetail(null);setPayDate(proposedPayday(month));setBonusAmount('');setPaidDays('');setReason('');setReviewDate('');}
  async function run(fn:()=>Promise<void>){if(writing.current)return;writing.current=true;setBusy(true);setError('');setNotice('');try{await fn();}catch(e){setError(e instanceof Error?e.message:'薪資操作失敗');}finally{writing.current=false;setBusy(false);}}
- async function calculate(e:FormEvent){e.preventDefault();await run(async()=>{const ticket=selection.begin();const row=await apiRequest<Run>(ROOT+'/payroll/calculate',{method:'POST',json:{employeeId:employee,month,payDate,paidDays:paidDays===''?undefined:Number(paidDays),reason}});if(ticket.current()){setDetail(row);setNotice(row.result.issues.length?'已儲存草稿，請先處理待補事項':'已計算，請核對明細再確認');}setPayDate(proposedPayday(month));setPaidDays('');setReason('');await load();});}
+ async function calculate(e:FormEvent){e.preventDefault();await run(async()=>{const ticket=selection.begin();const row=await apiRequest<Run>(ROOT+'/payroll/calculate',{method:'POST',json:{employeeId:employee,month,payDate,bonusAmount:bonusAmount?Number(bonusAmount):0,paidDays:paidDays===''?undefined:Number(paidDays),reason}});if(ticket.current()){setDetail(row);setNotice(row.result.issues.length?'已儲存草稿，請先處理待補事項':'已計算，請核對明細再確認');}setPayDate(proposedPayday(month));setBonusAmount('');setPaidDays('');setReason('');await load();});}
  async function open(row:Run){await run(async()=>{const ticket=selection.begin();const r=await apiRequest<Run>(ROOT+'/payroll/runs/'+row.id);if(ticket.current())setDetail(r);});}
  async function transition(action:string){if(!detail)return;await run(async()=>{const r=await apiRequest<Run>(ROOT+'/payroll/runs/'+detail.id,{method:'POST',json:{action,revision:detail.revision,reason}});setDetail(r);setReason('');setNotice('已更新薪資狀態');await load();});}
  async function review(e:FormEvent){e.preventDefault();await run(async()=>{await apiRequest(ROOT+'/payroll/reviews/'+employee,{method:'POST',json:{date:reviewDate,kind:reviewKind,reason,revision:reviews.find(r=>r.work_date===reviewDate)?.revision??0}});await loadReviews();setReviewDate('');setReason('');setNotice('已保存確認原因，請重新計算草稿');});}
@@ -101,6 +107,7 @@ export function HrPayrollPanel(){
    <EntryFields label="每月薪資計算" columns={3} rows={[
     {label:'員工',required:true,content:<select className="cy-sheet-input" disabled={busy} value={employee||''} onChange={e=>void chooseEmployee(Number(e.target.value))}><option value="">請選擇</option>{people.map(p=><option key={p.id} value={p.id}>{p.employee_no} {p.name}</option>)}</select>},
     {label:'給付日期',required:true,content:<DateInput className="cy-sheet-input" disabled={busy} value={payDate} onChange={setPayDate}/>},
+    {label:'本次另發非每月獎金（無則留空）',content:<input className="cy-sheet-input" disabled={busy} type="number" min="0" step="1" value={bonusAmount} onChange={e=>setBonusAmount(e.target.value)}/>},
     {label:'未滿月計薪天數（整月留空）',content:<input className="cy-sheet-input" disabled={busy} type="number" min="0" max="30" step="1" value={paidDays} onChange={e=>setPaidDays(e.target.value)}/>},
     {label:'計算／異動原因',required:paidDays!=='',content:<input className="cy-sheet-input" disabled={busy} value={reason} onChange={e=>setReason(e.target.value)}/>},
    ]}/>
@@ -113,9 +120,13 @@ export function HrPayrollPanel(){
    <p>應發 {money(detail.result.gross)}／扣項 {money(detail.result.deductions)}／實領 {detail.result.issues.length?'待確認':money(detail.result.net)}；公司負擔 {money(detail.result.employer)}（不扣員工）。</p>
    {detail.result.issues.length?<div className="cy-op-table-wrap"><table className="cy-op-table cy-rt"><thead><tr><th>待補／待確認事項</th></tr></thead><tbody>{detail.result.issues.map((s,i)=><tr key={i}><td data-label="事項">{s}</td></tr>)}</tbody></table></div>:null}
    <div className="cy-op-table-wrap"><table className="cy-op-table cy-rt"><thead><tr><th>法定表</th><th>版本</th><th>官方來源</th></tr></thead><tbody>{detail.result.ruleVersions.map(v=><tr key={v.id}><td data-label="法定表">{ruleLabels[v.kind]??v.kind}</td><td data-label="版本">{v.id}</td><td data-label="來源"><a href={v.source} target="_blank" rel="noreferrer">官方資料</a></td></tr>)}</tbody></table></div>
+   {detail.result.nhiPolicyVersion?<p>補充保費版本 {detail.result.nhiPolicyVersion.id}，生效 {detail.result.nhiPolicyVersion.effectiveDate}；<a href={detail.result.nhiPolicyVersion.source} target="_blank" rel="noreferrer">官方來源</a></p>:null}
    <p>狀態：{statusLabel[detail.status]}。確認與發薪標記需要填寫上方原因；標記不會匯款。已發薪快照保留，不隨出勤或新表改寫。</p>
    <div className="cy-op-actions">{detail.status==='draft'?<button type="button" className="cy-op-button primary" disabled={busy||!!detail.result.issues.length||!reason.trim()} onClick={()=>void transition('confirm')}>確認薪資</button>:null}{detail.status==='confirmed'?<><button type="button" className="cy-op-button" disabled={busy||!reason.trim()} onClick={()=>void transition('reopen')}>撤回確認並保留快照</button><button type="button" className="cy-op-button primary" disabled={busy||!reason.trim()} onClick={()=>void transition('pay')}>標記已發薪</button></>:null}</div>
   </section>:null}
+  <HrEmployerSupplement month={detail?.pay_date.slice(0,7)||payDate.slice(0,7)||month} refreshToken={detail?.revision??0}/>
+  {employee?<HrPayrollCorrections key={employee+month} employeeId={employee} month={month} refreshToken={detail?.revision??0}/>:null}
+  {employee?<HrPayrollLegalCases key={employee+month} employeeId={employee} month={month}/>:null}
   <section className="cy-op-panel"><h3>特殊出勤確認</h3><p>缺卡請先至出勤更正。只有已核對的曠班、合法假日調移或例假緊急出勤才在此留下原因，保存後須重算。</p>
    <form className="cy-op-form" onKeyDown={enterAdvancesFields} onSubmit={e=>void review(e)}><EntryFields label="出勤確認" columns={3} rows={[
     {label:'日期',required:true,content:<DateInput disabled={busy} className="cy-sheet-input" value={reviewDate} onChange={setReviewDate}/>},

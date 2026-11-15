@@ -36,3 +36,21 @@ test('correction save failure keeps the scoped employee, original revision, edit
  assert.equal(field(t,'正確下班1').props.value,'17:30');assert.equal(field(t,'更正原因').props.value,'合成核對');assert.ok(text(t).includes('授權已撤回'));assert.deepEqual(payload,{employeeId:9,date:'2026-11-03',revision:4,out1:'17:30',out2:null,reason:'合成核對'});assert.equal(walk(t).find(n=>n.props.title==='更正誤打下班卡').props.open,true);
  }finally{cleanup(h);}
 });
+
+const {HrPayrollLegalCases}=await compiled('src/runtime/modules/HrPayrollLegalCases.tsx',[guard,plugin]);
+const {HrPayrollCorrections}=await compiled('src/runtime/modules/HrPayrollCorrections.tsx',[guard,plugin]);
+test('legal-case failed read cannot save blank facts; failed save retains proof, basis and reason',async()=>{
+ const h=new Host(),props={employeeId:1,month:'2026-11'};let writes=0,reject;globalThis.hrTransport=()=>Promise.reject(Error('合成讀取案件失敗'));
+ try{h.render(HrPayrollLegalCases,props);let t=await h.settle(HrPayrollLegalCases,props);assert.equal(button(t,'新增法定案件').props.disabled,true);
+ globalThis.hrTransport=(u,o)=>{if(o?.method){writes++;return new Promise((a,b)=>{reject=b;});}return Promise.resolve([]);};button(t,'重新讀取案件').props.onClick();t=await h.settle(HrPayrollLegalCases,props);button(t,'新增法定案件').props.onClick();t=h.render(HrPayrollLegalCases,props);
+ field(t,'最近月工資／原領日工資×30').props.onChange({target:{value:'33000'}});field(t,'工資／醫療／給付核對來源').props.onChange({target:{value:'合成證明'}});field(t,'本次核對原因').props.onChange({target:{value:'合成查核'}});t=h.render(HrPayrollLegalCases,props);const f=walk(t).find(n=>n.type==='form');f.props.onSubmit(event);f.props.onSubmit(event);assert.equal(writes,1);reject(Error('合成版本衝突'));t=await h.settle(HrPayrollLegalCases,props);
+ assert.equal(field(t,'最近月工資／原領日工資×30').props.value,'33000');assert.equal(field(t,'工資／醫療／給付核對來源').props.value,'合成證明');assert.ok(text(t).includes('合成版本衝突'));
+ }finally{cleanup(h);}
+});
+test('paid-delta failed save keeps one idempotency key and recovery consent across explicit retries',async()=>{
+ const h=new Host(),props={employeeId:1,month:'2026-11'},data={entries:[],paidRuns:[{id:3,month:'2026-10',payDate:'2026-11-05',net:33000}]};let payloads=[],reject;globalThis.hrTransport=(u,o)=>{if(o?.method){payloads.push(o.json);return new Promise((a,b)=>{reject=b;});}return Promise.resolve(data);};
+ try{h.render(HrPayrollCorrections,props);let t=await h.settle(HrPayrollCorrections,props);button(t,'新增前期差額').props.onClick();t=h.render(HrPayrollCorrections,props);field(t,'原已發薪快照').props.onChange({target:{value:'3'}});field(t,'更正種類').props.onChange({target:{value:'salary_recovery'}});t=h.render(HrPayrollCorrections,props);
+ field(t,'實際核對差額').props.onChange({target:{value:'500'}});field(t,'核定／更正依據').props.onChange({target:{value:'合成更正核定'}});field(t,'員工明確同意依據').props.onChange({target:{value:'合成書面同意'}});field(t,'本次更正原因').props.onChange({target:{value:'合成溢領'}});t=h.render(HrPayrollCorrections,props);let f=walk(t).find(n=>n.type==='form');f.props.onSubmit(event);f.props.onSubmit(event);assert.equal(payloads.length,1);reject(Error('合成儲存失敗'));t=await h.settle(HrPayrollCorrections,props);assert.equal(field(t,'員工明確同意依據').props.value,'合成書面同意');assert.equal(field(t,'實際核對差額').props.value,'500');
+ walk(t).find(n=>n.type==='form').props.onSubmit(event);assert.equal(payloads.length,2);assert.equal(payloads[0].requestKey,payloads[1].requestKey);reject(Error('合成仍失敗'));await h.settle(HrPayrollCorrections,props);
+ }finally{cleanup(h);}
+});
