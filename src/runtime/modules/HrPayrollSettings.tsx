@@ -21,7 +21,7 @@ export function HrPayrollSettings(){
  async function toggle(g:Grant){await run(async()=>{await apiRequest(ROOT+'/settings/attendance-correction-grants',{method:'POST',json:{memberId:g.member_id,storeId:g.store_id,revision:g.revision,enabled:g.is_active!==1,reason}});setReason('');await load();});}
  return <>
   {error?<p role="alert" className="cy-op-notice danger">{error}</p>:null}{notice?<p role="status">{notice}</p>:null}
-  <section className="cy-op-panel"><h3>法定級距與年度更新</h3><p>每天檢查官方資料，按生效日自動導入新版本。來源異常會顯示在此；新表不改寫已確認薪資。</p><button type="button" className="cy-op-button" disabled={busy} onClick={()=>void sync()}>立即檢查官方資料</button>
+  <section className="cy-op-panel"><h3>法定級距（手動更新）</h3><button type="button" className="cy-op-button" disabled={busy} onClick={()=>void sync()}>更新官方表</button>
    <div className="cy-op-table-wrap"><table className="cy-op-table cy-rt"><thead><tr><th>項目</th><th>最近檢查</th><th>最近成功</th><th>狀態</th></tr></thead><tbody>{states.map(s=><tr key={s.kind}><td data-label="項目">{labels[s.kind]}</td><td data-label="最近檢查">{s.checked_at}</td><td data-label="最近成功">{s.success_at||'尚未成功'}</td><td data-label="狀態">{s.error||'正常'}</td></tr>)}</tbody></table></div>
    <div className="cy-op-table-wrap"><table className="cy-op-table cy-rt"><thead><tr><th>項目</th><th>版本</th><th>生效日</th><th>適用迄日</th><th>官方來源</th></tr></thead><tbody>{versions.map(v=><tr key={v.kind+v.id}><td data-label="項目">{labels[v.kind]}</td><td data-label="版本">{v.id}</td><td data-label="生效日">{v.effective_date}</td><td data-label="適用迄日">{v.valid_until==='9999-12-31'?'至下次變更':v.valid_until}</td><td data-label="官方來源"><a href={v.source_url} target="_blank" rel="noreferrer">查看官方表</a></td></tr>)}</tbody></table></div>
   </section>
