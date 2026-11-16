@@ -11,7 +11,7 @@ export interface PayrollProfile {
  insuredFrom:string|null;insuredTo:string|null;
  healthFrom?:string|null;healthTo?:string|null;pensionFrom?:string|null;pensionTo?:string|null;
  occupationalBasis:number;occupationalRate:number;
- taxResidence:'resident'|'nonresident';taxMethod:'table'|'percent';taxDependents:number;
+ taxResidence:'resident'|'nonresident';taxMethod:'table';taxDependents:number;
  taxSalaryKind?:'primary'|'secondary';nhiSupplementCategory?:'own'|'other'|'exempt';nhiExemptionReference?:string;nhiUnitKey?:string;
  bonusOpeningYear?:number;bonusOpeningThrough?:string;bonusOpeningAmount?:number;bonusOpeningReference?:string;
  weeklyHours?:number;hourlyAllowanceHours?:number;

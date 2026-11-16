@@ -20,13 +20,13 @@ export function validatePayrollProfile(raw:unknown):PayrollProfile{
   healthFrom:nullableDate(v.healthFrom,'healthFrom'),healthTo:nullableDate(v.healthTo,'healthTo'),
   pensionFrom:nullableDate(v.pensionFrom,'pensionFrom'),pensionTo:nullableDate(v.pensionTo,'pensionTo'),
   occupationalBasis:number(v.occupationalBasis,'occupationalBasis'),occupationalRate:Number(v.occupationalRate),
-  taxResidence:v.taxResidence as PayrollProfile['taxResidence'],taxMethod:v.taxMethod as PayrollProfile['taxMethod'],taxDependents:number(v.taxDependents,'taxDependents',99),
+  taxResidence:v.taxResidence as PayrollProfile['taxResidence'],taxMethod:'table',taxDependents:number(v.taxDependents,'taxDependents',99),
   taxSalaryKind:v.taxSalaryKind as PayrollProfile['taxSalaryKind'],nhiSupplementCategory:v.nhiSupplementCategory as PayrollProfile['nhiSupplementCategory'],nhiExemptionReference:typeof v.nhiExemptionReference==='string'?v.nhiExemptionReference.trim():'',nhiUnitKey:typeof v.nhiUnitKey==='string'?v.nhiUnitKey.trim():'',
   bonusOpeningYear:v.bonusOpeningYear==null?undefined:number(v.bonusOpeningYear,'bonusOpeningYear',2099),bonusOpeningThrough:nullableDate(v.bonusOpeningThrough,'bonusOpeningThrough')??undefined,bonusOpeningAmount:v.bonusOpeningAmount==null?undefined:number(v.bonusOpeningAmount,'bonusOpeningAmount',1000000000),bonusOpeningReference:typeof v.bonusOpeningReference==='string'?v.bonusOpeningReference.trim():'',
   weeklyHours:hours(v.weeklyHours,'weeklyHours',40),hourlyAllowanceHours:hours(v.hourlyAllowanceHours,'hourlyAllowanceHours',744),
  };
  if(p.taxSalaryKind!=null&&!['primary','secondary'].includes(p.taxSalaryKind)||p.nhiSupplementCategory!=null&&!['own','other','exempt'].includes(p.nhiSupplementCategory))throw new HrValidationError('paymentFacts','所得／補充保費身分不正確');
- if(!['resident','nonresident'].includes(p.taxResidence)||!['table','percent'].includes(p.taxMethod))throw new HrValidationError('taxMethod','扣繳身分及方式必填');
+ if(!['resident','nonresident'].includes(p.taxResidence)||p.taxMethod!=='table')throw new HrValidationError('taxMethod','扣繳身分及方式必填');
  if([p.pensionEmployerRate,p.pensionSelfRate,p.occupationalRate].some(x=>!Number.isFinite(x)||x<0||x>100||Math.abs(x*10000-Math.round(x*10000))>1e-7))throw new HrValidationError('rate','費率格式錯誤');
  if(p.pensionSelfRate>6||p.pensionEnabled&&p.pensionEmployerRate<6)throw new HrValidationError('pension','雇主提繳不得低於6%，自提不得超過6%');
  if(p.insuredTo&&(!p.insuredFrom||p.insuredTo<p.insuredFrom)||p.laborEnabled&&(!p.insuredFrom||p.laborBasis===0)||p.healthEnabled&&(!p.healthFrom||p.healthBasis===0)||p.pensionEnabled&&(!p.pensionFrom||p.pensionBasis===0)||p.healthTo&&(!p.healthFrom||p.healthTo<p.healthFrom)||p.pensionTo&&(!p.pensionFrom||p.pensionTo<p.pensionFrom))throw new HrValidationError('insurance','各保險／提繳日期及基礎金額須完整，不能共用錯誤日期');

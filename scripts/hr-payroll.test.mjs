@@ -280,13 +280,11 @@ test('hourly staff: a holiday on a scheduled workday keeps its usual pay, and wo
  assert.equal(off.lines.some(l=>l.label==='國定假日工資'),false);
 });
 
-test('薪資所得扣繳辦法: table below its start and any monthly tax of 2,000 or less is not withheld; 5% applies without the form',()=>{
+test('薪資所得扣繳辦法: table below its start and any monthly tax of 2,000 or less is not withheld (company uses the table only)',()=>{
  const table={rows:[{from:90501,to:91000,amounts:[1990,0]},{from:91001,to:91500,amounts:[2020,0]}],nonresidentThreshold:44250,nonMonthlyThreshold:90501};
  const base={...profile,taxResidence:'resident',taxSalaryKind:'primary',taxDependents:0,nhiSupplementCategory:'exempt',nhiExemptionReference:'test'};
  const run=(method,regular)=>paymentTaxes('2026-12-05',regular,0,{...base,taxMethod:method},table,{},()=>{}).taxRegular;
  assert.equal(run('table',85000),0);            // below the table: no withholding
  assert.equal(run('table',90800),0);            // table says 1,990 ≤ 2,000: exempt (§7Ⅰ)
  assert.equal(run('table',91200),2020);
- assert.equal(run('percent',40000),0);          // 5% = 2,000: exempt
- assert.equal(run('percent',50000),2500);       // no form filed → 5% (§6Ⅰ)
 });
