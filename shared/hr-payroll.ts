@@ -158,6 +158,15 @@ export function calculatePayroll(input:PayrollInput,employee:{hireDate:string;te
    regularMinutes+=minutes;regularPay+=(salary?.base_amount??0)*minutes/60;
   }
   add('earning','時薪工資',regularPay,'依當日生效時薪與正常工時，不將加班時數再付一次本薪','',regularMinutes);
+  // 國定假日 for hourly staff (user 2026-11-16): a scheduled workday keeps its usual pay (照給); working it is paid again on top via 加班 (加倍).
+  let holidayMinutes=0,holidayPay=0;
+  for(const d of paidDays){
+   if(!d.holiday)continue;
+   const kind=d.schedule?.kind;
+   if(kind==='shift'||kind==='hours'){holidayMinutes+=d.normalMinutes;holidayPay+=(salaryAt(d.date)?.base_amount??0)*d.normalMinutes/60;}
+   else if(kind==='leave'&&d.schedule?.code==='國')issues.push(d.date+' 國定假日：請在排班填時薪人員原應工作時數，以照給當日工資');
+  }
+  if(holidayPay)add('earning','國定假日工資',holidayPay,'原應工作日照給當日工資；出勤另依加班加倍','',holidayMinutes);
   for(const a of current.allowances)add('earning',a.item_name,a.amount*factor,'主檔本期月額津貼，未滿月按已確認30天制天數折算；不是每小時重複乘上津貼');
   if((regularAllowances||profile.attendanceEnabled)&&!profile.hourlyAllowanceHours)issues.push('時薪津貼／全勤須填約定月正常工時，作為加班工資分攤基礎');
  }

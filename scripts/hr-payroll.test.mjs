@@ -265,3 +265,17 @@ test('paid salary corrections keep the original, require recovery consent, fence
  await assert.rejects(corrections.create(1,'2026-11',{...input,requestKey:'late-new-entry'},ctx),/目標月份/);
  }finally{f.sql.close();}
 });
+
+test('hourly staff: a holiday on a scheduled workday keeps its usual pay, and working it adds pay on top',()=>{
+ const hourly=[{id:1,effective_date:'2025-01-01',payment_type:'hourly',base_amount:200,allowances:[]}];
+ const p={...profile,attendanceEnabled:false};
+ // not worked: 6 scheduled hours on the holiday are paid as usual (照給)
+ const rest=calc([day({date:'2026-11-03',holiday:true,workedMinutes:0,normalMinutes:360,schedule:{kind:'hours',rest_label:null,code:null}})],[],p,hourly);
+ assert.equal(rest.lines.find(l=>l.label==='國定假日工資').amount,1200);
+ // worked 6 hours as holiday overtime: 照給 1200 + 加倍 1200
+ const worked=calc([day({date:'2026-11-03',holiday:true,workedMinutes:360,normalMinutes:360,schedule:{kind:'hours',rest_label:null,code:null},overtime:{minutes:360,settlement:'pay'}})],[],p,hourly);
+ assert.equal(worked.lines.find(l=>l.label==='國定假日工資').amount,1200);assert.equal(worked.lines.find(l=>l.label==='加班費').amount,1200);
+ // a day off on the holiday is not paid
+ const off=calc([day({date:'2026-11-03',holiday:true,workedMinutes:0,normalMinutes:0,schedule:{kind:'off',rest_label:'rest',code:null}})],[],p,hourly);
+ assert.equal(off.lines.some(l=>l.label==='國定假日工資'),false);
+});
