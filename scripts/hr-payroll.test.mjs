@@ -228,9 +228,9 @@ const {employerSupplement}=await compiled('worker/hr/hr-payroll-employer.ts');
 const supplementPolicy={id:1,effectiveDate:'2021-01-01',rate:2.11,cap:10000000,multiple:4,source:'https://www.nhi.gov.tw/synthetic'};
 const ownerBonus={...profile,nhiSupplementCategory:'own',healthBasis:30300,bonusOpeningYear:2026,bonusOpeningThrough:'2025-12-31',bonusOpeningAmount:0,bonusOpeningReference:'合成核對年度期初'};
 test('bonus health premium uses annual accumulated excess, exact cap and separate withholding; missing opening is never guessed',()=>{
- const issues=[];const p=paymentTaxes('2026-12-05',33000,200000,ownerBonus,rules[0].data,{policy:supplementPolicy},s=>issues.push(s));assert.deepEqual(issues,[]);assert.equal(p.taxBonus,10000);assert.equal(p.nhiPremium,1663);
- const prior=[{date:'2026-05-05',regular:33000,bonus:100000,taxRegular:0,taxBonus:5000,nhiIncome:133000,nhiPremium:0}];assert.equal(paymentTaxes('2026-12-05',33000,50000,ownerBonus,rules[0].data,{policy:supplementPolicy,paidIncome:prior},s=>issues.push(s)).nhiPremium,608);
- assert.equal(paymentTaxes('2026-12-05',33000,50000,{...ownerBonus,bonusOpeningThrough:'2026-06-30'},rules[0].data,{policy:supplementPolicy,paidIncome:prior},s=>issues.push(s)).nhiPremium,608);
+ const issues=[];const p=paymentTaxes('2026-12-05',33000,200000,ownerBonus,rules[0].data,{policy:supplementPolicy},s=>issues.push(s));assert.deepEqual(issues,[]);assert.equal(p.taxBonus,10000);assert.equal(p.nhiPremium,1662);
+ const prior=[{date:'2026-05-05',regular:33000,bonus:100000,taxRegular:0,taxBonus:5000,nhiIncome:133000,nhiPremium:0}];assert.equal(paymentTaxes('2026-12-05',33000,50000,ownerBonus,rules[0].data,{policy:supplementPolicy,paidIncome:prior},s=>issues.push(s)).nhiPremium,607);
+ assert.equal(paymentTaxes('2026-12-05',33000,50000,{...ownerBonus,bonusOpeningThrough:'2026-06-30'},rules[0].data,{policy:supplementPolicy,paidIncome:prior},s=>issues.push(s)).nhiPremium,607);
  assert.equal(paymentTaxes('2026-12-05',33000,20000000,ownerBonus,rules[0].data,{policy:supplementPolicy},s=>issues.push(s)).nhiPremium,211000);
  paymentTaxes('2026-12-05',33000,200000,{...ownerBonus,bonusOpeningYear:undefined},rules[0].data,{policy:supplementPolicy},s=>issues.push(s));assert.ok(issues.some(s=>s.includes('期初累計')));
 });
@@ -264,4 +264,19 @@ test('paid salary corrections keep the original, require recovery consent, fence
  assert.equal(JSON.stringify((await s.get(original.id)).result),frozen);assert.equal(f.sql.prepare('SELECT COUNT(*) n FROM hr_payroll_correction_uses WHERE is_active=1').get().n,1);
  await assert.rejects(corrections.create(1,'2026-11',{...input,requestKey:'late-new-entry'},ctx),/目標月份/);
  }finally{f.sql.close();}
+});
+
+test('company rule: employee deductions are truncated, never rounded up; the employer share keeps official rounding',async()=>{
+ const {payrollInsurance}=await import('data:text/javascript;base64,'+Buffer.from((await (await import('esbuild')).build({entryPoints:['shared/hr-payroll-insurance.ts'],bundle:true,format:'esm',platform:'node',write:false})).outputFiles[0].text).toString('base64'));
+ const lines=[];const profile={laborEnabled:false,healthEnabled:false,pensionEnabled:true,pensionBasis:30300,pensionSelfRate:6,pensionEmployerRate:6,insuredFrom:'2026-11-16',insuredTo:null,occupationalBasis:0,occupationalRate:0};
+ const self=payrollInsurance('2026-11',[{effectiveDate:'2026-11-01',settings:profile}],[],(kind,label,amount)=>lines.push({kind,label,amount}),()=>{},()=>null,(a,b)=>{const s=+a.slice(8),e=b?Math.min(30,+b.slice(8)):30;return e-s+1});
+ // 30300×6%×15/30 = 909 exactly; ×14/30 would be 848.4 → employee 848, employer 848 (rounded)
+ const p2={...profile,insuredFrom:'2026-11-17'};const l2=[];
+ const self2=payrollInsurance('2026-11',[{effectiveDate:'2026-11-01',settings:p2}],[],(kind,label,amount)=>l2.push({kind,label,amount}),()=>{},()=>null,(a,b)=>{const s=+a.slice(8),e=b?Math.min(30,+b.slice(8)):30;return e-s+1});
+ assert.equal(self,909);assert.equal(self2,848);
+ assert.equal(l2.find(l=>l.label==='勞退個人自提').amount,848);
+ // 30300×0.06×13/30=787.8: employee 787 (truncated), employer 788 (rounded)
+ const p3={...profile,insuredFrom:'2026-11-18'};const l3=[];
+ payrollInsurance('2026-11',[{effectiveDate:'2026-11-01',settings:p3}],[],(kind,label,amount)=>l3.push({kind,label,amount}),()=>{},()=>null,(a,b)=>{const s=+a.slice(8),e=b?Math.min(30,+b.slice(8)):30;return e-s+1});
+ assert.equal(l3.find(l=>l.label==='勞退個人自提').amount,787);assert.equal(l3.find(l=>l.label==='雇主勞退').amount,788);
 });

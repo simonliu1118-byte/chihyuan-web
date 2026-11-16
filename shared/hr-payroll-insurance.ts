@@ -35,6 +35,7 @@ export function payrollInsurance(month:string,history:readonly EffectivePayrollP
   const rule=need('health',last),row=(rule?.data as HealthTable|undefined)?.rows.find(r=>r.basis===p.healthBasis);
   if(!row)issue('健保投保金額不在月底適用官方表內');else{push('deduction','健保',row.worker[Math.min(p.dependents,3)],'按月底投保事實／官方全月金額；眷口最多3口');push('employer','雇主健保',row.employer,'官方全月公司負擔，不扣員工');}
  }
- for(const [label,row]of totals)add(row.kind,label,Math.floor(row.amount+0.5+1e-8),row.detail.reverse().join('；'));
- return Math.floor((totals.get('勞退個人自提')?.amount??0)+0.5+1e-8);
+ // Company rule (user 2026-11-16): an employee's deductions are truncated to whole 元, never rounded up; the employer share keeps the official rounding.
+ for(const [label,row]of totals)add(row.kind,label,row.kind==='deduction'?Math.floor(row.amount+1e-8):Math.floor(row.amount+0.5+1e-8),row.detail.reverse().join('；'));
+ return Math.floor((totals.get('勞退個人自提')?.amount??0)+1e-8);
 }
