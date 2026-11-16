@@ -43,7 +43,7 @@
 - TypeScript、npm run build、npm run validate:source通過；後者用本機既有Python＋UTF-8模式，未安裝新執行工具。
 - 29項聚焦測試通過：外部成果、權限、真實來源、日期、並行衝突、防重複、舊sent場次補登、原收據、10圖雜湊重試／隔日清理、新舊備份還原。
 - 完整Node本機首輪834項、821通過、13失敗。其中3項為新版計數／marker斷言已依新契約更新，聚焦重測成功；其餘為Windows測試既有差異：backup-rehearsal的forward-slash esbuild替身路徑6項、secure-entry本機平台讀取1項、LF／CRLF schema fingerprint3項。未改這些無關業務程式，遠端Linux CI須全部通過後才可交付合併。
-- 本機真實D1與遠端CI結果待完成後補在下方，不冒稱已通過。
+- Windows本機D1清理未完成；遠端Linux真實D1與完整測試已通過，證據見下方。
 - IAB合成fixture：390×844下clientWidth=scrollWidth=375、三筆ListRow各58.83px（兩列）；手機一次只渲染目前一則，切下一則正文正確。文章可點全文／外部核准來源，留言N可看實際全文，兩者無審核按鈕。1440×900桌機維持表格。預覽不是正式站登入驗收。
 - 合成截圖在交付outputs：bot-01814-mobile-list.png、bot-01814-mobile-review.png、bot-01814-desktop.png，未放進Public Git。
 - D1 batch原子語意已依官方文件確認：https://developers.cloudflare.com/d1/worker-api/d1-database/#batch
@@ -53,7 +53,7 @@
 1. Claude檢查新成果來源、並行保護、舊sent轉換、備份及手機共用元件，將結論寫回本檔；本執行者不代填通過。
 2. 使用者授權後，按既有main受控部署跑0077，確認版本、來源、D1、備份還原條件；不要手動改schema或輪換token。
 3. WEB先部署後，再交小編更新既定5檔與共用技能。原憑證／收據／routine保留；不重跑pilot。
-4. 小編核對目前已實際發出但缺完整成果的文章／留言，以固定事件與真實發布時間補登，連原補登稿；現有6則sent只補同場session，不重算。不得再補流程性審核或重發外部內容；不批次依標題猜歷史。
+4. 小編核對目前已實際發出但缺完整成果的文章／留言，以固定事件與真實發布時間補登，連原補登稿；11/13查核時既有的6則sent只補原日期的同場session，不重算。不得再補流程性審核或重發外部內容；不批次依標題猜歷史。
 5. 實際驗收外部文章全文／圖片、留言N／場次、待審減少且其他稿不動、原推播讀回正常。拍板結案後臺仍不串接，FINANCE只沿用原progress摘要。
 
 ## Claude 最終審查
@@ -70,3 +70,10 @@
 - [PR #522](https://github.com/simonliu1118-byte/chihyuan-web/pull/522)已建立，未合併／部署。
 - 收尾補上逐則統計「外部已處理」數（由原總數差額導出，不新增SQL查詢）與手機清單完整語音標籤，避免外部處理後顯示全0統計。
 - 新工具包僅既定5檔，解壓CLI驗證通過；共用技能frontmatter／資源由既有Node測試驗證，通用quick_validate因本機缺PyYAML未執行，不安裝新依賴。
+
+### 2026-11-17 最終工程證據
+
+- 程式提交 `4b27603b2cb2323e05576178b9f63c50eca95421` 的[Runtime Check #43911896560](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/43911896560)全部成功：source、前後端TypeScript、真正local D1 runtime acceptance、完整Node **915／915通過，0失敗**、Vite build均通過。
+- [部署契約 #43911897021](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/43911897021)、[治理 #43911896708](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/43911896708)成功；部署與正式audit工作均按PR事件略過，沒有遠端migration或發布。
+- 新工具包 `cyweb-work-reporter-v0.21.2.zip` 僅5個既定檔案、22019 bytes，SHA-256 `eec4130a9e9fb6fc7224d8dcd73bc98539358f8bac78ee7bfce78c413ef092d6`；解壓後CLI --help通過。包與可轉貼小編文字放本機outputs，不提交Public Git。
+- [PR #522](https://github.com/simonliu1118-byte/chihyuan-web/pull/522)工程完成，交Claude審查；未合併／部署。正式站與Grok實機驗收需等授權發布及小編更新後執行。

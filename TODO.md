@@ -8,6 +8,7 @@
 - [x] 統一實際成果ledger、外部核准直接登錄、已處理待審連結、防重複、巡視場次短摘要與發布點閱。
 - [x] 手機ListRow兩列含版本／時間／BOT／內容／狀態；逐則審稿沿用共用視窗、圖片與批次選單，390px合成預覽無水平溢出。
 - [x] migration0077、備份與舊sent還原、工具及技能同步，原憑證／收據／routine保持不變。
+- [x] [PR522完整Runtime檢查](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/43911896560)通過：915項Node、local D1、TypeScript、source、build成功；另部署契約與治理成功。
 - [ ] Claude依[handoff](docs/handoff/CYWEB-BOT-DELIVERIES-0212-20261117.md)審查；發布依使用者授權，不能把本機合成測試當正式站驗收。
 - [ ] WEB部署0077後，再交小編更新工具／技能並補目前缺少全文與場次的實際成果；不補審、不重發社群內容。
 
