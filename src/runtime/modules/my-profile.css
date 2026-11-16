@@ -10,3 +10,4 @@
 .cy-my-profile-warn{color:var(--cy-danger,#b42318);white-space:normal}
 .cy-my-profile-minus{color:var(--cy-danger,#b42318)}
 .cy-my-profile .cy-sheet-rows{margin:0}
+.cy-account-cell{display:inline-flex;align-items:center;gap:8px;flex-wrap:wrap}
