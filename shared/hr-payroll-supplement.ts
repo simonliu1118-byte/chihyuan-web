@@ -33,11 +33,11 @@ export function paymentTaxes(at:string,regular:number,bonus:number,baseProfile:P
    if(bonus>0&&!p.healthBasis)issue('獎金補充保費缺少給付時（離職者為離職月）投保金額');
    const todayBonus=bonus+sameDay.reduce((n,r)=>n+r.bonus,0);
    const basis=Math.min(todayBonus,Math.max(0,earlier+todayBonus-p.healthBasis*(ctx.policy?.multiple??4)),ctx.policy?.cap??10000000);
-   if(basis>0){if(!ctx.policy||ctx.policy.effectiveDate>at)issue('缺少給付日有效的官方補充保費規則');else nhiPremium=Math.max(0,Math.floor(basis*ctx.policy.rate/100+1e-8)-sameDay.reduce((n,r)=>n+(r.nhiPremium??0),0));}
+   if(basis>0){if(!ctx.policy||ctx.policy.effectiveDate>at)issue('缺少給付日有效的官方補充保費規則');else nhiPremium=Math.max(0,Math.floor(basis*ctx.policy.rate/100+0.5+1e-8)-sameDay.reduce((n,r)=>n+(r.nhiPremium??0),0));}
   }
  }else if(category==='other'&&income>0){
   if(!ctx.paymentMinimum)issue('缺少給付日有效的最低工資，不能判定兼職補充保費門檻');
-  else if(income+sameDay.reduce((n,r)=>n+r.regular+r.bonus,0)>=ctx.paymentMinimum){if(!ctx.policy||ctx.policy.effectiveDate>at)issue('缺少給付日有效的官方補充保費規則');else nhiPremium=Math.max(0,Math.floor(Math.min(income+sameDay.reduce((n,r)=>n+r.regular+r.bonus,0),ctx.policy.cap)*ctx.policy.rate/100+1e-8)-sameDay.reduce((n,r)=>n+(r.nhiPremium??0),0));}
+  else if(income+sameDay.reduce((n,r)=>n+r.regular+r.bonus,0)>=ctx.paymentMinimum){if(!ctx.policy||ctx.policy.effectiveDate>at)issue('缺少給付日有效的官方補充保費規則');else nhiPremium=Math.max(0,Math.floor(Math.min(income+sameDay.reduce((n,r)=>n+r.regular+r.bonus,0),ctx.policy.cap)*ctx.policy.rate/100+0.5+1e-8)-sameDay.reduce((n,r)=>n+(r.nhiPremium??0),0));}
  }
  return {taxRegular,taxBonus,nhiPremium,nhiIncome:income,bonusGross:bonus,regularTaxable:regular};
 }
