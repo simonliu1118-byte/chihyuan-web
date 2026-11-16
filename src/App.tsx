@@ -7,7 +7,8 @@ import { QUARTERLY_REMINDER_RECHECK_MS, taiwanQuarter, type QuarterlyRehearsalRe
 import { checkModuleAccess } from "./access/module-access-client";
 import { AuthGate } from "./auth/AuthGate";
 import type { AuthSession, WorkspaceRole } from "./auth/auth-client";
-import { MyAccountPage, SharedIdentityPage } from "./identity/SharedIdentityPage";
+import { SharedIdentityPage } from "./identity/SharedIdentityPage";
+import { MyProfilePage } from "./runtime/modules/MyProfilePage";
 import { effectiveModules, CYWEB_MODULES, moduleCodesForRoute, type CyWebModuleCode } from "../shared/modules";
 import { verifiedProgramCatalog } from "../shared/program-catalog";
 import type { NavigationGroup } from "./ui/foundation/navigation";
@@ -39,6 +40,7 @@ import {MyTodosPage} from "./runtime/modules/MyTodosPage";
 import {AnnouncementsPage} from "./runtime/modules/AnnouncementsPage";
 import {NotificationBell} from "./runtime/modules/NotificationBell";
 import { HrOperationalPage } from "./runtime/modules/HrOperationalPage";
+import {HrAttendanceCorrections} from './runtime/modules/HrAttendanceCorrections';
 import { HrSettingsButton } from "./runtime/modules/HrSettingsButton";
 import { UnsavedChangesBoundary, useNavigationGuard } from "./ui/foundation/useUnsavedChangesGuard";
 import { createGuardedHashNavigation } from "./ui/foundation/guarded-hash-navigation";
@@ -63,7 +65,7 @@ const PAGE_META: Record<AppRoute, { title: string }> = {
   ordering: {title:"叫貨"},
   store: {title:"門市"},
   identity: { title:"帳號與權限" },
-  account: { title:"我的帳號" },
+  account: { title:"我的資料" },
   audit: { title:"異動紀錄" },
   backups: { title:"備份管理" },
   programs: { title:"CY 程式" },
@@ -73,6 +75,7 @@ const baseNavigation: readonly NavigationGroup[] = [
   // 首頁 is the CY brand row at the top (user 2026-11-09); 公告與通知 sits with ERP／BOT in one block, no gap.
   {
     key: "erp-query", items: [
+      { key: "account", label: "我的資料", href: "#account" },
       { key: "announcements", label: "公告與通知", href: "#announcements" },
       { key: "erp-item-query", label: "ERP 查詢", href: "#erp-item-query" },
       { key: "bot-center", label: "BOT 管理中心", href: "#bot-center" },
@@ -165,6 +168,15 @@ function OperationalApp({
 }) {
   const [route, setRoute] = useState<AppRoute>(currentRoute);
   const moduleAccess = session.moduleAccess;
+  const [hrCorrectionAccess,setHrCorrectionAccess]=useState<boolean|null>(null);
+  useEffect(()=>{
+    if(session.user.workspaceRole!=='ADMIN'){setHrCorrectionAccess(false);return;}
+    const controller=new AbortController();
+    void apiRequest<{stores:unknown[]}>('/api/business/hr/attendance-corrections/capabilities',{signal:controller.signal})
+      .then(r=>{if(!controller.signal.aborted)setHrCorrectionAccess(r.stores.length>0);})
+      .catch(()=>{if(!controller.signal.aborted)setHrCorrectionAccess(false);});
+    return()=>controller.abort();
+  },[session.user.workspaceRole,moduleAccess]);
   const notify = useFeedback();
   const [usageReport, setUsageReport] = useState<D1UsageReport | null>(null);
   const [usageError, setUsageError] = useState<string | null>(null);
@@ -243,10 +255,10 @@ function OperationalApp({
     const erp = baseNavigation.find(group => group.key === "erp-query")!;
     const business = baseNavigation.find(group => group.key === "business")!;
     const administration = baseNavigation.find(group => group.key === "administration")!;
-    const erpItems = erp.items.filter(item => item.key === "announcements" ||
+    const erpItems = erp.items.filter(item => item.key === "announcements" || item.key === "account" ||
       moduleCodesForRoute(item.key).some(code => allowedModules.has(code)));
     const businessItems = business.items.filter(item => item.key === "hr"
-      ? session.user.workspaceRole === "SUPER_ADMIN"
+      ? session.user.workspaceRole === "SUPER_ADMIN" || hrCorrectionAccess===true
       : moduleCodesForRoute(item.key).some(code => allowedModules.has(code)));
     const adminItems = administration.items.filter(item =>
       item.key === "backups" ? session.user.workspaceRole === "SUPER_ADMIN"
@@ -257,7 +269,7 @@ function OperationalApp({
       { ...administration, items: adminItems },
       programsNavigation,
     ];
-  }, [allowedModules, session.user.workspaceRole]);
+  }, [allowedModules, session.user.workspaceRole,hrCorrectionAccess]);
 
   useEffect(() => {
     const handleHashChange = () => {
@@ -284,7 +296,8 @@ function OperationalApp({
     }
 
     if ((routeCodes.length && !routeCodes.some((code) => allowedModules.has(code))) || (adminOnly && !adminAllowed)
-      || ((routeNow === "backups" || routeNow === "hr") && session.user.workspaceRole !== "SUPER_ADMIN")) {
+      || (routeNow === "backups" && session.user.workspaceRole !== "SUPER_ADMIN")
+      || (routeNow === "hr" && session.user.workspaceRole !== "SUPER_ADMIN" && hrCorrectionAccess===false)) {
       cancel();
       guardedNavigation.replace("account");
       // A page opened by several grants (ERP 查詢) is named by its page title.
@@ -295,7 +308,7 @@ function OperationalApp({
         ? revoked ? `「${label}」模組的使用權已被取消，已退出該模組並返回「我的帳號」。尚未儲存的內容不會自動送出。` : `你目前沒有「${label}」模組的使用權，已返回「我的帳號」。`
         : "你的管理權限已變更，已返回「我的帳號」。尚未儲存的內容不會自動送出。", "權限變更", { replace: true });
     }
-  }, [moduleAccess, allowedModules, session.user.workspaceRole, guardedNavigation, cancel, notify, route]);
+  }, [moduleAccess, allowedModules, session.user.workspaceRole, guardedNavigation, cancel, notify, route,hrCorrectionAccess]);
 
   // The grant this page is checked with: one the member holds (any of the page's grants opens it).
   const routeCodes = moduleCodesForRoute(route);
@@ -339,22 +352,22 @@ function OperationalApp({
   const role = session.user.workspaceRole;
   const moduleCode = routeModuleCode;
   const adminAllowed = session.user.workspaceRole === "ADMIN" || session.user.workspaceRole === "SUPER_ADMIN";
-  if ((route === "audit" || route === "identity") && !adminAllowed || (route === "hr" && role !== "SUPER_ADMIN")) {
+  if ((route === "audit" || route === "identity") && !adminAllowed || (route === "hr" && role !== "SUPER_ADMIN" && hrCorrectionAccess!==true)) {
     content = <Loading />;
   } else if (moduleCode && (!routeAllowed || routeAccess !== "allowed" || checkedRoute !== route)) {
     content = routeAccess === "denied"
       ? <section className="cy-op-panel"><h2>目前無法確認模組權限</h2><p>{moduleAccessError ?? "請重新整理頁面後再試。"}</p></section>
       : <Loading />;
   } else if (route === "home") content = <HomePage displayName={session.user.displayName} onNavigate={navigate} shortcuts={navigation.flatMap(group=>group.items)
-    .filter(item=>!item.external&&!["home","announcements","identity","audit","backups","programs"].includes(item.key))
+    .filter(item=>!item.external&&!["home","account","announcements","identity","audit","backups","programs"].includes(item.key))
     .map(item=>({key:item.key,label:item.label}))}/>;
   else if (route === "my-todos") content = <MyTodosPage />;
   else if (route === "announcements") content = <AnnouncementsPage canPublishCompany={allowedModules.has("ANNOUNCEMENT_PUBLISH")} canSendPersonal={allowedModules.has("PERSONAL_NOTICE_SEND")}/>;
-  else if (route === "hr") content = <HrOperationalPage />;
+  else if (route === "hr") content = role==='SUPER_ADMIN'?<HrOperationalPage />:<HrAttendanceCorrections/>;
   else if (route === "customers") content = <CustomerOperationalPage role={role} />;
   else if (route === "items" || route === "defects") content = <ItemsModulePage route={route}
     canItems={allowedModules.has("ITEMS")} canDefects={allowedModules.has("DEFECTS")}
-    canViewCustomers={allowedModules.has("CUSTOMERS")}/>;
+    canViewCustomers={allowedModules.has("CUSTOMERS")} canViewCost={allowedModules.has("ITEMS_COST_MARGIN")}/>;
   else if (route === "orders") content = <SalesOrderOperationalPage />;
   else if (route === "outsourcing") content = <OutsourcingOperationalPage />;
   else if (route === "worklogs") content = <WorkLogOperationalPage />;
@@ -365,7 +378,7 @@ function OperationalApp({
   else if (route === "identity") content = <SharedIdentityPage session={session}
     showUsage={usageRequested && role === "SUPER_ADMIN"}
     usage={role === "SUPER_ADMIN" ? {report:usageReport,error:usageError,loading:usageLoading,onRefresh:refreshUsage} : undefined} />;
-  else if (route === "account") content = <MyAccountPage session={session} />;
+  else if (route === "account") content = <MyProfilePage session={session} />;
   else if (route === "programs") content = <ProgramCatalogPage />;
   else if (route === "backups") content = session.user.workspaceRole === "SUPER_ADMIN" ? <BackupOperationalPage session={session} /> : <section className="cy-op-panel">需要最高管理員權限。</section>;
   else content = <AuditOperationalPage role={role === "SUPER_ADMIN" ? "SUPER_ADMIN" : "ADMIN"} />;
@@ -455,11 +468,11 @@ function OperationalApp({
       systemNotice={usageBanner || quarterlyBanner ? <>{quarterlyBanner}{usageBanner}</> : null}
       appName="CY Web"
       pageTitle={PAGE_META[route].title}
-      pageTools={route === "hr" ? <HrSettingsButton />
+      pageTools={route === "hr" && role==='SUPER_ADMIN' ? <HrSettingsButton />
         : route === "erp-item-query"
         ? <ErpAgentCredentialControl isSuperAdmin={session.user.workspaceRole === "SUPER_ADMIN"} />
         : route === "customers" ? <ModuleSettingsButton key={route} role={role} label="客戶" only={["customer_category","customer_status","department"]} />
-        : route === "items" ? <ModuleSettingsButton key={route} role={role} label="商品" only={["item_category","item_platform"]} />
+        : route === "items" ? <ModuleSettingsButton key={route} role={role} label="商品" only={["item_category","item_platform",...(role==="SUPER_ADMIN"?["item_margin" as const]:[])]} />
         : route === "worklogs" ? <ModuleSettingsButton key={route} role={role} label="工作日誌" only={["worklog-categories","worklog-platforms","scoring"]} />
         : undefined}
       subtitle="志遠企業管理系統"

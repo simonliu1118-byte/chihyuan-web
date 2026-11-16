@@ -31,6 +31,7 @@ export async function handleHrPhase2bRoute(request:Request,db:D1Database,ctx:HrC
     const existing=itemId?await db.prepare("SELECT * FROM hr_leave_types WHERE id=?").bind(itemId).first<Record<string,unknown>>():null;
     if(itemId&&!existing)throw new HrValidationError("id","假別不存在",404);
     const name=required(v.name,"name",100),sort=integer(v.sortOrder??0,"sortOrder"),active=v.isActive===false?0:1;
+    if(v.payRatio!=null&&(typeof v.payRatio!=='number'||!Number.isFinite(v.payRatio)||v.payRatio<0||v.payRatio>1))throw new HrValidationError('payRatio','公司假給薪比例須介於0至1');
     const statements:D1PreparedStatement[]=[];
     if(existing?.is_statutory===1)statements.push(db.prepare("UPDATE hr_leave_types SET name=name,sort_order=?,is_active=?,updated_at=? WHERE id=?").bind(sort,active,ctx.now,itemId));
     else if(itemId)statements.push(db.prepare("UPDATE hr_leave_types SET name=?,sort_order=?,is_active=?,quota_days=?,quota_period=?,merge_into_type_id=?,merge_after_days=?,counts_calendar_days=?,event_quota_options=?,requires_reason=?,accepts_proof=?,needs_form=?,comp_kind=?,pay_ratio=?,legal_basis=?,updated_at=? WHERE id=?").bind(name,sort,active,v.quotaDays??null,v.quotaPeriod??null,v.mergeIntoTypeId??null,v.mergeAfterDays??0,v.countsCalendarDays?1:0,v.eventQuotaOptions??null,v.requiresReason?1:0,v.acceptsProof?1:0,v.needsForm===false?0:1,v.compKind??null,v.payRatio??null,v.legalBasis??null,ctx.now,itemId));

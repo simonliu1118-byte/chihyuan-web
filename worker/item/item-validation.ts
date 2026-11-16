@@ -1,3 +1,4 @@
+import {needsFeeCategory,type ItemPlatformFeeSelection} from '../../shared/item-platform-fee-categories';
 import type {
   ChangeItemNumberRequest,
   CreateItemRequest,
@@ -9,7 +10,7 @@ import { parseScaled4 } from "../../shared/fixed-point";
 import { FieldValidationError, ValidationBag } from "../validation/fields";
 
 const MAX_UNIT_CONVERSIONS = 50;
-const TAX_MODES = new Set<ItemCostTaxMode>(["none", "inclusive", "exclusive"]);
+const TAX_MODES = new Set<ItemCostTaxMode>(["no_tax", "inclusive", "exclusive"]);
 
 export interface NormalizedItemUnitConversion {
   fromUnit: string;
@@ -19,6 +20,7 @@ export interface NormalizedItemUnitConversion {
 }
 
 export interface NormalizedItemProfile {
+  platformFeeCategories: readonly ItemPlatformFeeSelection[] | null;
   name: string;
   spec: string | null;
   baseUnit: string;
@@ -70,12 +72,15 @@ function optionalBoolean(
   return value;
 }
 
-function optionalTaxMode(
+function requiredTaxMode(
   input: Record<string, unknown>,
   errors: Record<string, string>,
 ): ItemCostTaxMode | null {
   const value = input.costTaxMode;
-  if (value == null || value === "") return null;
+  if (value == null || value === "") {
+    errors.costTaxMode = "請選擇成本稅別";
+    return null;
+  }
   if (typeof value !== "string" || !TAX_MODES.has(value as ItemCostTaxMode)) {
     errors.costTaxMode = "稅別格式錯誤";
     return null;
@@ -227,7 +232,20 @@ function normalizeOnline(input: Record<string,unknown>,errors:Record<string,stri
  });
 }
 
-function normalizeProfile(raw: unknown): NormalizedItemProfile {
+function normalizeFeeSelections(input: Record<string,unknown>, errors:Record<string,string>):readonly ItemPlatformFeeSelection[]|null {
+ const raw=input.platformFeeCategories;if(raw==null)return null;
+ if(!Array.isArray(raw)||raw.length>2){errors.platformFeeCategories='品類選擇格式錯誤';return []}
+ const seen=new Set<number>();return raw.map((value,index)=>{
+  const row=value&&typeof value==='object'?value as Record<string,unknown>:{};
+  const platformId=Number(row.platformId),categoryId=typeof row.categoryId==='string'?row.categoryId:'';
+  if(!needsFeeCategory(platformId)||seen.has(platformId)||!/^[a-zA-Z0-9_-]{1,80}$/.test(categoryId))errors['platformFeeCategories.'+index]='品類選擇無效';
+  seen.add(platformId);return {platformId,categoryId};
+ });
+}
+
+type PreservedItemCost = Pick<NormalizedItemProfile, "costScaled4" | "costTaxMode">;
+
+function normalizeProfile(raw: unknown, preservedCost?: PreservedItemCost): NormalizedItemProfile {
   const input = asObject(raw as ItemProfileInput);
   const bag = new ValidationBag(input);
   const errors: Record<string, string> = {};
@@ -239,14 +257,15 @@ function normalizeProfile(raw: unknown): NormalizedItemProfile {
   const notes = bag.optionalText("notes", { maxLength: 4000 });
   Object.assign(errors, bag.fields());
 
-  const costScaled4 = optionalScaled4(input, "cost", errors);
+  const costScaled4 = preservedCost ? preservedCost.costScaled4 : optionalScaled4(input, "cost", errors);
   const storePriceScaled4 = optionalScaled4(input, "storePrice", errors);
   const clinicPriceScaled4 = optionalScaled4(input, "clinicPrice", errors);
-  const costTaxMode = optionalTaxMode(input, errors);
+  const costTaxMode = preservedCost ? preservedCost.costTaxMode : requiredTaxMode(input, errors);
   const isActive = optionalBoolean(input, "isActive", true, errors);
   const unitConversions = normalizeUnitConversions(input, baseUnit, errors);
   const wholesalePrices=normalizeWholesale(input,errors);
   const onlinePrices=normalizeOnline(input,errors);
+  const platformFeeCategories=normalizeFeeSelections(input,errors);
 
   if (Object.keys(errors).length > 0) throw new FieldValidationError(errors);
   return {
@@ -263,6 +282,7 @@ function normalizeProfile(raw: unknown): NormalizedItemProfile {
     unitConversions,
     wholesalePrices,
     onlinePrices,
+    platformFeeCategories,
   };
 }
 
@@ -275,9 +295,9 @@ export function normalizeCreateItemRequest(raw: unknown): NormalizedCreateItemRe
   return { ...profile, itemNo };
 }
 
-export function normalizeUpdateItemRequest(raw: unknown): NormalizedUpdateItemRequest {
+export function normalizeUpdateItemRequest(raw: unknown, preservedCost?: PreservedItemCost): NormalizedUpdateItemRequest {
   const input = asObject(raw as UpdateItemRequest);
-  const profile = normalizeProfile(input);
+  const profile = normalizeProfile(input, preservedCost);
   const bag = new ValidationBag(input);
   const expectedRevision = bag.requiredPositiveInteger("expectedRevision");
   bag.throwIfInvalid();

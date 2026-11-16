@@ -141,3 +141,17 @@
 }
 /* The list variant's phone-only summary cell. */
 .cy-rt-list td[data-rt=meta]{display:none}
+
+/* Table expansion and dense matrices share the same 820px presentation boundary. */
+@media(max-width:820px){
+ .cy-mobile-matrix{max-width:100%;overflow-x:auto;overscroll-behavior-inline:contain}
+ .cy-mobile-matrix button{min-height:38px}
+ .cy-rt tbody>tr.cy-table-expansion{display:block;grid-template-columns:none;padding:8px}
+ .cy-rt tbody>tr.cy-table-expansion>td{display:block;width:100%;padding:0}
+ .cy-rt tbody>tr.cy-table-expansion>td::before{display:none}
+ .cy-hr-sheet .cy-sheet .cy-sheet-row{min-width:0}
+ .cy-hr-salary .cy-hr-salary-table,.cy-hr-salary .cy-hr-salary-history{min-width:0}
+ .cy-hr-salary .cy-hr-salary-number{display:block}
+ .cy-hr-leave .cy-hr-leave-md{grid-template-columns:minmax(0,1fr)}
+ .cy-hr-leave .hr-leave-summary td{white-space:normal}
+}

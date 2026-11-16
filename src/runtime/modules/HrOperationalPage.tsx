@@ -1,5 +1,7 @@
+import {salaryAmendmentDraft} from './hr-salary-draft';
+import {useLatestRequest} from '../../ui/foundation/useLatestRequest';
 import { DateInput } from "../../ui/forms/DateInput";
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { apiRequest } from "../../api/client";
 import { taipeiToday } from "../../../shared/erp-query-history";
 import type { HrPaymentType, HrStatus } from "../../../shared/hr";
@@ -8,8 +10,8 @@ import { FeedbackBanner, useFeedbackMessage } from "../../ui/feedback/FeedbackPr
 import { Loading } from "../../ui/feedback/Loading";
 import { formatDate } from "../../ui/foundation/format";
 import { enterAdvancesFields, enterAdvancesThenSubmits } from "../../ui/foundation/enter-advance";
-import { CheckField, Field, FormSection } from "../../ui/forms/Field";
-import { useUnsavedChangesGuard } from "../../ui/foundation/useUnsavedChangesGuard";
+import { CheckField, Field } from "../../ui/forms/Field";
+import { useUnsavedChangesGuard, useNavigationGuard } from "../../ui/foundation/useUnsavedChangesGuard";
 import { MasterDetailBack, MasterDetailEmpty, useMasterDetailPane } from "../../ui/layout/MasterDetail";
 import { useCompactLayout } from "../../ui/foundation/useCompactLayout";
 import { ModuleSections } from "../../ui/mobile/ModuleSections";
@@ -30,7 +32,7 @@ import {HrEmployeeSheet} from "./HrEmployeeSheet";
 import {EntryTable,EntryHeading} from "../../ui/forms/EntryTable";
 import {EntryFields} from "../../ui/forms/EntryFields";
 import {RecordRows} from "../../ui/forms/RecordSheet";
-import {HrSalaryOverview} from "./HrSalaryOverview";
+import {HrSalaryPanel} from './HrPayrollPanel';
 
 const ROOT = "/api/business/hr";
 const statusLabels: Record<HrStatus, string> = { probation: "試用", active: "在職", leave: "留職停薪", terminated: "離職" };
@@ -44,7 +46,7 @@ interface EducationRow { school: string; department: string | null; start_month:
 interface WorkRow { company: string; job_title: string | null; start_month: string | null; end_month: string | null; salary: string | null; leave_reason: string | null }
 interface StatusChangeRow { id: number; effective_date: string; next_status: HrStatus; reason: string }
 interface SalaryRow { id: number; effective_date: string; payment_type: HrPaymentType; base_amount: number; reason: string;
-  allowances: { item_name: string; amount: number; is_regular: number }[] }
+  allowances: { item_name: string; amount: number; is_regular: number;item_type_id:number }[] }
 interface ExclusionRow { id: number; start_date: string; end_date: string; reason: string }
 export interface EmployeeDetail extends EmployeeRow {
   /** No salary, leave, roster, attendance or status record yet: a mistaken record may still be deleted. */
@@ -145,18 +147,28 @@ export function HrOperationalPage() {
   const [allowances, setAllowances] = useState<{ itemTypeId: string; amount: string; isRegular: boolean }[]>([]);
   const [actionEmployeeId,setActionEmployeeId]=useState<number|null>(null);
   const [salaryRefresh,setSalaryRefresh]=useState(0);
+  const actionWriting=useRef(false);
+  const [actionReady,setActionReady]=useState(false),[actionLoading,setActionLoading]=useState(false),[actionError,setActionError]=useState(""),[actionName,setActionName]=useState(""),[actionSalaryBefore,setActionSalaryBefore]=useState<SalaryRow|null>(null);
   const [salaryItems, setSalaryItems] = useState<SalaryItem[]>([]);
   const [minimumWageSet, setMinimumWageSet] = useState(true);
   const [browse, setBrowse] = useState<BrowseKind | null>(null);
   const [revealed, setRevealed] = useState<string | null>(null);
   const [deleteNo, setDeleteNo] = useState<string | null>(null);
   const editing = draft !== null;
-  const unsavedGuard = useUnsavedChangesGuard({ active: editing || action !== null, blocked: busy, message: "人事資料尚未儲存，確定放棄？" });
+  const unsavedGuard = useUnsavedChangesGuard({ active: editing || action !== null, blocked: busy||actionLoading, message: "人事資料尚未儲存，確定放棄？" });
   const canLeave = async () => (await unsavedGuard.confirmNavigationAsync(description => confirm({
     title: "放棄尚未儲存的修改", description, confirmLabel: "放棄修改", cancelLabel: "繼續編輯", confirmTone: "danger",
   }))).allowed;
 
+  const listRequest=useLatestRequest(query+'|'+statusFilter),detailRequest=useLatestRequest(selectedId),revealRequest=useLatestRequest(selectedId+"|"+tab),actionRequest=useLatestRequest("hr-action");
+  const navigation=useNavigationGuard();
+  async function switchTab(next:typeof tab){
+    if(next===tab)return;
+    if(!(await navigation.canLeave({title:'切換人事頁籤？',description:'切換會放棄尚未儲存的內容，確定繼續？'})))return;
+    actionRequest.invalidate();setDraft(null);setCreating(false);setAction(null);setActionEmployeeId(null);setTab(next);
+  }
   async function loadList(append = false) {
+    const request=listRequest.begin();
     const params = new URLSearchParams({ limit: "40" });
     if (query.trim()) params.set("q", query.trim());
     if (statusFilter) params.set("status", statusFilter);
@@ -164,22 +176,24 @@ export function HrOperationalPage() {
     setLoadingList(true);
     try {
       const page = await apiRequest<{ items: EmployeeRow[]; nextCursor: number | null }>(`${ROOT}/employees?${params}`);
+      if(!request.current())return;
       setRows(current => append ? [...current, ...page.items] : page.items);
       setNextCursor(page.nextCursor);
-    } catch (error) { reportError(errorText(error)); }
-    finally { setLoadingList(false); }
+    } catch (error) { if(request.current())reportError(errorText(error)); }
+    finally { if(request.current())setLoadingList(false); }
   }
 
   async function loadDetail(id: number) {
-    setLoadingDetail(true);
+    const request=detailRequest.begin();
+    setDetail(null);setLeave([]);setLoadingDetail(true);
     try {
       const [employee, periods] = await Promise.all([
         apiRequest<EmployeeDetail>(`${ROOT}/employees/${id}`),
         apiRequest<AnnualLeavePeriod[]>(`${ROOT}/employees/${id}/annual-leave`),
       ]);
-      setDetail(employee); setLeave(periods);
-    } catch (error) { reportError(errorText(error)); }
-    finally { setLoadingDetail(false); }
+      if(request.current()){setDetail(employee); setLeave(periods);}
+    } catch (error) { if(request.current())reportError(errorText(error)); }
+    finally { if(request.current())setLoadingDetail(false); }
   }
 
   useEffect(() => {
@@ -194,7 +208,7 @@ export function HrOperationalPage() {
   async function select(id: number) {
     if (id === selectedId && !editing) { pane.open(); return; }
     if (editing && !(await canLeave())) return;
-    setDraft(null); setCreating(false); setSelectedId(id); pane.open();
+    setDraft(null); setCreating(false);setDetail(null);setLeave([]); setSelectedId(id); pane.open();
   }
 
   async function startCreate() {
@@ -243,25 +257,30 @@ export function HrOperationalPage() {
   }
 
   async function openAction(kind: ActionKind,employeeId?:number) {
-    setActionEmployeeId(employeeId??detail?.id??null);
-    setForm(kind === "status" ? { effectiveDate: taipeiToday(), nextStatus: "active" }
-      : kind === "salary" ? { effectiveDate: taipeiToday(), paymentType: "monthly" } : {});
-    setAllowances([]);
-    setAction(kind);
-    if (kind === "salary") {
-      try {
-        const [items, wages] = await Promise.all([
-          apiRequest<SalaryItem[]>(`${ROOT}/settings/salary-item-types`),
-          apiRequest<unknown[]>(`${ROOT}/settings/minimum-wages`),
-        ]);
-        setSalaryItems(items.filter(item => item.is_active === 1)); setMinimumWageSet(wages.length > 0);
-      } catch (error) { reportError(errorText(error)); }
+    const targetId=employeeId??detail?.id;if(!targetId)return;
+    const request=actionRequest.begin();setActionReady(kind!=='salary');setActionEmployeeId(targetId);setActionName(detail?.id===targetId?detail.employee_no+' '+detail.name:'');setActionError('');setActionSalaryBefore(null);
+    setForm(kind==='status'?{effectiveDate:taipeiToday(),nextStatus:'active'}:kind==='salary'?{effectiveDate:taipeiToday(),paymentType:'monthly'}:{});
+    setAllowances([]);setAction(kind);
+    if(kind==='salary'){
+      setActionLoading(true);
+      try{
+       const [items,wages,employee]=await Promise.all([
+        apiRequest<SalaryItem[]>(`${ROOT}/settings/salary-item-types`),apiRequest<unknown[]>(`${ROOT}/settings/minimum-wages`),
+        detail?.id===targetId?Promise.resolve(detail):apiRequest<EmployeeDetail>(`${ROOT}/employees/${targetId}`),
+       ]);
+       if(!request.current())return;
+       const amendment=salaryAmendmentDraft(employee.salaryRecords,taipeiToday()),current=amendment.current;
+       setActionReady(true);setActionName(employee.employee_no+' '+employee.name);setActionSalaryBefore(current);
+       const used=new Set(current?.allowances.map(row=>row.item_type_id)??[]);
+       setSalaryItems(items.filter(item=>item.is_active===1||used.has(item.id)));setMinimumWageSet(wages.length>0);
+       setForm(amendment.form);setAllowances(amendment.allowances);
+      }catch(error){if(request.current())setActionError(errorText(error))}finally{if(request.current())setActionLoading(false)}
     }
   }
 
   async function submitAction(event: FormEvent) {
     event.preventDefault();
-    if (!action || actionEmployeeId===null) return;
+    if (!action || actionEmployeeId===null||actionLoading||busy||!actionReady||actionWriting.current) return;actionWriting.current=true;setActionError("");
     const targetId=actionEmployeeId;
     const endpoint = action === "status" ? "status-changes" : action === "salary" ? "salary-records" : "seniority-exclusions";
     const body: Record<string, unknown> = { ...form };
@@ -277,8 +296,8 @@ export function HrOperationalPage() {
       await Promise.all([...(detail?.id===targetId?[loadDetail(targetId)]:[]),loadList()]);
       if(action==="salary")setSalaryRefresh(n=>n+1);
       setMessage(action === "status" ? "已新增狀態異動。" : action === "salary" ? "已新增薪資異動。" : "已新增年資不計期間。");
-    } catch (error) { reportError(errorText(error)); }
-    finally { setBusy(false); }
+    } catch (error) { setActionError(errorText(error));reportError(errorText(error)); }
+    finally { actionWriting.current=false;setBusy(false); }
   }
 
   // Only while nothing has been done for the employee yet (detail.deletable; the server checks again).
@@ -310,11 +329,11 @@ export function HrOperationalPage() {
   }
 
   async function reveal() {
-    if (!detail) return;
+    if (!detail) return;const request=revealRequest.begin();
     try {
       const result = await apiRequest<{ nationalId: string | null }>(`${ROOT}/employees/${detail.id}/national-id/reveal`, { method: "POST", json: {} });
-      setRevealed(result.nationalId ?? "未填寫");
-    } catch (error) { reportError(errorText(error)); }
+      if(request.current())setRevealed(result.nationalId ?? "未填寫");
+    } catch (error) { if(request.current())reportError(errorText(error)); }
   }
 
   const today = taipeiToday();
@@ -323,13 +342,13 @@ export function HrOperationalPage() {
 
   return <>
     {compact?<ModuleSections label="人事頁籤" sections={[{key:"people",label:"人員"},{key:"roster",label:"排班"},{key:"attendance",label:"出勤"},{key:"leave",label:"請假"},{key:"salary",label:"薪資"}] as const}
-      value={tab} onChange={setTab}/>
+      value={tab} onChange={key=>void switchTab(key)}/>
     :    <nav className="cy-op-tabs cy-hr-top-tabs" aria-label="人事頁籤">
-      <button type="button" className={tab==="people"?"active":""} onClick={()=>setTab("people")}>人員</button>
-      <button type="button" className={tab==="roster"?"active":""} onClick={()=>setTab("roster")}>排班</button>
-      <button type="button" className={tab==="attendance"?"active":""} onClick={()=>setTab("attendance")}>出勤</button>
-      <button type="button" className={tab==="leave"?"active":""} onClick={()=>setTab("leave")}>請假</button>
-      <button type="button" className={tab==="salary"?"active":""} onClick={()=>setTab("salary")}>薪資</button>
+      <button type="button" className={tab==="people"?"active":""} onClick={()=>void switchTab("people")}>人員</button>
+      <button type="button" className={tab==="roster"?"active":""} onClick={()=>void switchTab("roster")}>排班</button>
+      <button type="button" className={tab==="attendance"?"active":""} onClick={()=>void switchTab("attendance")}>出勤</button>
+      <button type="button" className={tab==="leave"?"active":""} onClick={()=>void switchTab("leave")}>請假</button>
+      <button type="button" className={tab==="salary"?"active":""} onClick={()=>void switchTab("salary")}>薪資</button>
     </nav>}
     {tab==="people"?<div className="cy-op-module">
     {confirmationDialog}
@@ -393,7 +412,7 @@ export function HrOperationalPage() {
               <HrEmployeeSheet value={draftFrom(detail)} detail={detail} editing={false} creating={false} busy={busy}
                 members={members} stores={stores} jobTitles={jobTitles} patch={patch} onReveal={()=>void reveal()}/>
               <section className="cy-customer-cards" aria-label="人事紀錄">
-                <HrEmployeeLeaveOverview employeeId={detail.id} onManage={()=>{setInitialLeaveEmployeeId(detail.id);setTab("leave")}} />
+                <HrEmployeeLeaveOverview employeeId={detail.id} onManage={()=>{setInitialLeaveEmployeeId(detail.id);void switchTab("leave")}} />
                 <RelatedCard title="薪資" count={detail.salaryRecords.length} empty="尚無薪資異動。"
                   summary={currentSalary ? <strong>目前 {salaryText(currentSalary)}</strong> : null}
                   rows={detail.salaryRecords.slice(0, 3).map(row => <span key={row.id}>{date(row.effective_date)}　{salaryText(row)}　{row.reason}</span>)}
@@ -413,19 +432,14 @@ export function HrOperationalPage() {
 
     {detail && browse ? <Dialog open size="large" onClose={() => setBrowse(null)}
       title={`${browse === "leave" ? "特休" : browse === "salary" ? "薪資異動" : browse === "status" ? "狀態異動" : "年資不計期間"} — ${detail.employee_no} ${detail.name}`}>
-      <div className="cy-hr-browse">
-        {browse === "leave" ? [...leave].reverse().map(period => <div key={period.periodStart} className="cy-hr-browse-row">
-          <strong>{period.serviceYearsLabel}</strong><span>{period.days} 日</span><span>{date(period.periodStart)}～{date(period.periodEnd)}</span></div>) : null}
-        {browse === "salary" ? detail.salaryRecords.map(row => <div key={row.id} className="cy-hr-browse-row">
-          <strong>{date(row.effective_date)}</strong><span>{salaryText(row)}</span><span>{row.reason}</span>
-          {row.allowances.length ? <small>{row.allowances.map(item => `${item.item_name} ${money(item.amount)}${item.is_regular ? "" : "（非經常性）"}`).join("、")}</small> : null}
-        </div>) : null}
-        {browse === "status" ? detail.statusChanges.map(row => <div key={row.id} className="cy-hr-browse-row">
-          <strong>{date(row.effective_date)}</strong><span>{statusLabels[row.next_status]}</span><span>{row.reason}</span></div>) : null}
-        {browse === "exclusion" ? detail.seniorityExclusions.map(row => <div key={row.id} className="cy-hr-browse-row">
-          <strong>{date(row.start_date)}～{date(row.end_date)}</strong><span>{row.reason}</span>
-          <button type="button" className="cy-op-button compact soft cy-row-remove" disabled={busy} onClick={() => void removeExclusion(row)}>刪除</button></div>) : null}
-      </div>
+      <div className="cy-op-table-wrap"><table className="cy-op-table cy-rt" aria-label="人事歷史紀錄">
+       <thead><tr>{(browse==='leave'?['年資','應給日數','年度起訖']:browse==='salary'?['生效日','計薪／本薪','津貼','原因']:browse==='status'?['生效日','狀態','原因']:['起日','迄日','原因','操作']).map(label=><th key={label}>{label}</th>)}</tr></thead><tbody>
+        {browse==='leave'?[...leave].reverse().map(row=><tr key={row.periodStart}><td data-label="年資" data-priority="title">{row.serviceYearsLabel}</td><td data-label="應給">{row.days} 日</td><td data-label="年度">{date(row.periodStart)}～{date(row.periodEnd)}</td></tr>):null}
+        {browse==='salary'?detail.salaryRecords.map(row=><tr key={row.id}><td data-label="生效日" data-priority="title">{date(row.effective_date)}</td><td data-label="計薪／本薪">{salaryText(row)}</td><td data-label="津貼">{row.allowances.map(a=>a.item_name+' '+money(a.amount)+(a.is_regular?'':'（非經常性）')).join('、')||'—'}</td><td data-label="原因">{row.reason}</td></tr>):null}
+        {browse==='status'?detail.statusChanges.map(row=><tr key={row.id}><td data-label="生效日" data-priority="title">{date(row.effective_date)}</td><td data-label="狀態">{statusLabels[row.next_status]}</td><td data-label="原因">{row.reason}</td></tr>):null}
+        {browse==='exclusion'?detail.seniorityExclusions.map(row=><tr key={row.id}><td data-label="起日" data-priority="title">{date(row.start_date)}</td><td data-label="迄日">{date(row.end_date)}</td><td data-label="原因">{row.reason}</td><td data-label="操作"><button type="button" className="cy-op-button compact soft" disabled={busy} onClick={()=>void removeExclusion(row)}>刪除</button></td></tr>):null}
+       </tbody></table></div>
+
     </Dialog> : null}
 
     {revealed !== null ? <Dialog open size="small" title="身分證字號" onClose={() => setRevealed(null)}>
@@ -433,28 +447,28 @@ export function HrOperationalPage() {
     </Dialog> : null}
     {deleteNo !== null && detail ? <Dialog showCloseButton={false} open size="small" title="刪除人事資料" onClose={() => setDeleteNo(null)}>
       <form onKeyDown={enterAdvancesThenSubmits} className="cy-op-form" onSubmit={event => void removeEmployee(event)}>
-    <FormSection>
+    <>
         <p>這筆人事資料還沒有任何薪資、請假、班表或出勤紀錄，可以刪除（例如建錯了）。會一併刪除 {detail.employee_no} {detail.name} 的學經歷與聯絡人，無法復原。請輸入員工編號確認。</p>
-        <Field label="員工編號" size="s"><input className="cy-op-input" autoFocus value={deleteNo} onChange={e => setDeleteNo(e.target.value)} /></Field>
+        <EntryFields columns={2} label="確認刪除員工" rows={[{label:"員工編號",required:true,content:<input className="cy-sheet-input" autoFocus value={deleteNo} onChange={e=>setDeleteNo(e.target.value)}/>}]} />
         <div className="cy-op-form-footer">
           <button type="button" className="cy-op-button" disabled={busy} onClick={() => setDeleteNo(null)}>取消</button>
           <button className="cy-op-button danger" disabled={busy || deleteNo.trim() !== detail.employee_no} aria-busy={busy || undefined}>刪除</button>
         </div>
       
-    </FormSection>
+    </>
   </form>
     </Dialog> : null}
-  </div>:tab==="roster"?<HrRosterPanel/>:tab==="attendance"?<HrAttendancePanel/>:tab==="leave"?<HrLeavePanel initialEmployeeId={initialLeaveEmployeeId}/>:<HrSalaryOverview refreshToken={salaryRefresh} onRaise={(id)=>void openAction("salary",id)}/>}
+  </div>:tab==="roster"?<HrRosterPanel/>:tab==="attendance"?<HrAttendancePanel/>:tab==="leave"?<HrLeavePanel initialEmployeeId={initialLeaveEmployeeId}/>:<HrSalaryPanel refreshToken={salaryRefresh} onRaise={(id)=>void openAction("salary",id)}/>}
     {action&&actionEmployeeId!==null?<Dialog showCloseButton={false} open
-      size={action==="salary"?"large":"medium"} dismissible={!busy}
+      size={action==="salary"?"large":"medium"} dismissible={!busy&&!actionLoading}
       title={action==="status"?"新增狀態異動":action==="salary"?"新增薪資異動":"新增年資不計期間"}
-      onClose={()=>{setAction(null);setActionEmployeeId(null)}}>
-      <form className="cy-op-form" onKeyDown={enterAdvancesFields} onSubmit={e=>void submitAction(e)}>
+      onClose={()=>{actionRequest.invalidate();setAction(null);setActionEmployeeId(null)}}>
+      {actionLoading?<Loading/>:<form className="cy-op-form" onKeyDown={enterAdvancesFields} onSubmit={e=>void submitAction(e)}>
        {action==="salary"?<>
         <EntryTable label="調薪資料">
-         <thead><tr><th><EntryHeading required>生效日</EntryHeading></th><th>計薪方式</th>
+         <thead><tr><th colSpan={4}>員工：{actionName}</th></tr><tr><th><EntryHeading required>生效日</EntryHeading></th><th>計薪方式</th>
           <th><EntryHeading required>本薪</EntryHeading></th><th><EntryHeading required>原因</EntryHeading></th></tr></thead>
-         <tbody><tr>
+         <tbody><tr><td colSpan={4} data-label="目前設定">{actionSalaryBefore?"目前："+salaryText(actionSalaryBefore):"尚無已生效薪資設定"}。本視窗為薪資設定異動，非當月實發。</td></tr><tr>
           <td><Field label="生效日" presentation="cell" required><DateInput density="regular" max="9999-12-31" className="cy-sheet-input" value={form.effectiveDate??""} onChange={v=>setForm({...form,effectiveDate:v})}/></Field></td>
           <td><Field label="計薪方式" presentation="cell"><select className="cy-sheet-input" value={form.paymentType??"monthly"} onChange={e=>setForm({...form,paymentType:e.target.value})}>
            <option value="monthly">月薪</option><option value="hourly">時薪</option></select></Field></td>
@@ -480,7 +494,7 @@ export function HrOperationalPage() {
           onRemove={index=>setAllowances(current=>current.filter((_,i)=>i!==index))}/>
         {!salaryItems.length?<p className="cy-op-empty">尚未設定津貼項目（請先到人事設定新增）。</p>:null}
         {!minimumWageSet?<p className="cy-notice cy-notice-warning">尚未設定最低工資，無法比對；仍可存檔。</p>:null}
-       </>:<EntryFields label={action==="status"?"狀態異動":"年資不計期間"} rows={[
+       </>:<EntryFields columns={3} label={action==="status"?"狀態異動":"年資不計期間"} rows={[
         ...(action==="exclusion"?[
           {label:"起日",required:true,content:<DateInput density="regular" max="9999-12-31" className="cy-sheet-input" value={form.startDate??""} onChange={v=>setForm({...form,startDate:v})}/>},
           {label:"迄日",required:true,content:<DateInput density="regular" max="9999-12-31" className="cy-sheet-input" value={form.endDate??""} onChange={v=>setForm({...form,endDate:v})}/>}
@@ -493,11 +507,12 @@ export function HrOperationalPage() {
         ]:[]),
         {label:"原因",required:true,content:<input className="cy-sheet-input" value={form.reason??""} onChange={e=>setForm({...form,reason:e.target.value})}/>}
        ]}/>}
+       {actionError?<><p role="alert" className="cy-notice cy-notice-danger">{actionError}</p>{!actionReady?<button type="button" className="cy-op-button soft" onClick={()=>void openAction(action,actionEmployeeId)}>重新讀取目前設定</button>:null}</>:null}
        <div className="cy-op-form-footer">
-        <button type="button" className="cy-op-button" disabled={busy} onClick={()=>{setAction(null);setActionEmployeeId(null)}}>取消</button>
-        <button className="cy-op-button primary" disabled={busy} aria-busy={busy||undefined}>新增</button>
+        <button type="button" className="cy-op-button" disabled={busy} onClick={()=>{actionRequest.invalidate();setAction(null);setActionEmployeeId(null)}}>取消</button>
+        <button className="cy-op-button primary" disabled={busy||!actionReady} aria-busy={busy||undefined}>新增</button>
        </div>
-      </form>
+      </form>}
     </Dialog>:null}
 </>;
 }

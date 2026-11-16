@@ -17,6 +17,8 @@ ROOT = Path(__file__).resolve().parents[1]
 MIGRATIONS_DIR = ROOT / "migrations"
 
 EXPECTED_TABLES = {
+    "item_platform_fee_categories", "item_platform_fee_selections",
+    "item_platform_margin_rules", "item_platform_margin_rule_versions",
     "personal_todos", "hub_notices", "hub_notice_recipients", "hub_notice_reads",
     "stocktake_records", "stocktake_record_items", "stocktake_record_participants", "stocktake_record_differences",
     "store_equipment_state", "store_equipment_records", "store_maintenance_visits", "store_equipment_plans", "store_equipment_events",
@@ -50,6 +52,17 @@ EXPECTED_TABLES = {
     "ordering_line_photos",
     "ordering_item_last_source",
     "ordering_revisions",
+    "hr_payroll_profiles",
+    "hr_payroll_corrections",
+    "hr_payroll_correction_uses",
+    "hr_payroll_supplement_versions",
+    "hr_payroll_legal_cases",
+    "hr_payroll_rule_versions",
+    "hr_payroll_sync_state",
+    "hr_payroll_runs",
+    "hr_attendance_correction_grants",
+    "hr_payroll_day_reviews",
+    "hr_payroll_consumptions",
     "hr_leave_records",
     "hr_leave_attachments",
     "hr_annual_leave_years",

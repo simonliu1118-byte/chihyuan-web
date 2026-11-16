@@ -4,7 +4,7 @@ import type { AuditEvent } from "../api/settings-audit-client";
 
 const entityNames: Record<string,string> = {
   customer:"客戶",customer_visit:"拜訪紀錄",customer_item_quote:"報價紀錄",customer_frequent_item:"常用商品",
-  item:"商品",defect:"瑕疵",sales_work_order:"銷售工單",outsourcing_order:"代工單",
+  item:"商品",item_margin_rules:"平台費用與優惠",defect:"瑕疵",sales_work_order:"銷售工單",outsourcing_order:"代工單",
   outsourcing:"代工單",contractor:"協力廠商",contractor_price:"代工單價",bom_recipe:"材料清單",
   work_log:"工作日誌",setting:"設定",customer_category:"客戶分類",customer_status:"客戶狀態",
   department:"部門",item_category:"商品分類",work_log_category:"日誌類別",
@@ -36,6 +36,10 @@ export const actionLabels: Record<string,string> = {
   "hr_overtime.updated":"修改加班標記","hr_comp_time.granted":"給予補休或換休",
   "hr_comp_time.extended":"延長補休到期日","hr_comp_time.settled":"到期補休轉加班費",
   "hr_roster.updated":"更新月排班表","hr_attendance.updated":"更新打卡紀錄",
+  "hr_attendance.corrected":"更正誤打下班卡","hr_attendance_grant.updated":"調整指定管理員出勤更正授權",
+  "hr_payroll_correction.created":"建立前期薪資更正","hr_payroll_correction.voided":"撤銷未套用薪資更正","hr_payroll_legal.recorded":"核對法定假別計薪基準","hr_payroll_rule.imported":"導入官方薪資級距","hr_payroll_profile.created":"新增生效計薪與投保設定",
+  "hr_payroll.calculated":"計算每月薪資草稿","hr_payroll.confirm":"確認薪資","hr_payroll.pay":"標記已發薪","hr_payroll.reopen":"撤回薪資確認",
+  "hr_payroll_review.updated":"確認特殊出勤原因","hr_leave.payroll_protection":"設定假單法定全勤保護",
   "hr_employee.created":"新增人事資料","hr_employee.updated":"修改人事資料",
   "hr_employee.status_changed":"異動人事狀態","hr_employee.national_id.viewed":"查看完整身分證字號",
   "hr_salary_record.created":"新增薪資異動","hr_seniority_exclusion.created":"新增年資不計期間",
@@ -52,6 +56,7 @@ export const actionLabels: Record<string,string> = {
   "customer.quote.corrected":"修正報價紀錄","customer.frequent_item.created":"加入常用商品",
   "customer.frequent_item.deleted":"移除常用商品",
   "item.created":"新增商品","item.updated":"修改商品","item.deleted":"刪除商品",
+  "item_margin_rules.changed":"調整平台費用與優惠",
   "item.number.changed":"更改品號","item.price.changed":"調整商品價格",
   "defect.created":"新增瑕疵","defect.updated":"修改瑕疵","defect.processing":"開始處理瑕疵",
   "defect.resolved":"完成瑕疵處理","defect.reopened":"重新開啟瑕疵",

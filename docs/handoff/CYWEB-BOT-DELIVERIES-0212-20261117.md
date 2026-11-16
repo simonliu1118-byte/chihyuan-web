@@ -3,7 +3,7 @@
 ## 範圍與狀態
 
 - 使用者2026-11-13同意實作前輪設計，補充手機待審保留版本、送審時間、BOT、內容與狀態，但每筆壓成一至兩列。
-- 基準 main=d1407054310d65c7cf7543153d026c3b6a84aa16；版本0.18.13→0.21.2、Build0。原本數量／可點閱內容使用不同來源、外部核准必須補審核，屬本輪新增成果流程修正。
+- 原基準 main=d1407054310d65c7cf7543153d026c3b6a84aa16；2026-11-17整合最新 main=d04c6e03（V0.21.1），保留人事與商品變更；版本0.21.1→0.21.2、Build0。原本數量／可點閱內容使用不同來源、外部核准必須補審核，屬本輪新增成果流程修正。
 - **未合併、未部署、未執行正式D1 migration。**本輪含資料模型／API行為，依既有複雜改動交Claude審查；不得把單純UI發布授權當成這次流程改動已獲發布授權。
 - 小編原token、收據、routine、webhook、推播加密金鑰全部不動。正式查核僅唯讀；沒有通過／退回正式稿或重發任何社群內容，公開source／fixture不保存正式回報文案。
 
@@ -25,7 +25,7 @@
 - `BotReviewDialog.tsx`：手機一次一則，上／下一則；共用Dialog footer提供退回／通過，批次操作共用OverflowMenu，送審說明共用ExpandToggle。修正載入錯誤仍轉圈與切稿的過期回應問題。
 - `BotImages.tsx`：抽出原審稿圖片呈現供兩處沿用；`BotDeliveryDialog.tsx`只組合既有Dialog／BotText／圖片檢視，不建立另一套底層元件。`BotSentPatrolDialog.tsx`及API client接同一份成果。
 - `integrations/grok-bot/cyweb-work-reporter/`既定5檔更新：新增delivery、delivery-status、delivery-image、patrol-session。原report／complete的收據雜湊與路徑相容；新成果依server固定編號去重，斷線先讀回，不刪收據或換號繞過。routine仍用原四欄喚醒，只讀最新結果；external安靜略過。
-- `VERSION`、`package.json`、`CHANGELOG.md`、`TODO.md`與`docs/architecture/BOT_CENTER.md`同步。`scripts/item-price-record-sheet.test.mjs`只更新最新migration marker。
+- `VERSION`、`package.json`、`CHANGELOG.md`、`TODO.md`與`docs/architecture/BOT_CENTER.md`同步。`scripts/item-price-record-sheet.test.mjs`保留最新main以migration目錄動態核對marker的寫法。
 
 ### 備份
 

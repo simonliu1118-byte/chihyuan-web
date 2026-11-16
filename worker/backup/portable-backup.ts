@@ -95,6 +95,11 @@ const UPGRADES: { migration: string; apply: (data: Data) => void }[] = [
       row[section] = "OTHER"; row[publisher] = (at < 0 ? text : text.slice(0, at)).trim(); row[author] = at < 0 ? "" : text.slice(at + 1).trim(); row[spec] = "";
     }
   } },
+  { migration: "0069_item_cost_tax_modes", apply: data => {
+    const items = data.tables.items;
+    const column = items?.columns.indexOf("cost_tax_mode") ?? -1;
+    if (column >= 0) for (const row of items.rows) if (row[column] === "none") row[column] = null;
+  } },
   {migration:"0077_bot_deliveries",apply:data=>{
     if(data.tables.bot_deliveries)return;
     const drafts=data.tables.bot_drafts,items=data.tables.bot_draft_items;
