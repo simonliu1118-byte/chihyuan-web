@@ -1,3 +1,4 @@
+import {SegmentedControl} from '../../ui/primitives/SegmentedControl';
 import {HrPayrollCorrections} from './HrPayrollCorrections';
 import {HrEmployerSupplement} from './HrEmployerSupplement';
 import {HrPayrollLegalCases} from './HrPayrollLegalCases';
@@ -67,7 +68,7 @@ export function ProfileEditor({employeeId,month,onClose,onSaved}:{employeeId:num
  return <Dialog open title="薪資計算／投保設定" size="large" dismissible={!busy&&!loading} onClose={()=>void navigation.canLeave().then(ok=>{if(ok)onClose();})}>
   {error?<p className="cy-op-notice danger" role="alert">{error}</p>:null}
   {!ready&&!loading?<button type="button" className="cy-op-button" onClick={()=>setReadVersion(n=>n+1)}>重新讀取設定</button>:null}
-  <p>薪資與津貼取自主檔；此處僅設定全勤、投保事實與本人申報資料。設定按生效日新增歷史，不代辦投保申報。</p>
+  
   <form className="cy-op-form" onKeyDown={enterAdvancesFields} onSubmit={e=>void submit(e)}>
    <EntryFields label="生效設定" columns={2} rows={[{label:'生效日',required:true,content:<DateInput className="cy-sheet-input" disabled={busy||loading} value={at} onChange={v=>{setAt(v);setDirty(true);}}/>},{label:'設定原因',required:true,content:<input className="cy-sheet-input" disabled={busy||loading} value={reason} onChange={e=>{setReason(e.target.value);setDirty(true);}}/>}]}/>
    <EntryFields label="計薪與投保資料" columns={3} rows={controls}/>
@@ -100,9 +101,9 @@ export function HrPayrollPanel(){
  async function review(e:FormEvent){e.preventDefault();await run(async()=>{await apiRequest(ROOT+'/payroll/reviews/'+employee,{method:'POST',json:{date:reviewDate,kind:reviewKind,reason,revision:reviews.find(r=>r.work_date===reviewDate)?.revision??0}});await loadReviews();setReviewDate('');setReason('');setNotice('已保存確認原因，請重新計算草稿');});}
  const shown=runs.filter(r=>(showVoided||r.status!=='void')&&(r.employee_no+' '+r.name).includes(search.trim()));
  return <section className="cy-op-module" aria-label="每月薪資">
-  <DataViewToolbar searchValue={search} onSearchChange={setSearch} searchLabel="搜尋薪資員工" searchPlaceholder="員工編號、姓名" resultSummary={`${month} 共 ${shown.length} 筆`} filters={<input aria-label="薪資月份" disabled={busy} className="cy-op-input" type="month" min="2000-01" max="2099-12" value={month} onChange={e=>void chooseMonth(e.target.value)}/>}/>
+  <DataViewToolbar searchValue={search} onSearchChange={setSearch} searchLabel="搜尋薪資員工" searchPlaceholder="員工編號、姓名" resultSummary={`共 ${shown.length} 筆`} beforeSearch={<><button type="button" disabled={busy} className="cy-op-button" onClick={()=>void chooseMonth(shiftMonth(month,-1))}>上個月</button><strong>{month.replace('-',' 年 ')} 月</strong><button type="button" disabled={busy} className="cy-op-button" onClick={()=>void chooseMonth(shiftMonth(month,1))}>下個月</button></>}/>
   {error?<p role="alert" className="cy-op-notice danger">{error}</p>:null}{notice?<p role="status" className="cy-op-notice">{notice}</p>:null}
-  <p>約定次月5日發薪；給付日期預填5日，遇假日順延後請填實際給付日。</p>
+  
   <form className="cy-op-form" onKeyDown={enterAdvancesFields} onSubmit={e=>void calculate(e)}>
    <EntryFields label="每月薪資計算" columns={3} rows={[
     {label:'員工',required:true,content:<select className="cy-sheet-input" disabled={busy} value={employee||''} onChange={e=>void chooseEmployee(Number(e.target.value))}><option value="">請選擇</option>{people.map(p=><option key={p.id} value={p.id}>{p.employee_no} {p.name}</option>)}</select>},
@@ -116,18 +117,18 @@ export function HrPayrollPanel(){
   <CheckField label="顯示撤回的歷史快照" checked={showVoided} onChange={e=>setShowVoided(e.target.checked)}/>
   <div className="cy-op-table-wrap"><table className="cy-op-table cy-rt"><thead><tr><th>員工</th><th>給付日</th><th>應發</th><th>扣項</th><th>實領</th><th>狀態</th><th>待補</th><th>操作</th></tr></thead><tbody>{shown.map(r=><tr key={r.id}><td data-label="員工" data-priority="title">{r.employee_no} {r.name}</td><td data-label="給付日">{r.pay_date}</td><td data-label="應發">{money(r.result.gross)}</td><td data-label="扣項">{money(r.result.deductions)}</td><td data-label="實領"><strong>{r.result.issues.length?'待確認':money(r.result.net)}</strong></td><td data-label="狀態">{statusLabel[r.status]}</td><td data-label="待補">{r.result.issues.length}</td><td data-label="操作"><button type="button" className="cy-op-button" disabled={busy} onClick={()=>void open(r)}>明細</button></td></tr>)}</tbody></table></div>
   {detail?<section className="cy-op-panel"><h3>{detail.employee_no} {detail.name} — {detail.month} 薪資明細</h3>
-   <div className="cy-op-table-wrap"><table className="cy-op-table cy-rt"><thead><tr><th>日期</th><th>項目</th><th>分鐘</th><th>金額</th><th>計算依據</th></tr></thead><tbody>{detail.result.lines.map((l,i)=><tr key={i}><td data-label="日期">{l.date||'當月'}</td><td data-label="項目" data-priority="title">{l.kind==='employer'?'公司負擔／':''}{l.label}</td><td data-label="分鐘">{l.minutes??'—'}</td><td data-label="金額">{l.kind==='deduction'?'−':''}{money(l.amount)}</td><td data-label="計算依據">{l.detail}</td></tr>)}</tbody></table></div>
+   <div className="cy-op-table-wrap"><table className="cy-op-table cy-rt"><thead><tr><th>日期</th><th>項目</th><th>分鐘</th><th>金額</th><th>計算依據</th></tr></thead><tbody>{detail.result.lines.filter(l=>l.amount!==0||l.kind!=='deduction').map((l,i)=><tr key={i}><td data-label="日期">{l.date||'當月'}</td><td data-label="項目" data-priority="title">{l.kind==='employer'?'公司負擔／':''}{l.label}</td><td data-label="分鐘">{l.minutes??'—'}</td><td data-label="金額">{l.kind==='deduction'?'−':''}{money(l.amount)}</td><td data-label="計算依據">{l.detail}</td></tr>)}</tbody></table></div>
    <p>應發 {money(detail.result.gross)}／扣項 {money(detail.result.deductions)}／實領 {detail.result.issues.length?'待確認':money(detail.result.net)}；公司負擔 {money(detail.result.employer)}（不扣員工）。</p>
    {detail.result.issues.length?<div className="cy-op-table-wrap"><table className="cy-op-table cy-rt"><thead><tr><th>待補／待確認事項</th></tr></thead><tbody>{detail.result.issues.map((s,i)=><tr key={i}><td data-label="事項">{s}</td></tr>)}</tbody></table></div>:null}
    <div className="cy-op-table-wrap"><table className="cy-op-table cy-rt"><thead><tr><th>法定表</th><th>版本</th><th>官方來源</th></tr></thead><tbody>{detail.result.ruleVersions.map(v=><tr key={v.id}><td data-label="法定表">{ruleLabels[v.kind]??v.kind}</td><td data-label="版本">{v.id}</td><td data-label="來源"><a href={v.source} target="_blank" rel="noreferrer">官方資料</a></td></tr>)}</tbody></table></div>
    {detail.result.nhiPolicyVersion?<p>補充保費版本 {detail.result.nhiPolicyVersion.id}，生效 {detail.result.nhiPolicyVersion.effectiveDate}；<a href={detail.result.nhiPolicyVersion.source} target="_blank" rel="noreferrer">官方來源</a></p>:null}
-   <p>狀態：{statusLabel[detail.status]}。確認與發薪標記需要填寫上方原因；標記不會匯款。已發薪快照保留，不隨出勤或新表改寫。</p>
+   <p>狀態：{statusLabel[detail.status]}</p>
    <div className="cy-op-actions">{detail.status==='draft'?<button type="button" className="cy-op-button primary" disabled={busy||!!detail.result.issues.length||!reason.trim()} onClick={()=>void transition('confirm')}>確認薪資</button>:null}{detail.status==='confirmed'?<><button type="button" className="cy-op-button" disabled={busy||!reason.trim()} onClick={()=>void transition('reopen')}>撤回確認並保留快照</button><button type="button" className="cy-op-button primary" disabled={busy||!reason.trim()} onClick={()=>void transition('pay')}>標記已發薪</button></>:null}</div>
   </section>:null}
   <HrEmployerSupplement month={detail?.pay_date.slice(0,7)||payDate.slice(0,7)||month} refreshToken={detail?.revision??0}/>
   {employee?<HrPayrollCorrections key={employee+month} employeeId={employee} month={month} refreshToken={detail?.revision??0}/>:null}
   {employee?<HrPayrollLegalCases key={employee+month} employeeId={employee} month={month}/>:null}
-  <section className="cy-op-panel"><h3>特殊出勤確認</h3><p>缺卡請先至出勤更正。只有已核對的曠班、合法假日調移或例假緊急出勤才在此留下原因，保存後須重算。</p>
+  <section className="cy-op-panel"><h3>特殊出勤確認</h3>
    <form className="cy-op-form" onKeyDown={enterAdvancesFields} onSubmit={e=>void review(e)}><EntryFields label="出勤確認" columns={3} rows={[
     {label:'日期',required:true,content:<DateInput disabled={busy} className="cy-sheet-input" value={reviewDate} onChange={setReviewDate}/>},
     {label:'確認類別',required:true,content:<select disabled={busy} className="cy-sheet-input" value={reviewKind} onChange={e=>setReviewKind(e.target.value)}><option value="absence">確認曠班</option><option value="holiday_shifted">國定假日已合法調移</option><option value="regular_emergency">例假法定緊急出勤／補假已核對</option></select>},
@@ -139,8 +140,9 @@ export function HrPayrollPanel(){
   {profileOpen&&employee?<ProfileEditor employeeId={employee} month={month} onSaved={()=>setNotice('已保存生效設定，請重新計算草稿')} onClose={()=>setProfileOpen(false)}/>:null}
  </section>;
 }
+const shiftMonth=(m:string,delta:number)=>{const d=new Date(Date.UTC(+m.slice(0,4),+m.slice(5)-1+delta,1));return d.toISOString().slice(0,7)};
 export function HrSalaryPanel(props:{onRaise:(id:number,name:string)=>void;refreshToken:number}){
  const [mode,setMode]=useState<'settings'|'monthly'>('settings'),navigation=useNavigationGuard();
  async function change(next:typeof mode){if(next!==mode&&await navigation.canLeave())setMode(next);}
- return <><div className="cy-op-actions"><button type="button" className="cy-op-button" aria-pressed={mode==='settings'} onClick={()=>void change('settings')}>薪資設定</button><button type="button" className="cy-op-button" aria-pressed={mode==='monthly'} onClick={()=>void change('monthly')}>每月薪資</button></div>{mode==='settings'?<HrSalaryOverview {...props}/>:<HrPayrollPanel/>}</>;
+ return <><SegmentedControl label="薪資頁籤" compact value={mode} options={[{value:'settings',label:'薪資設定'},{value:'monthly',label:'每月薪資'}]} onChange={next=>void change(next)}/>{mode==='settings'?<HrSalaryOverview {...props}/>:<HrPayrollPanel/>}</>;
 }

@@ -21,7 +21,7 @@ export function HrAttendanceCorrections(){
  const shown=rows.filter(r=>(r.employee_no+' '+r.name+' '+r.work_date).includes(search.trim()));
  return <section className="cy-op-module" aria-label="出勤更正">
   <DataViewToolbar searchValue={search} onSearchChange={setSearch} searchLabel="搜尋出勤更正" searchPlaceholder="員工、日期" resultSummary={`${shown.length} 筆`} filters={<><select aria-label="更正門市" className="cy-op-input" disabled={busy||editing!==null} value={store||''} onChange={e=>setStore(Number(e.target.value))}><option value="">請選擇門市</option>{stores.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select><input aria-label="更正月份" className="cy-op-input" disabled={busy||editing!==null} type="month" min="2000-01" max="2099-12" value={month} onChange={e=>setMonth(e.target.value)}/></>}/>
-  <p>僅更正已核對的誤打下班卡，不會自動補成排定時間。授權不包含薪資或完整人事資料。</p>
+  
   {!editing&&error?<p role="alert" className="cy-op-notice danger">{error}</p>:null}{notice?<p role="status">{notice}</p>:null}
   <div className="cy-op-table-wrap"><table className="cy-op-table cy-rt"><thead><tr><th>日期</th><th>員工</th><th>下班1</th><th>下班2</th><th>操作</th></tr></thead><tbody>{shown.map(r=><tr key={r.employeeId+'|'+r.work_date}><td data-label="日期">{r.work_date}</td><td data-label="員工" data-priority="title">{r.employee_no} {r.name}</td><td data-label="下班1">{r.out1||'—'}</td><td data-label="下班2">{r.out2||'—'}</td><td data-label="操作"><button type="button" className="cy-op-button" disabled={busy||editing!==null} onClick={()=>{setEditing(r);setOut1(r.out1??'');setOut2(r.out2??'');setReason('');setError('');}}>更正下班時間</button></td></tr>)}</tbody></table></div>
   <Dialog open={editing!==null} title="更正誤打下班卡" size="medium" dismissible={!busy} onClose={()=>void close()}>
