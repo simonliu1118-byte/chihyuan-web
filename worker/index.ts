@@ -27,6 +27,7 @@ import {deliverReviewPushes,cleanupReviewPushes,type BotPushEnv} from "./bot/rev
 import { runErpHousekeeping } from "./http/erp-housekeeping";
 import { failure, success } from "./http/response";
 import { updateProgramCatalog } from "./programs/release-catalog";
+import {syncPayrollRules} from './hr/hr-payroll-import';
 
 interface Env extends IdentityRuntimeEnv, BackupRuntimeEnv, ErpBridgeEnv, CyInvoiceRecoveryEnv, BotPushEnv {
   ASSETS?: Fetcher;
@@ -145,6 +146,7 @@ export default {
     if (tasks.storeMonthly) jobs.push(ensureMonthlyRows(env.DB, now));
     if (tasks.programCatalog) jobs.push(updateProgramCatalog(env.DB, now));
     if (tasks.backup) jobs.push(scheduledBackup(env, controller.scheduledTime));
+    if (tasks.payrollRules) jobs.push((async()=>{const rows=await syncPayrollRules(env.DB,now);if(rows.some(r=>!r.ok))throw new Error('HR_PAYROLL_RULE_SYNC_FAILED');})());
     const failed = (await Promise.allSettled(jobs)).find((r): r is PromiseRejectedResult => r.status === "rejected");
     if (failed) throw failed.reason;
   },

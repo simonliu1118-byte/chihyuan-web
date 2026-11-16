@@ -1,7 +1,7 @@
 # CY Web 人事模組第一期資料與 API 合約（WO-0.9.20）
 
 ## 權限與隱私
-- 所有 `/api/business/hr/*` API 由 CYID Session 驗證，**僅 SUPER_ADMIN**，其他角色回 403 `SUPER_ADMIN_REQUIRED`。
+- `/api/business/hr/*` API 由 CYID Session 驗證，薪資及完整人事**僅 SUPER_ADMIN**。V0.21.0僅對兩條`attendance-corrections`路徑新增「ADMIN且具名門市授權」例外，詳見[每月薪資契約](HR_PAYROLL_CONTRACT.md)；不放行原月出勤／加班或薪資API。
 - 此模組不列入 `CYWEB_MODULES`、模組授權或權限群組。三期完成前不得開放一般使用者。
 - `national_id` 儲存在人事主檔，**一般 GET 一律移除原文並提供 `nationalIdMasked`**。明確 `POST /employees/:id/national-id/reveal` 才提供原文，並寫稽核；稽核不含原文身分證／統一證號。
 - 所有人事稽核 `hr_*` 對非 SUPER_ADMIN 在 Worker 稽核查詢層排除，不可用篩選繞過。
@@ -100,3 +100,7 @@
 調薪視窗顯示目標員工，以已生效薪資帶入計薪方式、本薪及津貼id／金額／經常性，不把未來調薪當目前設定；快照讀取失敗時禁止提交並提供重讀。薪資總覽分開經常性／非經常性津貼，標示月薪設定合計及非當月實發；現有合計口徑不改。歷次使用共用ExpandToggle，歷史異動與請假銷假仍走原API。
 
 本批無新Schema、權限、Worker薪資公式或每月薪資計算。保留V0.20.2有效假單整合、精確分鐘、請求序號、頁籤guard、防重複寫入與儲存失敗保護。[交接](../handoff/CYWEB-HR-TABLE-UI-20261115.md)。
+
+## V0.21.0 第三批每月薪資（待Claude審查／未合併／未部署）
+
+新增每月薪資清冊、計算及版本快照、官方級距每日自動匯入、單次5／6分鐘及全勤規則、結清防重與具名管理員更正能力。Schema0073新增七表及假單法定保護欄；Build2的0074～0076另增法定案件、補充保費版本及差額／唯一套用四表，補月中投保分段、連續產假／公傷與給付日獎金／兼職稅務、公司補充保費及前期差額，沿用主檔與Audit，詳見[正式分支契約](HR_PAYROLL_CONTRACT.md)及[交接](../handoff/CYWEB-HR-PAYROLL-20261115.md)。特殊案例及1440／390目視仍列待補，不能當作全情境薪資驗收或部署授權。

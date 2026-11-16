@@ -274,6 +274,7 @@ def main() -> int:
             "optimisticRevision",
             "batchRollback",
             "auditAtomicBatch",
+            "hrPayroll",
             "fixedPointIntegers",
             "foreignKeys",
             "defectInvalidationMigration",

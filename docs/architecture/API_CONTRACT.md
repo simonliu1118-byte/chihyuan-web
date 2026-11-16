@@ -630,7 +630,7 @@ Each customer's latest quote for the Item is selected by `quote_date DESC, id DE
 
 ## WO-0.9.20 人事模組第一期 API
 
-僅限已驗證的 CYID `SUPER_ADMIN`，所有 `/api/business/hr/*` 路徑不參與模組授權。提供員工主檔／子表、狀態異動、年資不計期間、薪資異動、週年制特休年度查詢、可綁定使用者、津貼類型與最低工資設定；完整方法／路徑／隱私契約詳見 [HR_MODULE_CONTRACT.md](HR_MODULE_CONTRACT.md)。一般員工 GET 只回遮罩證號；完整證號須額外 POST reveal 並寫稽核，稽核不記原文。非超管不得檢視人事事件。
+人事與薪資僅限已驗證的 CYID `SUPER_ADMIN`，`/api/business/hr/*` 不參與模組授權；V0.21.0兩條下班時間更正路徑另允許具名門市授權ADMIN，不開放完整人事或薪資。提供員工主檔／子表、狀態異動、年資不計期間、薪資異動、週年制特休年度查詢、可綁定使用者、津貼類型與最低工資設定；完整方法／路徑／隱私契約詳見 [HR_MODULE_CONTRACT.md](HR_MODULE_CONTRACT.md)。一般員工 GET 只回遮罩證號；完整證號須額外 POST reveal 並寫稽核，稽核不記原文。非超管不得檢視人事事件。
 
 
 ## WO-0.9.21 — Cloudflare D1 帳號用量（只讀）
@@ -680,3 +680,9 @@ GET／PUT `/api/business/items/platform-margin-rules/:platformId`：GET要求商
 GET `/api/business/items/platforms`既有平台回應新增`feeCategories: [{id,name}]`，只公開設定完成的品類選項，不回費率金額。商品詳情新增`platformFeeCategories: [{platformId,categoryId}]`，create／PATCH可選填；省略保持原選擇、空陣列明確清空，且每平台最多一個。只允許對應平台已設定品類，無效或跨平台422；商品revision409時選擇不變。只有ITEMS權限亦可選品類，但cost／costTaxMode仍null、不回margin，無法讀或寫受保護費率接口。
 
 毛利每平台新增`categoryFee`（所選費率或null），加入基本及基本＋活動兩欄。該平台缺品類時status為「請先選擇品類」，該平台的basic／activity／運費結果為null、區間空；其他通路不受影響。品類變更及完整規則／版本／Audit原子提交；刪除使用中品類422並rollback，穩定id使改名不影響商品。
+
+## V0.21.0 每月薪資及指定更正（工作分支，待Claude審查）
+
+新增`/api/business/hr/payroll/*`、`/settings/payroll-rules`、`/settings/attendance-correction-grants`，全部超管。`/attendance-corrections`及`/attendance-corrections/capabilities`為唯一具名ADMIN門市更正例外；Session及啟用帳號仍必須驗證，USER無更正能力。完整方法、revision／來源快照／Audit、錯誤及未涵蓋情境見[HR_PAYROLL_CONTRACT](HR_PAYROLL_CONTRACT.md)。尚未合併／部署。
+
+V0.21.0 Build2：超管新增GET／POST `/payroll/legal-cases/:employeeId`（expectedId、核對來源）、GET／POST／PATCH `/payroll/corrections/:employeeId?month=YYYY-MM`（追加差額requestKey／撤銷revision）與GET `/payroll/employer-supplement?month=YYYY-MM&unit=...`；均沿前述`/api/business/hr`前綴及既有SA gate。calculate可帶非每月bonusAmount，同日給付，來源同時含給付日profile、補充保費版、已發薪年累計及差額。沒有AI寫入或政府申報接口；細節與邊界仍以[薪資契約](HR_PAYROLL_CONTRACT.md)為準。

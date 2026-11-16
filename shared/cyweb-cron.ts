@@ -15,10 +15,12 @@ export interface CywebCronTasks {
   erpRetention: boolean;
   /** Taiwan 03:30, and 03:45 as a second chance: the daily backup (when its schedule is on). */
   backup: boolean;
+  /** Taiwan 04:00: discover effective official payroll tables (one bounded run/day). */
+  payrollRules: boolean;
 }
 export function cywebCronTasks(scheduledTime: number): CywebCronTasks {
   if (!Number.isFinite(scheduledTime)) throw new Error("CYWEB_CRON_INVALID_TIME");
   const at = new Date(scheduledTime), h = at.getUTCHours(), m = at.getUTCMinutes();
   return { erp: true, storeMonthly: h === 16 && m === 0, programCatalog: h === 19 && m === 0,
-    erpRetention: h === 19 && m === 15, backup: h === 19 && (m === 30 || m === 45) };
+    erpRetention: h === 19 && m === 15, backup: h === 19 && (m === 30 || m === 45),payrollRules:h===20&&m===0 };
 }
