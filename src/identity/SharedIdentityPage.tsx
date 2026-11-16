@@ -97,7 +97,7 @@ function useReloadNotice() {
 
 // ---------- 我的帳號 ----------
 
-function SelfServicePanel({ session }: { session: AuthSession }) {
+export function SelfServicePanel({ session }: { session: AuthSession }) {
   const [dialog, setDialog] = useState<"password" | "email" | null>(null);
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
