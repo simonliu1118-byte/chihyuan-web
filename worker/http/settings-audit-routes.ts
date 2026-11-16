@@ -1,3 +1,4 @@
+import { checkModuleAccess } from "../auth/app-access";
 import type { StructuralLookupKind } from "../../shared/settings";
 import { resolveAppMember } from "../auth/app-access";
 import { requireIdentity } from "../auth/guard";
@@ -84,6 +85,7 @@ export async function handleSettingsAuditRoute(request: Request, env: IdentityRu
       // Client flag can never elevate ADMIN or USER to query-visibility.
       query.includeErpQueries = role === "SUPER_ADMIN" && query.includeErpQueries === true;
       query.includeHrEvents = role === "SUPER_ADMIN";
+      query.includeItemCosts = (await checkModuleAccess(env.DB, gate.principal, "ITEMS_COST_MARGIN")).allowed;
       const result = await audit.listDetailedPage(query);
       return success({ ...result, actors: await audit.listActors() }, requestId);
     }

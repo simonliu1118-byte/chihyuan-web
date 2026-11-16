@@ -169,3 +169,9 @@
 - `HrEmployeeSheet` 以 `RecordSheet` 在同一畫面切換檢視／編輯並配合三張 `RecordRows`，手機沿用其 820px 共用轉置。
 - 動態資料的短視窗統一 `EntryFields`（由 `EntryTable` 與 `Field presentation=cell` 組成）；調薪的四欄一列使用 `EntryTable`，津貼採 `RecordRows`。
 - 薪資總覽桌機數字靠右、手機 `cy-rt cy-rt-list`，不複製寫入 owner。既有 `HrService.salary` POST 不修改，另加單一薪資唯讀 bulk GET。
+
+### V0.20.3 人事表格式整理（待審查）
+
+EntryFields新增可選columns（1至6）：分組表頭列／輸入列，最後不足格依colSpan填齊；仍由EntryTable及Field presentation=cell處理標籤、必填與手機轉置。不傳columns的既有列式呼叫不變。人事視窗統一傳columns，不複製表單外框。
+
+人事設定用EntryTable原位切換資料／輸入列；清單及歷史用cy-rt，展開列共用cy-table-expansion，密集矩陣共用cy-mobile-matrix。相關窄版樣式集中mobile.css的820px區段，移除人事模組640／700／701及自訂820分支。桌機／手機共用資料、handler、草稿與儲存。

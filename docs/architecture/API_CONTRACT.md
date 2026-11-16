@@ -648,3 +648,35 @@ GraphQL 結構以 [Cloudflare 官方 D1 Metrics and Analytics](https://developer
 
 ## WO-0.9.25 人事第二期 2b
 全部須 CYID SUPER_ADMIN。GET /api/business/hr/leave/summary?year=&storeId=；GET /api/business/hr/employees/:id/leave?year=；POST /api/business/hr/leave-requests；POST /api/business/hr/leave-requests/:batchId/cancel；POST /api/business/hr/leave-requests/:batchId/attachments；GET /api/business/hr/leave-attachments/:id；GET/POST/PATCH /api/business/hr/settings/leave-types；PATCH /api/business/hr/annual-leave-years/:id/notice；POST /api/business/hr/employees/:id/comp-time；POST /api/business/hr/comp-time/:kind/:id/extend；POST /api/business/hr/comp-time/overtime/:id/settle。補休不足 409 HR_COMP_INSUFFICIENT、假額不足 409 HR_LEAVE_QUOTA、已有正式假單擋 409 HR_LEAVE_FORM_EXISTS。R2 缺少綁定 503 HR_FILES_UNAVAILABLE。詳見 HR_MODULE_CONTRACT.md。
+
+## 商品毛利查詢（V0.19.0，第一階段待審查）
+
+`GET /api/business/items/:id/margin`：沿用 CYID session 及 ITEMS 模組權限；401 未登入、403 無權限、404 無商品。唯讀，無新增的 AI 或寫入權限。商品新增／更新成本稅別必填 inclusive／exclusive／no_tax，空值或舊 none 回欄位驗證 422；舊資料 NULL 仍可讀。
+
+回應 envelope 沿用現有 `success`，data 型別為 `shared/item-margin.ts` 的 ItemMarginResult：itemId、revision、baseUnit、originalCost、costTaxMode、payment、inputTax、netCost、costStatus，及 rows（channel＝store／clinic／wholesale、unit、price、netCost、status、exclusive／inclusive）。每個有效解讀含 netSales、grossProfit、grossMarginPercent、negative。
+
+衍生金額／百分比為兩位小數字串，缺資料為 null，零收入的百分比為 null；原始成本及售價沿用主檔最多四位小數字串。門市 exclusive 為 null。查詢參數不覆寫成本、售價或稅別。來源由 ItemRepository 同一商品 id 的 batch 讀取，回應不含網路毛利。
+
+### V0.19.0 Build1：商品成本及毛利次級權限
+
+新增ITEMS_COST_MARGIN（商品－成本及毛利分析），route:null且依附ITEMS，授權／群組勾選及連動取消比照ORDERING_CN_PURCHASE。SUPER_ADMIN依既有全授權；USER／ADMIN不自動取得。僅ITEMS者成本及稅別兩欄保留位置、內容空白（非破折號或待補），毛利入口及內容完全不顯示。商品列表／詳情／修改／改號回應的cost與costTaxMode為null，margin回403，成本歷史及全域Audit的成本事件不提供（含搜尋）。
+
+無次級權限的一般商品PATCH不得提供cost／costTaxMode（即使null）；由server保留現存值，舊待補NULL亦不猜測，其他欄位／售價仍可更新。具權限者成本稅別維持三選一必填。新增商品需選成本稅別，故無成本權限者新增停用、POST403，交具權限者建立。0070擴充既有授權表CHECK且保留原授權，不自動替員工加授權；由既有權限管理者自行設定。
+
+## V0.20.0 商品網路毛利與手動設定（待審查，未合併／部署）
+
+GET `/api/business/items/:id` 在具有ITEMS及ITEMS_COST_MARGIN時附加`margin`（原非網路結果＋`online`）；同一商品aggregate只讀一次。`online`各平台含主檔price、rules及revision、basic／activity、basicShipping／shipping、basicTiers／tiers。兩tiers陣列分別對應基本、基本＋活動；每列含minimum／maximum及各券coupons端點，端點含門檻orderAmount、折讓比例discountRatio、商品折抵itemDiscount、result及theoretical。金額／百分比為兩位小數字串，零收入比率null。沒有設定或成本時不虛構結果。舊GET `/:id/margin`保留相同後端核心，前端不再另呼叫。
+
+GET／PUT `/api/business/items/platform-margin-rules/:platformId`：GET要求商品＋成本權限；PUT另要求SUPER_ADMIN，使用既有Session，沒有AI委派入口。規則schema以`shared/item-online-margin.ts`為準，只有基本／活動費目、shipping、tiers、coupons及platformId／revision。未建規則GET回revision0空草稿，實際分析標待設定；PUT須明確填基本／活動費目，無費用填0。revision為必要版本，成功＋1；落後409且current／versions／Audit全部不寫。費目／滿件每類最多100筆、券最多500張，所有數值後端驗證。
+
+券互斥、與滿件並用；每券比較本門檻至下一不同門檻減1的比例分攤，最後固定／封頂券理論上界與無上限折數券區分。百分比費用按優惠後含稅價、固定費與運費按單件、支出額直接扣除。詳見[實作規格](../development/ITEM_MARGIN_PHASE2_DESIGN.md)。無成本權限詳情不帶margin、cost及costTaxMode為null、兩接口403；泛用Audit不含毛利正文。
+
+網路費用後結果型別為`ContributionValue`（`contributionAmount`／`contributionMarginPercent`），與原商品基本毛利`MarginValue`（`grossProfit`／`grossMarginPercent`）明確區分，畫面仍以「毛利」方便閱讀；兩者共用同一精確計算核心。
+
+## V0.20.1 平台獨立品類費率（待審查／未部署）
+
+規則新增`categoryFees`陣列，項目為PlatformFee加穩定字串id；蝦皮與Mo+分別保存在各platformId的規則中。舊規則沒有此欄時讀為空陣列。每平台上限100品類、名稱同平台不重複、金額／上下限與普通費率同驗證，跨平台可同名。
+
+GET `/api/business/items/platforms`既有平台回應新增`feeCategories: [{id,name}]`，只公開設定完成的品類選項，不回費率金額。商品詳情新增`platformFeeCategories: [{platformId,categoryId}]`，create／PATCH可選填；省略保持原選擇、空陣列明確清空，且每平台最多一個。只允許對應平台已設定品類，無效或跨平台422；商品revision409時選擇不變。只有ITEMS權限亦可選品類，但cost／costTaxMode仍null、不回margin，無法讀或寫受保護費率接口。
+
+毛利每平台新增`categoryFee`（所選費率或null），加入基本及基本＋活動兩欄。該平台缺品類時status為「請先選擇品類」，該平台的basic／activity／運費結果為null、區間空；其他通路不受影響。品類變更及完整規則／版本／Audit原子提交；刪除使用中品類422並rollback，穩定id使改名不影響商品。

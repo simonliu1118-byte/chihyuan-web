@@ -1,3 +1,4 @@
+import type { ItemMarginResult } from "../../../shared/item-margin";
 import type { ItemModuleLookups } from "../../../shared/business-lookups";
 import type {
   ChangeItemNumberRequest,
@@ -66,4 +67,15 @@ export function loadItemPlatforms():Promise<readonly ItemWebPlatform[]> {
 }
 export function loadItemPriceHistory(itemId:number):Promise<readonly ItemPriceHistoryRecord[]> {
  return apiRequest<readonly ItemPriceHistoryRecord[]>(`/api/business/items/${encodeURIComponent(String(itemId))}/price-history`,{method:"GET"});
+}
+
+export function loadItemMargin(itemId: number): Promise<ItemMarginResult> {
+  return apiRequest<ItemMarginResult>(`/api/business/items/${encodeURIComponent(String(itemId))}/margin`, { method: "GET" });
+}
+
+export function loadPlatformMarginRules(platformId:number):Promise<import('../../../shared/item-online-margin').PlatformMarginRules>{
+ return apiRequest(`/api/business/items/platform-margin-rules/${platformId}`,{method:'GET'});
+}
+export function savePlatformMarginRules(rules:import('../../../shared/item-online-margin').PlatformMarginRules):Promise<import('../../../shared/item-online-margin').PlatformMarginRules>{
+ return apiRequest(`/api/business/items/platform-margin-rules/${rules.platformId}`,{method:'PUT',json:rules});
 }

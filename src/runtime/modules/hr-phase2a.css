@@ -10,6 +10,8 @@
 .hr-roster-table th:first-child,.hr-roster-table td:first-child{min-width:62px;background:var(--cy-surface);position:sticky;left:0;z-index:2}
 .hr-roster-table th:nth-child(2){min-width:80px;position:sticky;left:62px;z-index:2;background:var(--cy-surface)}
 .hr-roster-table thead th{background:var(--cy-surface)}
+/* The weekday row starts at date 1 (職稱／姓名 span both header rows): its first two cells are date columns, not the frozen name columns. */
+.hr-roster-table thead tr+tr th:first-child,.hr-roster-table thead tr+tr th:nth-child(2){min-width:30px;position:relative;left:auto;z-index:auto}
 .hr-roster-table th small{display:block;font-size:8px;max-width:35px;overflow-wrap:anywhere}
 .hr-roster-table .hr-holiday{background:#e7eaed;color:#25313d}
 .hr-roster-table .hr-cycle{border-left:3px double #465461}
@@ -21,10 +23,14 @@
 .hr-roster-cell small{display:block;font-size:8px}
 .hr-roster-cell:focus-visible{outline:2px solid var(--cy-accent)}
 .hr-cell-choices{display:flex;flex-wrap:wrap;gap:6px}
-.hr-attendance-table{min-width:950px;white-space:nowrap}.hr-attendance-clock{width:78px;padding:5px}
+.hr-attendance-table{width:100%}.hr-attendance-clock{width:78px}
+/* Edited right in the table cell (shared cy-sheet-input), no boxed inputs inside the table (user rule). */
+.hr-attendance-table td.hr-sheet-cell,.hr-attendance-table td.hr-overtime-cell{padding:0}
+.hr-attendance-table td.hr-overtime-cell{padding-right:4px}
+.hr-attendance-table .hr-worked-cell{white-space:nowrap}
 .hr-attendance-totals{display:flex;gap:18px;flex-wrap:wrap;margin-top:14px}
 .print-only{display:none}
-@media(max-width:640px){.hr-roster-table th,.hr-roster-table td{font-size:10px}.hr-roster-cell{min-height:38px}.hr-roster-toolbar{gap:6px}}
+
 @page{size:A4 landscape;margin:5mm}
 @media print {
  .hr-roster-table .hr-invalid{outline:none}
@@ -36,6 +42,7 @@
  .hr-roster-table{width:100%!important;min-width:0!important;table-layout:fixed!important;border:2px solid #333}
  .hr-roster-table th,.hr-roster-table td{font-size:7px!important;min-width:0!important;padding:1px!important;position:static!important;border:1px solid #777}
  .hr-roster-table th:first-child,.hr-roster-table td:first-child,.hr-roster-table th:nth-child(2){width:16mm!important;min-width:0!important;position:static!important}
+ .hr-roster-table thead tr+tr th:first-child,.hr-roster-table thead tr+tr th:nth-child(2){width:auto!important}
  .hr-roster-table tr{break-inside:avoid}
  .hr-roster-table .hr-holiday{background:#e6e6e6!important;print-color-adjust:exact;-webkit-print-color-adjust:exact}
  .hr-roster-table .hr-cycle{border-left:3px double #333!important}
@@ -44,3 +51,6 @@
  .print-only{display:inline!important}
  .no-print,.hr-roster-cell,.hr-roster-toolbar,button,textarea{display:none!important;visibility:hidden!important}
 }
+
+td.hr-sheet-cell{padding:0!important}
+td.hr-sheet-cell>textarea.cy-sheet-input{min-height:64px}

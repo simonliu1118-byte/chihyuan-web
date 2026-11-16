@@ -159,7 +159,7 @@ Referenced lookup rows are normally disabled rather than hard-deleted. Fixed wor
 | `base_unit` | TEXT | no | |
 | `item_category_id` | INTEGER FK item_categories | yes | RESTRICT |
 | `cost` | INTEGER scaled4 | yes | `>= 0` |
-| `cost_tax_mode` | TEXT code | yes | `none / inclusive / exclusive` |
+| `cost_tax_mode` | TEXT code | yes | `inclusive / exclusive / no_tax`；NULL 僅容納既有待補資料，新增／修改必填，舊 none 經 0069 轉 NULL |
 | `store_price` | INTEGER scaled4 | yes | `>= 0` |
 | `clinic_price` | INTEGER scaled4 | yes | `>= 0` |
 | `notes` | TEXT | yes | |
@@ -779,3 +779,15 @@ Since V0.9.81 a portable backup records the source database's last migration and
 ## 0055 盤點紀錄
 
 `stocktake_records` 保留 ERP 已清除底稿的單號、日期、原代次、來源狀態、歸檔同步 ID、確認者／時間及 ERP 完成時間；`stocktake_record_items` 每個品號一筆名稱摘要；`stocktake_record_participants` 保留參與者名稱快照及初盤／複盤時間；`stocktake_record_differences` 只保存差異／未完成列及填寫人，精確萬分位合計存 TEXT。四表納入 portable backup。完整欄位／FK 以 `migrations/0055_stocktake_records.sql` 為準；歸檔條件、清除邊界及 API 見 [盤點契約](STORE_STOCKTAKE.md#erp-已清除的盤點單與過去盤點紀錄v0121)。
+
+## V0.20.0 平台費用及優惠規則（0071，待審查／未部署）
+
+`item_platform_margin_rules`：platform_id INTEGER PRIMARY KEY FK→item_web_platforms(id)，revision INTEGER>0，rules_json TEXT且json_valid，updated_at TEXT，updated_by INTEGER FK→app_members(id)。`item_platform_margin_rule_versions`同欄位，主鍵(platform_id,revision)，作完整不可覆寫歷史。
+
+rules_json為`shared/item-online-margin.ts`的PlatformMarginRules：基本／活動費目、shipping、滿件折扣及互斥券，數值以最多四位小數字串傳輸，revision與平台id冗餘供快照追溯。完整白名單與驗證在Worker；沒有商品成本／售價複本、AI憑證或提案表。兩表納入可攜備份，舊備份補空表。更新current、版本、Audit為同批原子操作。
+
+## V0.20.1 平台品類鍵與商品選擇（0072，待審查／未部署）
+
+`item_platform_fee_categories`：platform_id INTEGER FK→item_web_platforms(id)，category_id TEXT（1至80字元），聯合主鍵(platform_id,category_id)。這是目前rules_json.categoryFees的鍵投影，供商品外鍵約束；名稱、金額及方式仍只存版本化rules_json，不在投影重複。
+
+`item_platform_fee_selections`：item_id INTEGER FK→items(id) ON DELETE CASCADE、platform_id INTEGER、category_id TEXT，主鍵(item_id,platform_id)，複合外鍵(platform_id,category_id)→item_platform_fee_categories ON DELETE RESTRICT。索引(platform_id,category_id,item_id)支援使用中品類查核。兩表納入備份；不變更items成本／價格，也不猜舊商品品類。蝦皮與Mo+對應0061已固定的platform id1／2，顯示名稱可改，識別仍維持原平台。

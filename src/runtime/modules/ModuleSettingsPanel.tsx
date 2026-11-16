@@ -1,3 +1,4 @@
+import { PlatformMarginSettings } from "./item/PlatformMarginSettings";
 import { Icons } from "../../ui/actions/icons";
 import {Field,CheckField,FormSection} from "../../ui/forms/Field";
 import { SegmentedControl } from "../../ui/primitives/SegmentedControl";
@@ -19,12 +20,13 @@ import { deleteSetting, loadSettings, saveSetting } from "../api/settings-audit-
  * A module's own settings (BD-043 authority unchanged): structural lookups are Super Admin-only,
  * WorkLog configuration is Admin or Super Admin. Each module opens only its own sections.
  */
-export type SettingsSection = "department" | "customer_category" | "customer_status" | "item_category" | "item_platform" | "worklog-categories" | "worklog-platforms" | "scoring";
+export type SettingsSection = "department" | "customer_category" | "customer_status" | "item_category" | "item_platform" | "item_margin" | "worklog-categories" | "worklog-platforms" | "scoring";
 type Section = SettingsSection;
 const allSections: { key: Section; label: string; structural?: boolean }[] = [
   { key: "customer_category", label: "客戶分類", structural: true }, { key: "customer_status", label: "客戶狀態", structural: true },
   { key: "department", label: "負責部門", structural: true }, { key: "item_category", label: "商品分類", structural: true },
   { key: "item_platform", label: "網路平台", structural: true },
+  { key: "item_margin", label: "平台費用與優惠", structural: true },
   { key: "worklog-categories", label: "日誌類別" }, { key: "worklog-platforms", label: "日誌平台" },
   { key: "scoring", label: "計分設定" },
 ];
@@ -63,9 +65,10 @@ export function ModuleSettingsPanel({ role, only, onDirtyChange }: {
   const [target, setTarget] = useState("");
   const [minimum, setMinimum] = useState("");
   const [score, setScore] = useState<Partial<WorkLogScoringRowSetting> | null>(null);
+  const [marginDirty, setMarginDirty] = useState(false);
   const [lookupDraft, setLookupDraft] = useState<LookupDraft | null>(null);
   const { confirm, confirmationDialog } = useConfirmation();
-  const dirty = draft !== null || lookupDraft !== null || score !== null || (!!snapshot && (target !== (snapshot.workLogScoringConfig?.targetAverageDailyScore ?? "") || minimum !== (snapshot.workLogScoringConfig?.minimumAverageDailyScore ?? "")));
+  const dirty = marginDirty || draft !== null || lookupDraft !== null || score !== null || (!!snapshot && (target !== (snapshot.workLogScoringConfig?.targetAverageDailyScore ?? "") || minimum !== (snapshot.workLogScoringConfig?.minimumAverageDailyScore ?? "")));
   useUnsavedChangesGuard({ active: dirty, blocked: busy });
   useEffect(() => { onDirtyChange?.(dirty); }, [dirty, onDirtyChange]);
   function install(data: SettingsSnapshot) {
@@ -143,12 +146,12 @@ export function ModuleSettingsPanel({ role, only, onDirtyChange }: {
             ? null
             : <button className="cy-op-button primary" type="button" disabled={busy} onClick={() => setDraft(blank())}>＋ 新增{sections.find(row => row.key === section)?.label}</button>
         : null}
-      {sections.length > 1 ? <SegmentedControl label="設定項目" value={section} disabled={busy}
+      {sections.length > 1 ? <SegmentedControl label="設定項目" value={section} disabled={busy || marginDirty}
         options={sections.map(row => ({ value: row.key, label: row.label }))} onChange={next => { setSection(next); setDraft(null); setScore(null); setLookupDraft(null); }} /> : null}
-      {snapshot && structural && editable ? <button className="cy-op-button primary compact cy-settings-add" type="button" disabled={busy || lookupDraft !== null}
+      {snapshot && structural && editable && section !== "item_margin" ? <button className="cy-op-button primary compact cy-settings-add" type="button" disabled={busy || lookupDraft !== null}
         onClick={() => setLookupDraft({ code: "", name: "", isActive: true, light: "GREEN", parentId: null })}>＋ 新增</button> : null}
     </div>
-    {!snapshot ? <section className="cy-op-panel"><Loading /></section> : structural ? <>
+    {!snapshot ? <section className="cy-op-panel"><Loading /></section> : section === "item_margin" ? <PlatformMarginSettings onDirtyChange={setMarginDirty}/> : structural ? <>
       {!editable ? <p className="cy-settings-readonly">僅超級管理員可修改</p> : null}
       <LookupSettingsTable label={sections.find(row => row.key === section)?.label ?? ""} rows={rows} editable={editable} busy={busy}
         status={status} withCode={!status && section !== "item_platform"} parents={section === "item_category" ? snapshot.itemCategories : undefined}
@@ -195,7 +198,7 @@ export function ModuleSettingsButton({ role, label, only }: {
     setOpen(false);
   }
   if (role === "USER") return null;
-  const wide = only.includes("scoring");
+  const wide = only.includes("scoring") || only.includes("item_margin");
   return <>
     <button className="cy-op-button cy-module-settings-trigger" type="button" onClick={() => setOpen(true)}>
       <span aria-hidden="true">{Icons.settings}</span> 設定

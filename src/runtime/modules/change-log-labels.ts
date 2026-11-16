@@ -4,7 +4,7 @@ import type { AuditEvent } from "../api/settings-audit-client";
 
 const entityNames: Record<string,string> = {
   customer:"客戶",customer_visit:"拜訪紀錄",customer_item_quote:"報價紀錄",customer_frequent_item:"常用商品",
-  item:"商品",defect:"瑕疵",sales_work_order:"銷售工單",outsourcing_order:"代工單",
+  item:"商品",item_margin_rules:"平台費用與優惠",defect:"瑕疵",sales_work_order:"銷售工單",outsourcing_order:"代工單",
   outsourcing:"代工單",contractor:"協力廠商",contractor_price:"代工單價",bom_recipe:"材料清單",
   work_log:"工作日誌",setting:"設定",customer_category:"客戶分類",customer_status:"客戶狀態",
   department:"部門",item_category:"商品分類",work_log_category:"日誌類別",
@@ -52,6 +52,7 @@ export const actionLabels: Record<string,string> = {
   "customer.quote.corrected":"修正報價紀錄","customer.frequent_item.created":"加入常用商品",
   "customer.frequent_item.deleted":"移除常用商品",
   "item.created":"新增商品","item.updated":"修改商品","item.deleted":"刪除商品",
+  "item_margin_rules.changed":"調整平台費用與優惠",
   "item.number.changed":"更改品號","item.price.changed":"調整商品價格",
   "defect.created":"新增瑕疵","defect.updated":"修改瑕疵","defect.processing":"開始處理瑕疵",
   "defect.resolved":"完成瑕疵處理","defect.reopened":"重新開啟瑕疵",

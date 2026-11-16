@@ -86,3 +86,10 @@ test("a 權限群組 with 進貨輔助 must hold its requirements", async () => 
     assert.match(narrowed.body.error.message, /缺少「ERP 商品查詢」/);
   } finally { sql.close(); }
 });
+
+test('item cost/margin is a secondary grant with the same dependency behavior as CN purchase',()=>{
+ assert.deepEqual(effectiveModules(['ITEMS_COST_MARGIN']),[]);
+ assert.deepEqual(effectiveModules(['ITEMS','ITEMS_COST_MARGIN']),['ITEMS','ITEMS_COST_MARGIN']);
+ assert.match(moduleChangeProblem(new Set(), 'ITEMS_COST_MARGIN', true),/商品/);
+ assert.deepEqual(modulesDroppedWith(new Set(['ITEMS','ITEMS_COST_MARGIN']), 'ITEMS'),['ITEMS_COST_MARGIN']);
+});

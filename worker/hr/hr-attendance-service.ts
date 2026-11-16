@@ -1,4 +1,4 @@
-import {evaluateAttendance,normalizePunchTime,type AttendanceSchedule,type AttendanceShift,type AttendancePunches} from "../../shared/hr-attendance";
+import {evaluateAttendance,normalizePunchTime,type AttendanceSchedule,type AttendanceShift,type AttendancePunches,type AttendanceLeave} from "../../shared/hr-attendance";
 import {AuditService} from "../audit/audit-service";
 import {HrCompService} from "./hr-comp-service";
 import {overtimeSuggestion,overtimeWarnings,nextMonthEnd} from "../../shared/hr-overtime";
@@ -7,6 +7,16 @@ import type {HrContext} from "./hr-service";
 interface Staff {id:number;store_id:number|null;employment_type:string;schedule_mode:string}
 interface Punch {work_date:string;in1:string|null;out1:string|null;in2:string|null;out2:string|null;revision:number;note:string;source:string}
 interface Schedule {work_date:string;kind:AttendanceSchedule["kind"];off_mark:string|null;rest_label:string|null;marker:string|null;shift_type_id:number|null;leave_type_id:number|null;hours:number|null}
+async function activeLeaves(db:D1Database,ids:number[],from:string,to:string){
+ const result=await db.prepare(`SELECT employee_id,work_date,whole_day,start_time,end_time FROM hr_leave_records
+  WHERE employee_id IN (SELECT value FROM json_each(?)) AND work_date BETWEEN ? AND ? AND cancelled_at IS NULL LIMIT 10001`)
+  .bind(JSON.stringify(ids),from,to).all<{employee_id:number;work_date:string;whole_day:number;start_time:string|null;end_time:string|null}>();
+ if((result.results??[]).length>10000)throw new HrValidationError('limit','有效假單超過單次安全查詢上限');
+ const byDay=new Map<string,AttendanceLeave[]>();
+ for(const row of result.results??[]){const key=row.employee_id+'|'+row.work_date;const rows=byDay.get(key)??[];rows.push({wholeDay:row.whole_day===1,startTime:row.start_time,endTime:row.end_time});byDay.set(key,rows)}
+ return byDay;
+}
+
 function monthDates(month:string) {
  if(!/^20\d\d-(0[1-9]|1[0-2])$/.test(month))throw new HrValidationError("month","月份須 YYYY-MM");
  const start=Date.parse(month+"-01T00:00:00Z"),last=new Date(Date.UTC(Number(month.slice(0,4)),Number(month.slice(5,7)),0)).getUTCDate();
@@ -20,13 +30,14 @@ export class HrAttendanceService {
  }
  async get(id:number,month:string){
   const staff=await this.staff(id),dates=monthDates(month),from=dates[0],to=dates.at(-1)!;
-  const [a,s,shiftTypes,leaveTypes,overtimeData,holidays]=await Promise.all([
+  const [a,s,shiftTypes,leaveTypes,overtimeData,holidays,approvedLeave]=await Promise.all([
    this.db.prepare("SELECT * FROM hr_attendance_days WHERE employee_id=? AND work_date BETWEEN ? AND ? ORDER BY work_date LIMIT 32").bind(id,from,to).all<Punch>(),
    this.db.prepare("SELECT * FROM hr_schedule_days WHERE employee_id=? AND work_date BETWEEN ? AND ? ORDER BY work_date LIMIT 32").bind(id,from,to).all<Schedule>(),
    this.db.prepare("SELECT * FROM hr_shift_types LIMIT 100").all<Record<string,unknown>>(),
    this.db.prepare("SELECT id,code FROM hr_leave_types LIMIT 100").all<{id:number;code:string}>(),
    this.db.prepare("SELECT id,work_date,minutes,settlement,revision,note FROM hr_overtime_days WHERE employee_id=? AND work_date BETWEEN ? AND ? LIMIT 32").bind(id,from,to).all<{id:number;work_date:string;minutes:number;settlement:string;revision:number;note:string}>(),
-   this.db.prepare("SELECT date FROM hr_holidays WHERE date BETWEEN ? AND ? LIMIT 35").bind(from,to).all<{date:string}>()
+   this.db.prepare("SELECT date FROM hr_holidays WHERE date BETWEEN ? AND ? LIMIT 35").bind(from,to).all<{date:string}>(),
+   activeLeaves(this.db,[id],from,to)
   ]);
   const punch=new Map((a.results??[]).map(x=>[x.work_date,x])),roster=new Map((s.results??[]).map(x=>[x.work_date,x]));
   const shifts=new Map((shiftTypes.results??[]).map(x=>[Number(x.id),x])),leave=new Map((leaveTypes.results??[]).map(x=>[x.id,x.code]));
@@ -37,7 +48,7 @@ export class HrAttendanceService {
    const schedule:AttendanceSchedule|null=r?{kind:r.kind,offMark:r.off_mark==="x"?"x":"slash",restLabel:r.rest_label as "regular"|"rest"|null,
      marker:r.marker as "home"|"booth"|null,leaveCode:r.leave_type_id?leave.get(r.leave_type_id):null}:null;
    const shiftData:AttendanceShift|null=shift?{startTime:String(shift.start_time),endTime:String(shift.end_time),breakStart:shift.break_start?String(shift.break_start):null,breakEnd:shift.break_end?String(shift.break_end):null,normalMinutes:Number(shift.normal_minutes)}:null;
-   const result=evaluateAttendance(schedule,shiftData,p??{}, {noRosterPartTime:staff.employment_type==="casual"&&staff.schedule_mode==="none"});
+   const result=evaluateAttendance(schedule,shiftData,p??{}, {approvedLeave:approvedLeave.get(id+"|"+d),noRosterPartTime:staff.employment_type==="casual"&&staff.schedule_mode==="none"});
    const suggestion=overtimeSuggestion({workDate:d,workedMinutes:result.workedMinutes,out1:p?.out1,out2:p?.out2,
     employmentType:staff.employment_type as "full"|"half"|"casual",marker:r?.marker??null,hasPunch:!!(p?.in1||p?.in2)},
     shiftData?{endTime:shiftData.endTime,normalMinutes:shiftData.normalMinutes}:null,holidaysSet,r?.rest_label==="regular"?"regular_off":r?.kind==="off"?"rest_day":null);
@@ -131,6 +142,7 @@ export class HrAttendanceService {
   ]);
   if((employees.results??[]).length>100||(attendance.results??[]).length>3100||(schedules.results??[]).length>3100)
    throw new HrValidationError("limit","門市員工或出勤超過安全查詢上限");
+  const approvedLeave=await activeLeaves(this.db,(employees.results??[]).map(e=>e.id),from,to);
   const punches=new Map((attendance.results??[]).map(x=>[x.employee_id+"|"+x.work_date,x]));
   const rosters=new Map((schedules.results??[]).map(x=>[x.employee_id+"|"+x.work_date,x]));
   const shifts=new Map((types.results??[]).map(x=>[Number(x.id),x]));
@@ -145,7 +157,7 @@ export class HrAttendanceService {
    const shift:AttendanceShift|null=row?{startTime:String(row.start_time),endTime:String(row.end_time),
     breakStart:row.break_start?String(row.break_start):null,breakEnd:row.break_end?String(row.break_end):null,
     normalMinutes:Number(row.normal_minutes)}:null;
-   const anomalies=evaluateAttendance(scheduled,shift,p??{},{noRosterPartTime:employee.employment_type==="casual"&&employee.schedule_mode==="none"}).anomalies;
+   const anomalies=evaluateAttendance(scheduled,shift,p??{},{approvedLeave:approvedLeave.get(employee.id+"|"+day),noRosterPartTime:employee.employment_type==="casual"&&employee.schedule_mode==="none"}).anomalies;
    if(anomalies.length)result.push({employeeId:employee.id,employeeNo:employee.employee_no,name:employee.name,date:day,anomalies});
   }
   return result;
