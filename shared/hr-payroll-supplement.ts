@@ -18,7 +18,7 @@ export function paymentTaxes(at:string,regular:number,bonus:number,baseProfile:P
    const total=regular+bonus+sameDay.reduce((n,r)=>n+r.regular+r.bonus,0);taxRegular=Math.max(0,(total>=threshold?Math.floor(total*0.05+1e-8):0)-sameDay.reduce((n,r)=>n+r.taxRegular+r.taxBonus,0));
   }else{
    const total=regular+prior.reduce((n,r)=>n+r.regular,0);let due=0;
-   // 薪資所得扣繳辦法: 已填免稅額申報表→扣繳稅額表（§5）；未填→全月給付總額5%（§6）；兩者每月應扣不超過2,000元皆免扣（§7Ⅰ）。
+   // 員工本人選扣繳稅額表或全月5%（扣繳率標準§2Ⅰ①）；兩者每月應扣不超過2,000元皆免扣（薪資所得扣繳辦法§7Ⅰ）。
    if(p.taxMethod==='percent')due=Math.floor(total*0.05+1e-8);
    else{const row=table.rows.find(r=>total>=r.from&&total<=r.to);if(row&&p.taxDependents<row.amounts.length)due=row.amounts[p.taxDependents];else if(total>=table.rows[0].from)issue('薪資／扶養人數超過官方扣繳表，請核對法定公式');}
    if(due<=2000)due=0;
