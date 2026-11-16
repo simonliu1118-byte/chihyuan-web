@@ -67,11 +67,11 @@ export function PlatformMarginSettings({onDirtyChange}:{onDirtyChange:(dirty:boo
     {label:'活動／優惠券名稱',required:true,view:r=>r.name,edit:(r,i)=>input(r.name,v=>updateCoupon(i,{name:v}),'優惠券名稱')},
     {label:'折扣方式',view:r=>r.method,edit:(r,i)=><select aria-label="優惠券折扣方式" value={r.method} disabled={busy} onChange={e=>updateCoupon(i,{method:e.target.value as MarginCoupon['method']})}><option value="percent">折數</option><option value="fixed">金額</option></select>},
     {label:'折數／金額',required:true,view:r=>r.value,edit:(r,i)=>input(r.value,v=>updateCoupon(i,{value:v}),'優惠券折數或金額')},
-    {label:'滿額門檻',required:true,view:r=>r.threshold,edit:(r,i)=>input(r.threshold,v=>updateCoupon(i,{threshold:v}),'滿額門檻')},
+    {label:'滿額門檻',required:true,view:r=>Number(r.threshold)===0?'無門檻（0）':r.threshold,edit:(r,i)=>input(r.threshold,v=>updateCoupon(i,{threshold:v}),'滿額門檻')},
     {label:'折抵上限',view:r=>r.cap,edit:(r,i)=>input(r.cap??'',v=>updateCoupon(i,{cap:v||null}),'折抵上限')},
    ]} onInsert={i=>{const rows=[...draft.coupons];rows.splice(i+1,0,{name:'',method:'fixed',value:'',threshold:'',cap:null});patch({coupons:rows})}} onRemove={i=>patch({coupons:draft.coupons.filter((_,n)=>i!==n)})}/>
   <p><strong>優惠券一律不可並用；每張券都與滿件折扣一起計算。</strong> 折數按上限封頂，例如9折、滿600、上限20合法，於600元時折20元。</p>
-  <p>金額以整數元比較各券門檻：滿600折20、下一門檻800時，計算600至799的兩端，再按商品占比換算折抵。最後一檔固定／封頂券以折抵占比趨零作理論上界；無上限折數券保留原折數。</p>
+  <p>金額以整數元比較各券門檻：滿600折20、下一門檻800時，計算600至799的兩端，再按商品占比換算折抵。最後一檔固定／封頂券以折抵占比趨零作理論上界；無上限折數券保留原折數。無門檻券門檻填0，最低端以單件商品價計算。</p>
   <div className="cy-op-form-footer"><button type="button" className="cy-op-button" disabled={busy} onClick={()=>{setDraft(saved);setEpoch(v=>v+1)}}>取消並重讀</button><button className="cy-op-button primary" disabled={busy||(!dirty&&draft.revision>0)}>儲存平台設定</button></div>
  </form>;
 }

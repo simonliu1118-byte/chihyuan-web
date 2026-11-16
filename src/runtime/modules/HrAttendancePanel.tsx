@@ -88,17 +88,17 @@ export function HrAttendancePanel(){
    <tbody>{shownDays.map(row=>{const punch=changes[row.date]??row.punches;return <tr key={row.date}>
     <td role="rowheader" data-label="日期" data-priority="title">{row.date.replaceAll("-","/")}</td><td data-label="星期">{weekdays[new Date(row.date+"T00:00:00Z").getUTCDay()]}</td>
     <td data-label="排定">{row.schedule?.kind==="off"?row.schedule.off_mark==="x"?"X":row.schedule.rest_label==="regular"?"例":"/":row.schedule?.kind==="shift"?row.schedule.code??"班":row.schedule?.kind==="hours"?String(row.schedule.hours)+"h":row.schedule?.kind==="leave"?row.schedule.code??"假":"—"}</td>
-    {punchFields.map(k=><td key={k} data-label={k==="in1"?"上班1":k==="out1"?"下班1":k==="in2"?"上班2":"下班2"}><input disabled={busy} data-clock={k} className="cy-op-input hr-attendance-clock" placeholder="HH:mm" aria-label={row.date+" "+k} value={punch?.[k]??""}
+    {punchFields.map(k=><td key={k} className="hr-sheet-cell" data-label={k==="in1"?"上班1":k==="out1"?"下班1":k==="in2"?"上班2":"下班2"}><input disabled={busy} data-clock={k} className="cy-sheet-input hr-attendance-clock" placeholder="HH:mm" aria-label={row.date+" "+k} value={punch?.[k]??""}
       onChange={e=>change(row,k,e.target.value)} onBlur={e=>{if(e.target.value.trim())try{change(row,k,normalizePunchTime(e.target.value))}catch{/* Preserve invalid entry for correction */}}} onKeyDown={enter}/></td>)}
-    <td data-label="實際工時">{formatWorkedMinutes(row.workedMinutes)}</td>
+    <td data-label="實際工時" className="hr-worked-cell">{formatWorkedMinutes(row.workedMinutes)}</td>
     <td data-label="加班／結算" className="hr-overtime-cell">{(()=>{const minutes=otChanges[row.date]?.minutes??row.overtime?.minutes??0;return <>
-     <select disabled={busy} className="cy-op-input" aria-label={row.date+" 加班時數"} value={minutes} onChange={e=>changeOvertime(row,{minutes:Number(e.target.value)})}>
+     <select disabled={busy} className="cy-sheet-input" aria-label={row.date+" 加班時數"} value={minutes} onChange={e=>changeOvertime(row,{minutes:Number(e.target.value)})}>
       {Array.from({length:25},(_,i)=><option value={i*30} key={i}>{i?hrs(i*30)+"h":"—"}</option>)}</select>
-     {minutes>0?<select disabled={busy} className="cy-op-input" aria-label={row.date+" 加班結算"} value={otChanges[row.date]?.settlement??row.overtime?.settlement??"pay"} onChange={e=>changeOvertime(row,{settlement:e.target.value as "pay"|"comp"})}><option value="pay">加班費</option><option value="comp">補休</option></select>:null}
+     {minutes>0?<select disabled={busy} className="cy-sheet-input" aria-label={row.date+" 加班結算"} value={otChanges[row.date]?.settlement??row.overtime?.settlement??"pay"} onChange={e=>changeOvertime(row,{settlement:e.target.value as "pay"|"comp"})}><option value="pay">加班費</option><option value="comp">補休</option></select>:null}
      {row.overtimeSuggestion.minutes>0&&minutes!==row.overtimeSuggestion.minutes?<button type="button" title={row.overtimeSuggestion.reason} className="cy-op-button compact soft" onClick={()=>changeOvertime(row,{minutes:row.overtimeSuggestion.minutes})}>建議 {hrs(row.overtimeSuggestion.minutes)}h</button>:null}
     </>})()}</td>
     <td data-label="遲到分鐘">{row.lateMinutes||"—"}</td><td data-label="早退分鐘">{row.earlyMinutes||"—"}</td><td data-label="異常">{row.anomalies.join("、")||"—"}</td>
-    <td data-label="備註"><input disabled={busy} className="cy-op-input" aria-label={row.date+" 備註"} value={punch?.note??""} onChange={e=>change(row,"note",e.target.value)}/></td>
+    <td data-label="備註" className="hr-sheet-cell"><input disabled={busy} className="cy-sheet-input" aria-label={row.date+" 備註"} value={punch?.note??""} onChange={e=>change(row,"note",e.target.value)}/></td>
    </tr>})}</tbody></table></div>
   {data?<div className="cy-op-panel hr-attendance-totals"><strong>當月合計</strong><span>工時 {formatWorkedMinutes(data.totals.workedMinutes)}</span><span>遲到 {data.totals.lateCount} 次／{data.totals.lateMinutes} 分鐘</span><span>缺卡 {data.totals.missingCard}</span><span>曠職 {data.totals.absent}</span><span>延長工時 {hrs(data.totals.overtimeMinutes)}h</span>{data.overtimeWarnings.map(x=><span key={x} className="cy-notice cy-notice-warning">{x}（僅警示）</span>)}</div>:null}
   <Dialog open={exceptions!==null} title="出勤異常清單" onClose={()=>setExceptions(null)} size="large">

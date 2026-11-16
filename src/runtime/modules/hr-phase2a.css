@@ -21,7 +21,11 @@
 .hr-roster-cell small{display:block;font-size:8px}
 .hr-roster-cell:focus-visible{outline:2px solid var(--cy-accent)}
 .hr-cell-choices{display:flex;flex-wrap:wrap;gap:6px}
-.hr-attendance-table{width:100%}.hr-attendance-clock{width:78px;padding:5px}
+.hr-attendance-table{width:100%}.hr-attendance-clock{width:78px}
+/* Edited right in the table cell (shared cy-sheet-input), no boxed inputs inside the table (user rule). */
+.hr-attendance-table td.hr-sheet-cell,.hr-attendance-table td.hr-overtime-cell{padding:0}
+.hr-attendance-table td.hr-overtime-cell{padding-right:4px}
+.hr-attendance-table .hr-worked-cell{white-space:nowrap}
 .hr-attendance-totals{display:flex;gap:18px;flex-wrap:wrap;margin-top:14px}
 .print-only{display:none}
 
@@ -44,3 +48,6 @@
  .print-only{display:inline!important}
  .no-print,.hr-roster-cell,.hr-roster-toolbar,button,textarea{display:none!important;visibility:hidden!important}
 }
+
+td.hr-sheet-cell{padding:0!important}
+td.hr-sheet-cell>textarea.cy-sheet-input{min-height:64px}

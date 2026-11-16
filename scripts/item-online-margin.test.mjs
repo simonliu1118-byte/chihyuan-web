@@ -153,3 +153,15 @@ test('ITEMS-only may select platform categories without seeing costs or fee amou
  assert.deepEqual((await items.getDetail(1)).platformFeeCategories,[selection]);
  }finally{f.sql.close()}
 });
+
+test('無門檻券 (threshold 0): the low end is a one-item order, never a zero-amount order',()=>{
+ const r=config();r.tiers=[];r.coupons=[{name:'無門檻折10',method:'fixed',value:'10',threshold:'0',cap:null},{name:'600折20',method:'fixed',value:'20',threshold:'600',cap:null}];
+ const t=run(r).tiers[0],c=t.coupons[0];
+ // 300 item: 10/300 at the low end, 10/599 just below the next threshold
+ assert.equal(c.minimum.orderAmount,'300.00');assert.equal(c.minimum.itemDiscount,'10.00');
+ assert.equal(c.maximum.orderAmount,'599');assert.equal(c.maximum.itemDiscount,'5.01');
+ assert.equal(t.minimum.coupon,'無門檻折10');
+ // the item already above the next threshold: the range collapses to the item price
+ const big=run(r,{onlinePrices:[{platformId:1,price:'700'}]}).tiers[0].coupons[0];
+ assert.equal(big.minimum.orderAmount,'700.00');assert.equal(big.maximum.orderAmount,'700.00');
+});

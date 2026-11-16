@@ -56,8 +56,10 @@ export function onlineMargins(item:ItemDetail,platforms:readonly ItemWebPlatform
    for(const coupon of rule.coupons){
     const next=thresholds.find(t=>t>Number(coupon.threshold));
     const begin=candidates.length;
-    endpoint(coupon.name,coupon.threshold,couponRatio(coupon,coupon.threshold),false);
-    const upper=next==null?null:String(next-1);
+    // 無門檻券 (0, user 2026-11-16): the smallest order is this one item, not a zero-amount order.
+    const low=Number(coupon.threshold)===0?display(tierPrice):coupon.threshold;
+    endpoint(coupon.name,low,couponRatio(coupon,low),false);
+    const upper=next==null?null:Number(low)>next-1?low:String(next-1);
     endpoint(coupon.name,upper,couponRatio(coupon,upper),next==null&&!(coupon.method==='percent'&&coupon.cap==null));
     couponRanges.push({name:coupon.name,minimum:candidates[begin].endpoint,maximum:candidates[begin+1].endpoint});
    }

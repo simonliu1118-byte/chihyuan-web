@@ -16,7 +16,7 @@
 .hr-leave-summary td,.hr-leave-summary th{white-space:nowrap}.hr-leave-row.active{background:var(--cy-accent-soft)}
 .hr-leave-attachments{display:grid;gap:12px}.hr-leave-attachments img{max-width:100%;height:auto}
 .hr-comp-alerts{border-left:3px solid var(--cy-warning)}
-.hr-overtime-cell{white-space:nowrap}.hr-overtime-cell .cy-op-input{width:auto;min-width:0;display:inline-block;margin-right:4px}
+.hr-overtime-cell{white-space:nowrap}.hr-overtime-cell .cy-sheet-input{width:auto;min-width:0;display:inline-block;margin-right:2px}
 .hr-leave-toolbar label{white-space:nowrap}
 
 .cy-hr-leave .cy-md-list h3{padding:12px 14px 0}

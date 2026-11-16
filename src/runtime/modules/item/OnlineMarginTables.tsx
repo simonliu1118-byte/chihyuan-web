@@ -46,7 +46,7 @@ export function OnlineMarginTables({platforms}:{platforms:OnlinePlatformMargin[]
     <tr><td data-label="項目">扣除基本＋活動費率毛利</td><td data-label="毛利"><Profit value={p.activity}/></td></tr>
     {p.rules.shipping.enabled?<><tr><td data-label="項目">賣家負擔運費</td><td data-label="運費">{p.rules.shipping.carrier} {onlineMoney(p.rules.shipping.amount)}</td></tr><tr><td data-label="項目">扣基本費率及運費毛利</td><td data-label="毛利"><Profit value={p.basicShipping}/></td></tr><tr><td data-label="項目">扣基本＋活動費率及運費毛利</td><td data-label="毛利"><Profit value={p.shipping}/></td></tr></>:null}
     <tr><td data-label="項目">滿件折扣</td><td data-label="折扣">{p.rules.tiers.map(t=>`滿${t.quantity}件${t.discount}折`).join('、')||'無'}</td></tr>
-    <tr><td data-label="項目">優惠券</td><td data-label="優惠券">{p.rules.coupons.map((c,i)=><div key={i}>{c.name}：滿{c.threshold}，{c.method==='percent'?c.value+'折':'折'+c.value}{c.cap!=null?'，上限'+c.cap:''}</div>)}{!p.rules.coupons.length?'無':null}</td></tr>
+    <tr><td data-label="項目">優惠券</td><td data-label="優惠券">{p.rules.coupons.map((c,i)=><div key={i}>{c.name}：{Number(c.threshold)===0?'無門檻':'滿'+c.threshold}，{c.method==='percent'?c.value+'折':'折'+c.value}{c.cap!=null?'，上限'+c.cap:''}</div>)}{!p.rules.coupons.length?'無':null}</td></tr>
    </tbody></table>
    <table className="cy-op-table cy-rt" aria-label={p.name+'毛利比較'}><thead><tr><th>條件</th><th>基本費率</th><th>基本＋活動費率</th></tr></thead>
     <tbody><tr><td data-label="條件">無折扣</td><td data-label="基本費率"><Profit value={p.basicShipping??p.basic}/></td><td data-label="基本＋活動費率"><Profit value={p.shipping??p.activity}/></td></tr>
