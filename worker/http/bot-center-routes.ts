@@ -94,7 +94,7 @@ const draftView = (row: DraftRow): BotDraftView => ({
   status: row.review_status, reason: row.review_reason, reviewedAt: row.reviewed_at, createdAt: row.created_at,
   reviewer: row.reviewed_at ? { displayName: row.display_name, employeeNo: row.employee_no } : null,
   pushStatus:row.push_status, kind: row.kind ?? "general", sentAt: row.sent_at ?? null, imageCount: row.image_count ?? 0,
-  itemCounts: row.item_total ? { total: row.item_total, pending: row.item_pending, approved: row.item_approved, rejected: row.item_rejected } : null,
+  itemCounts: row.item_total ? { total: row.item_total, pending: row.item_pending, approved: row.item_approved, rejected: row.item_rejected, ...(row.item_total>row.item_pending+row.item_approved+row.item_rejected?{external:row.item_total-row.item_pending-row.item_approved-row.item_rejected}:{}) } : null,
 });
 const reportView = (row: ReportRow): BotReportView => ({
   id: row.id, botCode: row.code, botLabel: row.label, title: row.title, body: row.body, reportedAt: row.reported_at,

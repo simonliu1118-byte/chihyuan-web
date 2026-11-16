@@ -67,4 +67,6 @@
 - 整合後TypeScript、npm run build、npm run validate:source通過，BOT／Grok／marker相關79項測試全數通過。
 - BotReviewDialog改用最新主線共用useLatestRequest，避免保留平行的過期回應控制。
 - Windows本機真實D1流程在Temp清理時遇到workerd持有metadata.sqlite（WinError32），未冒稱通過；以PR的Linux完整D1／Node CI補齊正式證據。
-- PR建立與遠端CI待補記，未合併／部署。
+- [PR #522](https://github.com/simonliu1118-byte/chihyuan-web/pull/522)已建立，未合併／部署。
+- 收尾補上逐則統計「外部已處理」數（由原總數差額導出，不新增SQL查詢）與手機清單完整語音標籤，避免外部處理後顯示全0統計。
+- 新工具包僅既定5檔，解壓CLI驗證通過；共用技能frontmatter／資源由既有Node測試驗證，通用quick_validate因本機缺PyYAML未執行，不安裝新依賴。

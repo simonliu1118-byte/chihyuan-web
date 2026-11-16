@@ -58,7 +58,7 @@ test('outside approvals resolve only linked pending work, preserve original revi
  const first=receipt('reply-a',{kind:'patrol',draftId:draft.id,itemSeq:1,sessionRef:'noon',approvalSource:'line'});
  ok(await f.call('/api/bot-ingest/deliveries','POST',first,f.auth));
  let state=ok(await f.call('/api/bot-center'));assert.equal(state.workSummary.pending.patrols,1);assert.equal(state.draftCounts.pending,1);
- const detail=ok(await f.call('/api/bot-center/drafts/'+draft.id));assert.equal(detail.items[0].status,'external');assert.equal(detail.items[1].status,'pending');
+ const detail=ok(await f.call('/api/bot-center/drafts/'+draft.id));assert.equal(detail.draft.itemCounts.external,1);assert.equal(detail.items[0].status,'external');assert.equal(detail.items[1].status,'pending');
  assert.equal((await f.call(`/api/bot-center/drafts/${draft.id}/items/1/review`,'POST',{decision:'approved'})).status,409);
  ok(await f.call('/api/bot-ingest/deliveries','POST',receipt('reply-b',{kind:'patrol',draftId:draft.id,itemSeq:2,sessionRef:'noon',approvalSource:'line'}),f.auth));
  state=ok(await f.call('/api/bot-center'));assert.equal(state.draftCounts.pending,0);assert.equal(state.draftCounts.external,1);assert.equal(state.workSummary.patrols.sentToday,2);assert.deepEqual(state.workSummary.patrols.sessions.map(x=>[x.label,x.sent]),[['午巡',2]]);

@@ -188,7 +188,7 @@ export function BotCenterPage(){
     <div className="cy-op-panel-header"><h2>{draftStatus==="pending"?"待審核":"審稿紀錄"}</h2></div>
     <StatusFilter label="審稿狀態" value={draftStatus==="all"?"":draftStatus} counts={state.draftCounts} options={(["pending","approved","rejected","external"] as const).map(status=>({code:status,label:BOT_REVIEW_LABELS[status],tone:REVIEW_TONE[status]}))} onChange={status=>{if(!busy)void filter((status||"all") as BotReviewStatus|"all")}}/>
     {compact?<div className="cy-bot-mobile-drafts">{state.drafts.length?state.drafts.map(draft=><div key={draft.id}>
-     <ListRow disabled={busy} label={draft.title+"，"+BOT_REVIEW_LABELS[draft.status]+"，"+draft.body}
+     <ListRow disabled={busy} label={(draft.revisionNumber===1?"初稿":draft.revisionNumber+"修")+"，"+formatDateTime(draft.createdAt)+"，"+draft.botLabel+"，"+draft.title+"，"+BOT_REVIEW_LABELS[draft.status]+"，"+draft.body}
       title={<span className="cy-bot-mobile-title"><span>{draft.revisionNumber===1?"初稿":draft.revisionNumber+"修"}</span><strong>{draft.title}</strong></span>}
       subtitle={<span className="cy-bot-mobile-summary"><time dateTime={draft.createdAt}>{formatDateTime(draft.createdAt).slice(5)}</time><span>{draft.botLabel}</span><span className="cy-bot-mobile-content">{draft.itemCounts?BOT_DRAFT_KIND_LABELS[draft.kind]+draft.itemCounts.total+"則・":""}{firstLine(draft.body)}</span></span>}
       trailing={<StatusChip tone={REVIEW_TONE[draft.status]}>{BOT_REVIEW_LABELS[draft.status]}</StatusChip>}

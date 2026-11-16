@@ -80,7 +80,7 @@ export interface BotDraftView {
   pushStatus: "queued" | "sending" | "accepted" | "failed" | null;
   kind: BotDraftKind;
   /** Multi-item drafts only: how many items are in each review state. Null for a single draft. */
-  itemCounts: { total: number; pending: number; approved: number; rejected: number } | null;
+  itemCounts: { total: number; pending: number; approved: number; rejected: number; external?:number } | null;
   /** Single draft: when the BOT reported it carried the approved work out. */
   sentAt: string | null;
   imageCount: number;

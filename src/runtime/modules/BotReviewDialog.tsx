@@ -57,7 +57,7 @@ export function BotReviewDialog({ids,initialId,canReview,onClose,onChanged,onlyI
     <span>{detail.draft.revisionNumber===1?"初稿":detail.draft.revisionNumber+"修"}{detail.draft.supersededById?"・已有新版":""}</span>
     {detail.draft.sentAt?<StatusChip tone="info">已送出 {formatDateTime(detail.draft.sentAt)}</StatusChip>:null}
     <span>{detail.draft.botLabel}・{BOT_DRAFT_KIND_LABELS[detail.draft.kind]}・{formatDateTime(detail.draft.createdAt)} 送審</span>
-    {onlyItemSeq===undefined&&detail.draft.itemCounts?<span>共 {detail.draft.itemCounts.total} 則：通過 {detail.draft.itemCounts.approved}・退回 {detail.draft.itemCounts.rejected}・待審 {detail.draft.itemCounts.pending}</span>:null}
+    {onlyItemSeq===undefined&&detail.draft.itemCounts?<span>共 {detail.draft.itemCounts.total} 則：通過 {detail.draft.itemCounts.approved}・退回 {detail.draft.itemCounts.rejected}・待審 {detail.draft.itemCounts.pending}{detail.draft.itemCounts.external?`・外部已處理 ${detail.draft.itemCounts.external}`:""}</span>:null}
     {onlyItemSeq===undefined&&detail.draft.previousDraftId?<button type="button" className="cy-op-button compact" disabled={busy} onClick={()=>setId(detail.draft.previousDraftId!)}>上一版</button>:null}
     {onlyItemSeq===undefined&&detail.draft.supersededById?<button type="button" className="cy-op-button compact" disabled={busy} onClick={()=>setId(detail.draft.supersededById!)}>查看新版</button>:null}
    </div>
