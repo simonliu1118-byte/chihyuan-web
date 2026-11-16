@@ -1,0 +1,13 @@
+/* 我的資料 (V0.21.1): read-only personal HR records; tables reuse RecordSheet / RecordRows. */
+.cy-my-profile{display:flex;flex-direction:column;gap:12px;min-width:0}
+.cy-my-profile-stack{display:flex;flex-direction:column;gap:12px;min-width:0}
+.cy-my-profile-stack>.cy-op-panel{display:flex;flex-direction:column;gap:10px;min-width:0}
+.cy-my-profile-stack h2{margin:0;font-size:16px}
+.cy-my-profile-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.cy-my-profile-head .cy-op-input{width:auto}
+.cy-my-profile-nav{display:inline-flex;align-items:center;gap:8px}
+.cy-my-profile-unbound{margin:0;color:var(--cy-text-muted,#5c6670)}
+.cy-my-profile-warn{color:var(--cy-danger,#b42318);white-space:normal}
+.cy-my-profile-minus{color:var(--cy-danger,#b42318)}
+.cy-my-profile .cy-sheet-rows{margin:0}
+.cy-account-cell{display:inline-flex;align-items:center;gap:8px;flex-wrap:wrap}

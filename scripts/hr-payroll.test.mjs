@@ -288,3 +288,23 @@ test('薪資所得扣繳辦法: table below its start and any monthly tax of 2,0
  assert.equal(run('table',90800),0);            // table says 1,990 ≤ 2,000: exempt (§7Ⅰ)
  assert.equal(run('table',91200),2020);
 });
+test('我的資料 reads only the HR row bound to the signed-in account, read-only, without admin notes or national IDs',async()=>{
+ const f=botCenterFixture('USER');try{seed(f);
+ f.sql.prepare("UPDATE hr_employees SET national_id='A123456789',note='主管私人備註' WHERE id=1").run();
+ f.sql.prepare("INSERT INTO hr_employees(employee_no,name,status,hire_date,seniority_start_date,store_id,created_at,updated_at) VALUES('OTHER','別人','active','2025-01-01','2025-01-01',1,?,?)").run(ctx.now,ctx.now);
+ const call=async(path,method='GET')=>handleHrRoute(new Request('https://acceptance.test/api/business/hr'+path,{method,headers:{cookie:'cyweb_identity_session=cyid_'+'a'.repeat(64)}}),f.env,'self-test');
+ assert.deepEqual((await (await call('/me')).json()).data,{bound:false});
+ assert.equal((await call('/me/leave')).status,404);
+ assert.equal((await call('/employees/2')).status,403);
+ const member=f.sql.prepare('SELECT id FROM app_members ORDER BY id LIMIT 1').get();assert.ok(member);
+ f.sql.prepare('UPDATE hr_employees SET member_id=? WHERE id=1').run(member.id);
+ const me=(await (await call('/me?employeeId=2')).json()).data;
+ assert.equal(me.bound,true);assert.equal(me.employee.employee_no,'SYNTHETIC-PAY');assert.equal(me.salaries[0].baseAmount,30000);
+ const text=JSON.stringify(me);assert.ok(!text.includes('A123456789')&&!text.includes('主管私人備註')&&!text.includes('別人')&&!text.includes('合成測試'));
+ assert.equal(me.employee.nationalIdMasked.includes('*'),true);assert.deepEqual(me.payslips,[]);
+ assert.equal((await call('/me/leave?year=2026')).status,200);
+ const att=(await (await call('/me/attendance?month=2026-11')).json()).data;assert.equal(att.days.length,30);
+ assert.equal((await call('/me/attendance?month=bad')).status,422);
+ assert.equal((await call('/me','POST')).status,405);
+ }finally{f.sql.close();}
+});

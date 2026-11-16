@@ -40,7 +40,7 @@ export function AccountMenu({ displayName, roleLabel, role, compact, signingOut,
     </button>
     {open ? <div className="cy-account-popover" id={menuId} role="menu" aria-label="個人選單">
       <button type="button" role="menuitem" onClick={() => pick(onTodos)}>我的待辦事項</button>
-      <button type="button" role="menuitem" onClick={() => pick(onAccount)}>我的帳號（密碼、Email）</button>
+      <button type="button" role="menuitem" onClick={() => pick(onAccount)}>我的資料</button>
       <button type="button" role="menuitem" className="danger" disabled={signingOut} aria-busy={signingOut || undefined} onClick={() => pick(onLogout)}>登出</button>
     </div> : null}
   </div>;

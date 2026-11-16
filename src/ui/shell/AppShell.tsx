@@ -22,6 +22,7 @@ export interface AppShellProps {
 
 const navIconPaths: Record<string, string[]> = {
   home: ["M3 11 12 3l9 8","M5 10v11h14V10","M9 21v-7h6v7"],
+  account: ["M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8","M4 21c0-4 3.6-6 8-6s8 2 8 6"],
   announcements: ["M3 5h18v14H3z","M7 9h10M7 13h10M7 17h6"],
   customers: ["M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2","M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8","M22 21v-2a4 4 0 0 0-3-3.87","M16 3.13a4 4 0 0 1 0 7.75"],
   items: ["m12 2 9 5-9 5-9-5 9-5Z","m3 7 9 5 9-5","M3 7v10l9 5 9-5V7","M12 12v10"],

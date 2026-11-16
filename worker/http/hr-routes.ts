@@ -3,6 +3,7 @@ import { ensureAppMemberProjection, resolveAppMember } from "../auth/app-access"
 import { identitySnapshot, identityTarget } from "./module-access-routes";
 import { identityClient, type IdentityRuntimeEnv } from "./auth-routes";
 import { HrService } from "../hr/hr-service";
+import { HrSelfService, selfYear } from "../hr/hr-self-service";
 import { handleHrPhase2aRoute } from "./hr-phase2a-routes";
 import {handleHrPhase2bRoute,type HrFilesEnv} from "./hr-phase2b-routes";
 import { HrValidationError, date, integer, object, required } from "../hr/hr-validation";
@@ -25,6 +26,24 @@ export async function handleHrRoute(request:Request,env:IdentityRuntimeEnv & HrF
   const member=await resolveAppMember(env.DB,gate.principal);
   if(!member.isActive)return failure({code:'ACCESS_DENIED',message:'使用者已停用'},requestId,403);
   return handleHrCorrectionRoute(request,env.DB,{actor:member.id,requestId,now:new Date().toISOString()},gate.principal.workspaceRole);
+ }
+ if(url.pathname==="/api/business/hr/me"||url.pathname.startsWith("/api/business/hr/me/")){
+  // 我的資料: any signed-in account, scoped to the HR row bound to that account only.
+  if(request.method!=="GET")return failure({code:"METHOD_NOT_ALLOWED",message:"不支援此操作"},requestId,405);
+  const member=await resolveAppMember(env.DB,gate.principal);
+  if(!member.isActive)return failure({code:"ACCESS_DENIED",message:"使用者已停用"},requestId,403);
+  const self=new HrSelfService(env.DB),employee=await self.employeeOf(member.id);
+  const today=new Date(Date.now()+8*3600000).toISOString().slice(0,10);
+  try{
+   if(url.pathname==="/api/business/hr/me")return success(employee?{bound:true,...await self.profile(employee,today)}:{bound:false},requestId);
+   if(!employee)return failure({code:"HR_NOT_BOUND",message:"帳號尚未綁定人事資料"},requestId,404);
+   if(url.pathname==="/api/business/hr/me/leave")return success(await self.leave(employee,selfYear(url.searchParams.get("year"),today),today),requestId);
+   if(url.pathname==="/api/business/hr/me/attendance")return success(await self.attendance(employee,url.searchParams.get("month")??today.slice(0,7)),requestId);
+   return failure({code:"NOT_FOUND",message:"找不到資料"},requestId,404);
+  }catch(e){
+   if(e instanceof HrValidationError)return bad(e.message,requestId,e.status);
+   return failure({code:"HR_UNAVAILABLE",message:"人事資料讀取失敗，請稍後重試"},requestId,500);
+  }
  }
  if(gate.principal.workspaceRole!=="SUPER_ADMIN")
    return failure({code:"SUPER_ADMIN_REQUIRED",message:"此功能僅限超級管理員"},requestId,403);

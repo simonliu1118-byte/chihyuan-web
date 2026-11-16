@@ -97,7 +97,9 @@ function useReloadNotice() {
 
 // ---------- 我的帳號 ----------
 
-function SelfServicePanel({ session }: { session: AuthSession }) {
+/** Password／Email controls as sheet cells, for 我的資料 (user 2026-11-16: beside 員工編號). */
+export interface AccountCells { password: ReactNode; email: ReactNode }
+export function SelfServicePanel({ session, render }: { session: AuthSession; render?: (cells: AccountCells) => ReactNode }) {
   const [dialog, setDialog] = useState<"password" | "email" | null>(null);
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -176,9 +178,17 @@ function SelfServicePanel({ session }: { session: AuthSession }) {
     finally { setBusy(false); }
   }
 
+  const emailButton = session.user.emailVerified
+    ? <button type="button" className="cy-op-button compact soft" onClick={() => setDialog("email")}>變更 Email</button>
+    : <button type="button" className="cy-op-button compact soft" disabled={busy} onClick={() => void verifyCurrentEmail()}>寄送驗證碼</button>;
+  const cells: AccountCells = {
+    password: <span className="cy-account-cell"><span aria-label="密碼已隱藏">••••••••</span>
+      <button type="button" className="cy-op-button compact soft" onClick={() => setDialog("password")}>變更密碼</button></span>,
+    email: <span className="cy-account-cell"><StatusChip tone={session.user.emailVerified ? "success" : "warning"}>{session.user.emailVerified ? "已驗證" : "待驗證"}</StatusChip>{emailButton}</span>,
+  };
   return <>
     {reloadDialog}
-    <section className="cy-op-panel cy-my-account">
+    {render ? render(cells) : <section className="cy-op-panel cy-my-account">
       <h2>{session.user.displayName} <span>{session.user.employeeNo}</span> <span>{permissionLabel(session.user.workspaceRole)}</span></h2>
       <div className="cy-my-account-row">
         <strong>Email</strong><span>{session.user.emailVerified ? "已驗證" : "待驗證"}</span>
@@ -190,7 +200,7 @@ function SelfServicePanel({ session }: { session: AuthSession }) {
         <strong>密碼</strong><span>••••••••</span>
         <button type="button" className="cy-op-button" onClick={() => setDialog("password")}>變更</button>
       </div>
-    </section>
+    </section>}
     <Dialog showCloseButton={false} open={dialog === "password"} title="變更密碼" size="small" dismissible={!busy} onClose={closeDialog}>
       <FeedbackBanner message={message} tone={messageTone} />
       <form onKeyDown={enterAdvancesThenSubmits} className="cy-op-form" onSubmit={submitPassword}>
