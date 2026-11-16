@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {readFileSync as read} from "node:fs";
+import {readFileSync as read,readdirSync} from "node:fs";
 const sheet=read("src/runtime/modules/item/ItemSheet.tsx","utf8");
 const main=read("src/runtime/modules/ItemOperationalPage.tsx","utf8");
 const worker=read("worker/item/item-persistence.ts","utf8");
@@ -25,5 +25,6 @@ test("item price writes stay in revision guarded mutation batches and audit each
 test("defect grants and old deep links survive item sidebar consolidation",()=>{
  assert.doesNotMatch(route, /key: "defects", label: "瑕疵", href: "#defects"/);
  assert.match(route,/route === "items" \|\| route === "defects"/);
- assert.match(backup,/CURRENT_MIGRATION = "0072_item_platform_fee_categories"/);
+ const latest=readdirSync('migrations').filter(n=>n.endsWith('.sql')).sort().at(-1).replace(/\.sql$/,'');
+ assert.ok(backup.includes('CURRENT_MIGRATION = "'+latest+'"'));
 });

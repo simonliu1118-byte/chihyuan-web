@@ -15,6 +15,7 @@ export interface CywebCronTasks {
   erpRetention: boolean;
   /** Taiwan 03:30, and 03:45 as a second chance: the daily backup (when its schedule is on). */
   backup: boolean;
+  /** Taiwan 04:00: discover effective official payroll tables (one bounded run/day). */
 }
 export function cywebCronTasks(scheduledTime: number): CywebCronTasks {
   if (!Number.isFinite(scheduledTime)) throw new Error("CYWEB_CRON_INVALID_TIME");

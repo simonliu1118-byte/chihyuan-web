@@ -20,6 +20,8 @@ export function HrLeaveDialog({person:given,people,types,initialDate,initialType
  useEffect(()=>setPerson(given),[given]);
  const [typeId,setTypeId]=useState(0),[from,setFrom]=useState(taipeiToday()),[to,setTo]=useState(taipeiToday());
  const [wholeDay,setWholeDay]=useState(true),[manualMinutes,setManualMinutes]=useState(false),[startTime,setStartTime]=useState("09:00"),[endTime,setEndTime]=useState("17:00"),[minutes,setMinutes]=useState("120");
+ const [payrollProtection,setPayrollProtection]=useState('');
+ useEffect(()=>setPayrollProtection(''),[given,typeId]);
  const [reason,setReason]=useState(""),[eventDate,setEventDate]=useState(""),[eventDays,setEventDays]=useState("8"),[files,setFiles]=useState<File[]>([]),[gray,setGray]=useState(false);
  const [busy,setBusy]=useState(false),[error,setError]=useState("");
  const [cancelReason,setCancelReason]=useState("");
@@ -33,6 +35,7 @@ export function HrLeaveDialog({person:given,people,types,initialDate,initialType
  useUnsavedChangesGuard({active:given!==null,blocked:busy});
  useEffect(()=>{const urls=files.map(file=>URL.createObjectURL(file));setPreviews(urls);return()=>urls.forEach(url=>URL.revokeObjectURL(url));},[files]);
  useEffect(()=>{if(given){setFrom(initialDate??taipeiToday());setTo(initialDate??taipeiToday());setWholeDay(given.employment_type==="full");setManualMinutes(false);setTypeId(types.find(x=>x.id===initialTypeId&&x.is_active!==0)?.id??types.find(x=>x.is_active!==0&&x.code!=="國")?.id??0);setError("");setApprovalItems([]);setFiles([]);setCreatedBatchId(null);setUploadedCount(0);setCancelReason("");setAdvanceDate("")}},[given,initialDate,initialTypeId,types]);
+ useEffect(()=>{if(types.find(x=>x.id===typeId)?.code==='產')setWholeDay(true);},[typeId,types]);
  const type=types.find(x=>x.id===typeId),isComp=type?.code==="補";
  useEffect(()=>{if(!isComp||holidays.length)return;const year=Number(from.slice(0,4));
   void Promise.all([year,year+1].map(y=>apiRequest<{date:string;name:string}[]>("/api/business/hr/settings/holidays?year="+y)))
@@ -61,7 +64,7 @@ export function HrLeaveDialog({person:given,people,types,initialDate,initialType
      body:JSON.stringify({employeeId:person.id,leaveTypeId:typeId,from,date:from,to:wholeDay?to:from,wholeDay,
        startTime:wholeDay||manualMinutes?undefined:startTime,endTime:wholeDay||manualMinutes?undefined:endTime,
        minutes:!wholeDay&&manualMinutes?Number(minutes):undefined,
-       reason,eventDate:type?.quota_period==="event"?eventDate:undefined,
+       reason,payrollProtection:payrollProtection||null,eventDate:type?.quota_period==="event"?eventDate:undefined,
        eventQuotaDays:type?.event_quota_options?Number(eventDays):undefined,advanceHolidayDate:isComp&&advanceDate?advanceDate:undefined,approve})});
     const envelope=await response.json() as {ok:boolean;data?:{batchId:string};error?:{code:string;message:string;items?:unknown[]}};
     if(!response.ok||!envelope.ok){
@@ -115,8 +118,9 @@ export function HrLeaveDialog({person:given,people,types,initialDate,initialType
     {label:"假別",required:true,content:<select disabled={busy||!!createdBatchId} className="cy-sheet-input" value={typeId} onChange={e=>setTypeId(Number(e.target.value))}>
        {types.filter(x=>x.is_active!==0&&x.code!=="國").map(x=><option key={x.id} value={x.id}>{x.code} {x.name}</option>)}
       </select>},
+    ...(['事','病','院'].includes(type?.code??'')?[{label:'法定全勤保護事由',content:<select disabled={busy||!!createdBatchId} className="cy-sheet-input" value={payrollProtection} onChange={e=>setPayrollProtection(e.target.value)}><option value="">一般請假</option>{type?.code==='事'?<option value="family_care">依法親自照顧家庭成員</option>:<><option value="pregnancy_loss">妊娠未滿三個月流產未請產假</option><option value="pregnancy_rest">依法安胎休養</option></>}</select>}]:[]),
     {label:"請假日期",required:true,content:<DateInput disabled={busy||!!createdBatchId} density="regular" max="9999-12-31" className="cy-sheet-input" value={from} onChange={v=>{setFrom(v);if(!wholeDay)setTo(v)}}/>},
-    ...(person.employment_type==="full"?[{label:"整天請假",content:<CheckField disabled={busy||!!createdBatchId} label="整天請假（8 小時）" checked={wholeDay} onChange={e=>setWholeDay(e.target.checked)}/>}]:[]),
+    ...(person.employment_type==="full"&&type?.code!=="產"?[{label:"整天請假",content:<CheckField disabled={busy||!!createdBatchId} label="整天請假（8 小時）" checked={wholeDay} onChange={e=>setWholeDay(e.target.checked)}/>}]:[]),
     ...(wholeDay?[{label:"結束日期",required:true,content:<DateInput disabled={busy||!!createdBatchId} density="regular" min={from} max="9999-12-31" className="cy-sheet-input" value={to} onChange={setTo}/>}]:[
       ...(person.employment_type!=="full"?[{label:"直接填分鐘",content:<CheckField disabled={busy||!!createdBatchId} label="沒有班別，輸入分鐘數" checked={manualMinutes} onChange={e=>setManualMinutes(e.target.checked)}/>}]:[]),
       ...(manualMinutes&&person.employment_type!=="full"?[

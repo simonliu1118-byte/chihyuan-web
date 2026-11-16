@@ -1,3 +1,4 @@
+import {acceptHrPayroll} from './hr-payroll-acceptance';
 import { acceptSalesOrderStaleAudit } from "./sales-order-stale-acceptance";
 import {acceptEquipmentMaintenance} from './equipment-acceptance';
 import { acceptCustomerQuoteStaleMutation } from "./customer-quote-stale-acceptance";
@@ -59,6 +60,7 @@ interface AcceptanceChecks {
   hrPhase1: boolean;
   hrPhase2a: boolean;
   hrPhase2b: boolean;
+  hrPayroll: boolean;
 }
 
 function assertAcceptance(condition: unknown, code: string): asserts condition {
@@ -734,6 +736,7 @@ async function runAcceptance(db: D1Database, restoreDb: D1Database, bucket: R2Bu
   await acceptHrPhase1(db);
   await acceptHrPhase2a(db);
   await acceptHrPhase2b(db,hrFiles);
+  await acceptHrPayroll(db);
   await acceptSettingsAuditHttp(db);
   await acceptBusinessHttpAuthority(db, componentItem.id, finishedItem.id);
   await acceptModuleAccessGroups(db);
@@ -758,6 +761,7 @@ async function runAcceptance(db: D1Database, restoreDb: D1Database, bucket: R2Bu
     hrPhase1: true,
     hrPhase2a: true,
     hrPhase2b: true,
+    hrPayroll: true,
     customerBatchCreate: true,
     optimisticRevision: true,
     batchRollback: true,

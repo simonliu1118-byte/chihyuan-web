@@ -728,3 +728,9 @@ D1 migration `0017_hr_phase1.sql` 新增 `hr_employees`、`hr_emergency_contacts
 ## 0055 盤點紀錄
 
 `stocktake_records` 保留 ERP 已清除底稿的單號、日期、原代次、來源狀態、歸檔同步 ID、確認者／時間及 ERP 完成時間；`stocktake_record_items` 每個品號一筆名稱摘要；`stocktake_record_participants` 保留參與者名稱快照及初盤／複盤時間；`stocktake_record_differences` 只保存差異／未完成列及填寫人，精確萬分位合計存 TEXT。四表納入 portable backup。完整欄位／FK 以 `migrations/0055_stocktake_records.sql` 為準；歸檔條件、清除邊界及 API 見 [盤點契約](STORE_STOCKTAKE.md#erp-已清除的盤點單與過去盤點紀錄v0121)。
+
+## V0.21.0 每月薪資（0073～0076，Build2工作分支待審）
+
+新增`hr_payroll_profiles`追加式生效設定（同日更正以id版序取最後版本）、`hr_payroll_rule_versions`官方表／原文／生效／內容hash、`hr_payroll_sync_state`有界同步租約與隔離狀態、`hr_payroll_runs`來源及計算快照／revision／狀態、`hr_payroll_consumptions`結清唯一消耗、`hr_payroll_day_reviews`特殊出勤確認與`hr_attendance_correction_grants`帳號／門市能力；`hr_leave_records.payroll_protection`結構化保護事由。最低工資仍沿原表追加，不複製主檔。新增表及欄納入同一可攜備份／空庫復原，舊備份缺表為空、缺欄為NULL；已發薪快照不覆寫。詳見[HR_PAYROLL_CONTRACT](HR_PAYROLL_CONTRACT.md)。
+
+Build2：`hr_payroll_legal_cases`按員工／事件追加產假、公傷核對期間、原工資／平均日工資及每月抵充來源；`hr_payroll_supplement_versions`保留官方補充保費原文／版本／生效／雙hash；`hr_payroll_corrections`記前期已發薪來源、後月差額、類型／依據／同意／原因、requestKey及revision；`hr_payroll_correction_uses`交易內唯一保留套用，撤回未發薪才釋放。四表全部納入同一備份與空庫還原，CURRENT_MIGRATION升0076；不改已發薪快照或主檔。投保profile追加可選稅務／補充保費事實，實際計算缺必要資料時禁止確認。

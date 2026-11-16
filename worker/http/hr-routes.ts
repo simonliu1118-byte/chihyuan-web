@@ -8,6 +8,7 @@ import {handleHrPhase2bRoute,type HrFilesEnv} from "./hr-phase2b-routes";
 import { HrValidationError, date, integer, object, required } from "../hr/hr-validation";
 import { AuditService } from "../audit/audit-service";
 import { failure, success } from "./response";
+import {handleHrPayrollRoute,handleHrCorrectionRoute} from './hr-payroll-routes';
 
 function bad(message:string,requestId:string,status=422,code="HR_VALIDATION_ERROR"):Response {
  return failure({code,message},requestId,status);
@@ -20,12 +21,19 @@ export async function handleHrRoute(request:Request,env:IdentityRuntimeEnv & HrF
  if(!provider)return failure({code:"IDENTITY_UNAVAILABLE",message:"身分服務暫時不可用"},requestId,503);
  const gate=await requireIdentity(provider,request);
  if(!gate.ok)return failure({code:gate.code,message:"請先登入"},requestId,gate.status);
+ if(['/api/business/hr/attendance-corrections','/api/business/hr/attendance-corrections/capabilities'].includes(url.pathname)){
+  const member=await resolveAppMember(env.DB,gate.principal);
+  if(!member.isActive)return failure({code:'ACCESS_DENIED',message:'使用者已停用'},requestId,403);
+  return handleHrCorrectionRoute(request,env.DB,{actor:member.id,requestId,now:new Date().toISOString()},gate.principal.workspaceRole);
+ }
  if(gate.principal.workspaceRole!=="SUPER_ADMIN")
    return failure({code:"SUPER_ADMIN_REQUIRED",message:"此功能僅限超級管理員"},requestId,403);
  const member=await resolveAppMember(env.DB,gate.principal);
  if(!member.isActive)return failure({code:"ACCESS_DENIED",message:"使用者已停用"},requestId,403);
  const service=new HrService(env.DB);
  const ctx={actor:member.id,requestId,now:new Date().toISOString()};
+ const payroll=await handleHrPayrollRoute(request,env.DB,ctx);
+ if(payroll)return payroll;
  const phase2b=await handleHrPhase2bRoute(request,env.DB,ctx,env);
  if(phase2b)return phase2b;
  const phase2a=await handleHrPhase2aRoute(request,env.DB,ctx);
