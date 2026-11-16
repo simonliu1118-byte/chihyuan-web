@@ -77,21 +77,23 @@ export function MyProfilePage({session}:{session:AuthSession}){
    :<div className="cy-op-tabs" role="tablist" aria-label="我的資料">
     {TABS.map(t=><button key={t.key} type="button" role="tab" aria-selected={tab===t.key} className={tab===t.key?"active":""} onClick={()=>setTab(t.key)}>{t.label}</button>)}
    </div>}
-  {tab==="leave"?<LeaveTab/>:tab==="salary"?<SalaryTab profile={profile}/>:tab==="profile"?<ProfileTab profile={profile}/>:<SelfServicePanel session={session}/>}
+  {tab==="leave"?<LeaveTab since={profile.employee.seniority_start_date||profile.employee.hire_date}/>:tab==="salary"?<SalaryTab profile={profile}/>:tab==="profile"?<ProfileTab profile={profile}/>:<SelfServicePanel session={session}/>}
  </div>;
 }
 
-function LeaveTab(){
+function LeaveTab({since}:{since:string}){
  const today=taipeiToday(),[year,setYear]=useState(+today.slice(0,4)),[month,setMonth]=useState(today.slice(0,7));
  const [leave,setLeave]=useState<Leave|null>(null),[attendance,setAttendance]=useState<Attendance|null>(null),[error,setError]=useState("");
  const leaveRequest=useLatestRequest(String(year)),attendanceRequest=useLatestRequest(month);
  useEffect(()=>{const t=leaveRequest.begin();setLeave(null);
-  void apiRequest<Leave>("/api/business/hr/me/leave?year="+year).then(r=>{if(t.current())setLeave(r)}).catch(e=>{if(t.current())setError(String(e instanceof Error?e.message:e))});},[year]);
+  void apiRequest<Leave>("/api/business/hr/me/leave?year="+year).then(r=>{if(t.current()){setLeave(r);setError("")}}).catch(e=>{if(t.current())setError(String(e instanceof Error?e.message:e))});},[year]);
  useEffect(()=>{const t=attendanceRequest.begin();setAttendance(null);
-  void apiRequest<Attendance>("/api/business/hr/me/attendance?month="+month).then(r=>{if(t.current())setAttendance(r)}).catch(e=>{if(t.current())setError(String(e instanceof Error?e.message:e))});},[month]);
+  void apiRequest<Attendance>("/api/business/hr/me/attendance?month="+month).then(r=>{if(t.current()){setAttendance(r);setError("")}}).catch(e=>{if(t.current())setError(String(e instanceof Error?e.message:e))});},[month]);
  type Balance={name:string;remaining:string;used:string;note:string;warn?:boolean};
  const balances:Balance[]=[];
- if(leave){
+ // 特休／補休 balances are as of today, so they belong to the current year only.
+ const thisYear=year===+today.slice(0,4);
+ if(leave&&thisYear){
   const annual=leave.annual.filter(a=>a.periodEnd>=today&&a.periodStart<=today||a.remainingMinutes>0&&a.periodEnd>=today);
   for(const a of annual)balances.push({name:"特休",remaining:duration(a.remainingMinutes),used:duration(a.entitledMinutes-a.remainingMinutes),note:formatDate(a.periodStart)+"～"+formatDate(a.periodEnd)});
   const soon=leave.comp.credits.filter(c=>c.expiringSoon).reduce((n,c)=>n+c.remainingMinutes,0),next=leave.comp.credits.map(c=>c.expiresOn).sort()[0];
@@ -99,21 +101,22 @@ function LeaveTab(){
   // Everyday leave types always; event leave (婚、喪、產…) only once used, so the table stays short.
   for(const m of leave.metrics)if(m.code!=="特"&&m.code!=="補"&&(["事","病","家"].includes(m.code)||m.usedMinutes>0))balances.push({name:m.name,remaining:m.limitMinutes==null?"":duration(Math.max(0,m.limitMinutes-m.usedMinutes)),used:duration(m.usedMinutes),note:m.limitMinutes==null?"":"全年 "+duration(m.limitMinutes)});
  }
+ if(leave&&!thisYear)for(const m of leave.metrics)if(m.usedMinutes>0)balances.push({name:m.name,remaining:"",used:duration(m.usedMinutes),note:""});
  return <div className="cy-my-profile-stack">
   {error?<p role="alert" className="cy-op-notice danger">{error}</p>:null}
   <section className="cy-op-panel">
    <div className="cy-my-profile-head"><h2>假期</h2>
-    <span className="cy-my-profile-nav"><button type="button" className="cy-op-button" onClick={()=>setYear(year-1)}>上一年</button><strong>{year} 年</strong>
+    <span className="cy-my-profile-nav"><button type="button" className="cy-op-button" disabled={year<=+since.slice(0,4)} onClick={()=>setYear(year-1)}>上一年</button><strong>{year} 年</strong>
      <button type="button" className="cy-op-button" disabled={year>=+today.slice(0,4)} onClick={()=>setYear(year+1)}>下一年</button></span></div>
    {!leave?<Loading/>:<>
-    {rows<Balance>("剩餘假期",[col("假別",r=>r.name,"8em"),col("剩餘",r=>r.remaining,"9em"),col("已用",r=>r.used,"9em"),col("說明",r=><span className={r.warn?"cy-my-profile-warn":undefined}>{r.note}</span>)],balances,(r,i)=>r.name+i)}
+    {rows<Balance>(thisYear?"剩餘假期":"已用假期",[col("假別",r=>r.name,"8em"),col("剩餘",r=>r.remaining,"9em"),col("已用",r=>r.used,"9em"),col("說明",r=><span className={r.warn?"cy-my-profile-warn":undefined}>{r.note}</span>)],balances,(r,i)=>r.name+i)}
     {rows<Leave["records"][number]>("請假紀錄",[col("日期",r=>day(r.workDate),"8em"),col("假別",r=>r.type,"8em"),col("時間",r=>r.wholeDay?"全天":(r.startTime??"")+"～"+(r.endTime??""),"10em"),col("時數",r=>duration(r.minutes))],
      [...leave.records].reverse(),(r,i)=>r.workDate+i)}
    </>}
   </section>
   <section className="cy-op-panel">
    <div className="cy-my-profile-head"><h2>出勤</h2>
-    <span className="cy-my-profile-nav"><button type="button" className="cy-op-button" onClick={()=>setMonth(shiftMonth(month,-1))}>上個月</button><strong>{month.replace("-"," 年 ")} 月</strong>
+    <span className="cy-my-profile-nav"><button type="button" className="cy-op-button" disabled={month<=since.slice(0,7)} onClick={()=>setMonth(shiftMonth(month,-1))}>上個月</button><strong>{month.replace("-"," 年 ")} 月</strong>
      <button type="button" className="cy-op-button" disabled={month>=today.slice(0,7)} onClick={()=>setMonth(shiftMonth(month,1))}>下個月</button></span></div>
    {!attendance?<Loading/>:<>
     <RecordSheet label="本月出勤統計" editing={false} rows={[{columns:"repeat(5,minmax(0,1fr))",cells:[
@@ -131,8 +134,12 @@ function LeaveTab(){
 
 function SalaryTab({profile}:{profile:Profile}){
  const today=taipeiToday(),current=profile.salaries.find(s=>s.effectiveDate<=today)??null,ins=profile.insurance;
- const [month,setMonth]=useState(profile.payslips[0]?.month??"");
- const slip=profile.payslips.find(p=>p.month===month)??null;
+ // Payslips are listed by the month they are paid (user 2026-11-16): in November the one paid in November.
+ const thisMonth=today.slice(0,7),paidMonth=(p:Profile["payslips"][number])=>p.payDate.slice(0,7);
+ const [month,setMonth]=useState(thisMonth);
+ const slip=profile.payslips.find(p=>paidMonth(p)===month)??null;
+ const months=[...new Set([thisMonth,...profile.payslips.map(paidMonth)])].sort().reverse();
+ const monthLabel=(m:string)=>m.replace("-"," 年 ")+" 月";
  const yes=(on:boolean,v:ReactNode)=>on?v:"未投保";
  return <div className="cy-my-profile-stack">
   <section className="cy-op-panel"><h2>薪資標準</h2>
@@ -154,11 +161,11 @@ function SalaryTab({profile}:{profile:Profile}){
   </section>
   <section className="cy-op-panel">
    <div className="cy-my-profile-head"><h2>薪資單</h2>
-    {profile.payslips.length?<select className="cy-op-input" aria-label="薪資月份" value={month} onChange={e=>setMonth(e.target.value)}>
-     {profile.payslips.map(p=><option key={p.month} value={p.month}>{p.month.replace("-"," 年 ")} 月</option>)}</select>:null}</div>
-   {!slip?<p className="cy-my-profile-unbound">尚無薪資單</p>:<>
-    <RecordSheet label="薪資單" editing={false} rows={[{columns:"repeat(5,minmax(0,1fr))",cells:[
-     {label:"發薪日",view:formatDate(slip.payDate)},{label:"狀態",view:slip.status==="paid"?"已發放":"已確認"},
+    <select className="cy-op-input" aria-label="發放月份" value={month} onChange={e=>setMonth(e.target.value)}>
+     {months.map(m=><option key={m} value={m}>{monthLabel(m)}發放</option>)}</select></div>
+   {!slip?<p className="cy-my-profile-unbound">{monthLabel(month)}薪資單尚未發放</p>:<>
+    <RecordSheet label="薪資單" editing={false} rows={[{columns:"repeat(6,minmax(0,1fr))",cells:[
+     {label:"薪資月份",view:monthLabel(slip.month)},{label:"發薪日",view:formatDate(slip.payDate)},{label:"狀態",view:slip.status==="paid"?"已發放":"已確認"},
      {label:"應發",view:money(slip.gross)+" 元"},{label:"應扣",view:money(slip.deductions)+" 元"},{label:"實發",view:<strong>{money(slip.net)} 元</strong>}]}]}/>
     {rows<Line>("明細",[col("類別",l=>l.kind==="earning"?"應發":"應扣","6em"),col("項目",l=>l.label),col("日期",l=>l.date?formatDate(l.date):"","9em"),
      col("金額",l=><span className={l.kind==="deduction"?"cy-my-profile-minus":undefined}>{(l.kind==="deduction"?"−":"")+money(l.amount)}</span>,"9em")],
@@ -182,7 +189,7 @@ function ProfileTab({profile}:{profile:Profile}){
    ]}/>
    {rows<Profile["contacts"][number]>("緊急聯絡人",[col("姓名",c=>c.name),col("關係",c=>c.relationship,"8em"),col("電話",c=>c.phone,"12em")],profile.contacts,(c,i)=>c.name+i)}
    {rows<Profile["education"][number]>("學歷",[col("學校",c=>c.school),col("科系",c=>c.department),col("期間",c=>[c.start_month,c.end_month].filter(Boolean).join("～"),"12em")],profile.education,(c,i)=>c.school+i)}
-   {rows<Profile["statusChanges"][number]>("異動紀錄",[col("生效日",c=>formatDate(c.effective_date),"9em"),col("異動",c=>(STATUS[c.previous_status]??c.previous_status)+" → "+(STATUS[c.next_status]??c.next_status))],profile.statusChanges,(c,i)=>c.effective_date+i)}
+   {rows<Profile["statusChanges"][number]>("異動紀錄",[col("生效日",c=>formatDate(c.effective_date),"9em"),col("異動",c=>c.previous_status===c.next_status?"建檔（"+(STATUS[c.next_status]??c.next_status)+"）":(STATUS[c.previous_status]??c.previous_status)+" → "+(STATUS[c.next_status]??c.next_status))],profile.statusChanges,(c,i)=>c.effective_date+i)}
   </section>
  </div>;
 }

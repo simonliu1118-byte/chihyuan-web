@@ -7,7 +7,8 @@ import type {PayrollProfile,PayrollResult} from "../../shared/hr-payroll";
 /**
  * 我的資料 (V0.21.1): one employee reads only the HR row bound to their own account. Every read is keyed by
  * the bound row, never by a request parameter, and only display fields leave the Worker: no admin notes,
- * reasons, previous-employer salaries, employer contributions or other employees.
+ * reasons, previous-employer salaries, employer contributions or other employees. A payslip appears from the month it
+ * is paid (user 2026-11-16: in November the one paid in November), once confirmed or paid.
  */
 type Row=Record<string,unknown>;
 const text=(v:unknown)=>typeof v==="string"&&v?v:null;
@@ -31,7 +32,7 @@ export class HrSelfService {
    insurance={effectiveDate:profileRow.effective_date,laborEnabled:p.laborEnabled,employmentInsurance:p.employmentInsurance,laborBasis:p.laborBasis,
     healthEnabled:p.healthEnabled,healthBasis:p.healthBasis,dependents:p.dependents,pensionEnabled:p.pensionEnabled,pensionBasis:p.pensionBasis,
     pensionEmployerRate:p.pensionEmployerRate,pensionSelfRate:p.pensionSelfRate,taxDependents:p.taxDependents};}
-  const runs=(await this.db.prepare("SELECT month,pay_date,status,result_json FROM hr_payroll_runs WHERE employee_id=? AND status IN('confirmed','paid') ORDER BY month DESC,id DESC LIMIT 24").bind(id)
+  const runs=(await this.db.prepare("SELECT month,pay_date,status,result_json FROM hr_payroll_runs WHERE employee_id=? AND status IN('confirmed','paid') AND substr(pay_date,1,7)<=? ORDER BY pay_date DESC,month DESC,id DESC LIMIT 24").bind(id,today.slice(0,7))
    .all<{month:string;pay_date:string;status:string;result_json:string}>()).results??[];
   const payslips=runs.map(r=>{const x=JSON.parse(r.result_json) as PayrollResult;
    return {month:r.month,payDate:r.pay_date,status:r.status as "confirmed"|"paid",gross:x.gross,deductions:x.deductions,net:x.net,
