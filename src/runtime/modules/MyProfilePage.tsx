@@ -3,16 +3,13 @@ import {apiRequest} from "../../api/client";
 import type {AuthSession} from "../../auth/auth-client";
 import {SelfServicePanel} from "../../identity/SharedIdentityPage";
 import {RecordSheet,RecordRows,type RowColumn} from "../../ui/forms/RecordSheet";
-import {ModuleSections} from "../../ui/mobile/ModuleSections";
-import {useCompactLayout} from "../../ui/foundation/useCompactLayout";
 import {useLatestRequest} from "../../ui/foundation/useLatestRequest";
 import {Loading} from "../../ui/feedback/Loading";
 import {formatDate} from "../../ui/foundation/format";
 import {taipeiToday} from "../../../shared/erp-query-history";
 import "./my-profile.css";
 
-/** 我的資料 (V0.21.1): the signed-in person's own HR records, read only; 帳號安全 keeps password/Email changes. */
-type Tab="leave"|"salary"|"profile"|"account";
+/** 我的資料 (V0.21.1): one page of the signed-in person's own HR records, read only, plus password/Email changes. */
 interface Profile {
  bound:true;
  employee:{employee_no:string;name:string;status:string;gender:string|null;birth_date:string|null;mobile:string|null;phone:string|null;
@@ -39,7 +36,6 @@ interface Attendance {
 type Salary=Profile["salaries"][number];
 type Allowance=Salary["allowances"][number];
 type Line=Profile["payslips"][number]["lines"][number];
-const TABS:readonly {key:Tab;label:string}[]=[{key:"leave",label:"假勤"},{key:"salary",label:"薪資"},{key:"profile",label:"基本資料"},{key:"account",label:"帳號安全"}];
 const STATUS:Record<string,string>={probation:"試用",active:"在職",leave:"留職停薪",terminated:"離職"};
 const EMPLOYMENT:Record<string,string>={full:"正職",half:"半職",casual:"兼職"};
 const WEEK="日一二三四五六";
@@ -60,8 +56,6 @@ function rows<T>(title:string,columns:RowColumn<T>[],data:readonly T[],key:(row:
 const col=<T,>(label:string,view:(row:T)=>ReactNode,width?:string):RowColumn<T>=>({label,view,width,edit:()=><span/>});
 
 export function MyProfilePage({session}:{session:AuthSession}){
- const compact=useCompactLayout();
- const [tab,setTab]=useState<Tab>("leave");
  const [profile,setProfile]=useState<Profile|{bound:false}|null>(null),[error,setError]=useState("");
  useEffect(()=>{const c=new AbortController();
   void apiRequest<Profile|{bound:false}>("/api/business/hr/me",{signal:c.signal}).then(r=>{if(!c.signal.aborted)setProfile(r)})
@@ -73,11 +67,11 @@ export function MyProfilePage({session}:{session:AuthSession}){
   <SelfServicePanel session={session}/>
  </div>;
  return <div className="cy-my-profile">
-  {compact?<ModuleSections label="我的資料" sections={TABS} value={tab} onChange={setTab}/>
-   :<div className="cy-op-tabs" role="tablist" aria-label="我的資料">
-    {TABS.map(t=><button key={t.key} type="button" role="tab" aria-selected={tab===t.key} className={tab===t.key?"active":""} onClick={()=>setTab(t.key)}>{t.label}</button>)}
-   </div>}
-  {tab==="leave"?<LeaveTab since={profile.employee.seniority_start_date||profile.employee.hire_date}/>:tab==="salary"?<SalaryTab profile={profile}/>:tab==="profile"?<ProfileTab profile={profile}/>:<SelfServicePanel session={session}/>}
+  {/* One page, no tabs (user 2026-11-16): account first, then leave/attendance, salary and the HR record. */}
+  <SelfServicePanel session={session}/>
+  <LeaveTab since={profile.employee.seniority_start_date||profile.employee.hire_date}/>
+  <SalaryTab profile={profile}/>
+  <ProfileTab profile={profile}/>
  </div>;
 }
 
