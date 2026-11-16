@@ -12,7 +12,7 @@
 | docs/development/HR_PAYROLL_PLAN.md | 保存已確認公司規則、5／6 分鐘門檻最終說法、病假全勤與其他給薪的區別、官方來源、人工更正與指定授權現況／提案、尚待確認及可執行步驟／驗收邊界 |
 | TODO.md | 原薪資計算項目連結本輪確認中計畫；不把第三批標成已實作 |
 | docs/handoff/README.md | 新增第三批規則確認交接入口，保留父批待審狀態 |
-| docs/handoff/CYWEB-HR-PAYROLL-RULES-20261115.md | 本交接，記錄授權、檔案、驗證、風險與 Claude 待審欄 |
+| docs/handoff/CYWEB-HR-PAYROLL-REQUIREMENTS-20261115.md | 本交接，記錄授權、檔案、驗證、風險與 Claude 待審欄 |
 
 ## 查核與限制
 

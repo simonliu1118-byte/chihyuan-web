@@ -33,7 +33,7 @@
 | [docs/architecture/README.md](../../docs/architecture/README.md) | 架構索引加入每月薪資契約。 |
 | [docs/development/HR_PAYROLL_PLAN.md](../../docs/development/HR_PAYROLL_PLAN.md) | 保留規劃與需求確認歷史，新增Build2進度對照；不再詢問已定公司規則。 |
 | [docs/handoff/CYWEB-HR-PAYROLL-20261115.md](../../docs/handoff/CYWEB-HR-PAYROLL-20261115.md) | 本交接：所有PR差異逐檔、實證、範圍／限制、Claude待審，不代審查。 |
-| [docs/handoff/CYWEB-HR-PAYROLL-RULES-20261115.md](../../docs/handoff/CYWEB-HR-PAYROLL-RULES-20261115.md) | 保存使用者規則與法源確認；原規劃轉接工程契約與handoff，非另一套計算。 |
+| [docs/handoff/CYWEB-HR-PAYROLL-REQUIREMENTS-20261115.md](../../docs/handoff/CYWEB-HR-PAYROLL-REQUIREMENTS-20261115.md) | 保存使用者規則與法源確認；原規劃轉接工程契約與handoff，非另一套計算。 |
 | [docs/handoff/README.md](../../docs/handoff/README.md) | 現行交接入口與舊規劃承接狀態。 |
 | [migrations/0073_hr_payroll.sql](../../migrations/0073_hr_payroll.sql) | 七表、索引／狀態／唯一消耗與假單保護欄，僅forward migration，未遠端套用。 |
 | [migrations/0074_hr_payroll_legal_cases.sql](../../migrations/0074_hr_payroll_legal_cases.sql) | 新增追加式法定案件事實版本、期間／金額／同事故月抵充與證明，不複製薪資主檔。 |
