@@ -1,4 +1,4 @@
-import {useCallback,useEffect,useState,useRef} from "react";
+import {useCallback,useEffect,useState} from "react";
 import {BOT_DRAFT_KIND_LABELS,BOT_REVIEW_LABELS,type BotDraftDetail,type BotReviewStatus} from "../../../shared/bot-center";
 import {loadDraftDetail,reviewDraft,reviewDraftItem,reviewImageUrl} from "../api/bot-center-client";
 import {Dialog} from "../../ui/overlays/Dialog";
@@ -11,6 +11,7 @@ const TONE:Record<BotReviewStatus,"warning"|"success"|"danger"|"neutral">={pendi
 
 import {ExpandToggle} from "../../ui/data/ExpandToggle";
 import {BotImages as Images} from "./BotImages";
+import {useLatestRequest} from "../../ui/foundation/useLatestRequest";
 import {useCompactLayout} from "../../ui/foundation/useCompactLayout";
 import {OverflowMenu} from "../../ui/mobile/OverflowMenu";
 import {BotText as RichText} from "./BotText";
@@ -25,10 +26,10 @@ export function BotReviewDialog({ids,initialId,canReview,onClose,onChanged,onlyI
  const [id,setId]=useState(initialId),[detail,setDetail]=useState<BotDraftDetail|null>(null),[busy,setBusy]=useState(false),[error,setError]=useState<string|null>(null),[zoom,setZoom]=useState<number|null>(null);
  const compact=useCompactLayout();
  const [activeSeq,setActiveSeq]=useState(1),[showNote,setShowNote]=useState(false);
- const request=useRef(0);
+ const request=useLatestRequest(id);
  const {ask,promptDialog}=useFormPrompt();
- const load=useCallback(async(target:number)=>{const serial=++request.current;setBusy(true);setError(null);try{const next=await loadDraftDetail(target);if(serial===request.current)setDetail(next)}catch(e){if(serial===request.current)setError(e instanceof Error?e.message:"無法載入審稿")}finally{if(serial===request.current)setBusy(false)}},[]);
- useEffect(()=>{setDetail(null);setActiveSeq(1);setShowNote(false);void load(id);return()=>{request.current++}},[id,load]);
+ const load=useCallback(async(target:number)=>{const current=request.begin();setBusy(true);setError(null);try{const next=await loadDraftDetail(target);if(current.current())setDetail(next)}catch(e){if(current.current())setError(e instanceof Error?e.message:"無法載入審稿")}finally{if(current.current())setBusy(false)}},[request]);
+ useEffect(()=>{setDetail(null);setActiveSeq(1);setShowNote(false);void load(id);return()=>request.invalidate()},[id,load,request]);
  const index=ids.indexOf(id);
  async function reason(){const values=await ask({title:"退回理由",fields:[{name:"reason",label:"退回理由",multiline:true,required:true}],confirmLabel:"退回",confirmTone:"danger",size:"mini"});return values?.reason?.trim()||null}
  async function act(task:()=>Promise<unknown>){setBusy(true);setError(null);try{await task();await load(id);onChanged()}catch(e){setError(e instanceof Error?e.message:"審核失敗")}finally{setBusy(false)}}

@@ -63,4 +63,8 @@
 
 ## 最終驗證／PR
 
-待本輪檢查與PR建立後補記。
+- 2026-11-17已整合main V0.21.1，調整為V0.21.2、migration0077，沒有覆蓋人事與商品變更。
+- 整合後TypeScript、npm run build、npm run validate:source通過，BOT／Grok／marker相關79項測試全數通過。
+- BotReviewDialog改用最新主線共用useLatestRequest，避免保留平行的過期回應控制。
+- Windows本機真實D1流程在Temp清理時遇到workerd持有metadata.sqlite（WinError32），未冒稱通過；以PR的Linux完整D1／Node CI補齊正式證據。
+- PR建立與遠端CI待補記，未合併／部署。

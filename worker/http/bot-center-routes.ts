@@ -266,7 +266,7 @@ async function saveDelivery(db:D1Database,bot:ProfileRow,body:Record<string,unkn
  }else if(kind==="patrol")throw new Bad("BOT_INVALID","海巡成果須指定巡視場次");
  const matches=(r:DeliveryRow)=>r.kind===kind&&r.title===title&&r.body===content&&r.sent_at===at&&r.approval_source===source&&r.approval_note===note&&r.platform===platform&&r.publication_url===url&&r.draft_id===(target?.id??null)&&r.item_id===(item?.id??null)&&r.session_id===sessionId;
  if(existing&&existing.event_ref==='legacy-item-'+existing.item_id&&source==='cyweb'&&existing.kind===kind&&existing.title===title&&existing.body===content&&existing.sent_at===at&&existing.draft_id===(target?.id??null)&&existing.item_id===(item?.id??null)){
-  await db.prepare("UPDATE OR IGNORE bot_deliveries SET event_ref=?,platform=?,publication_url=?,session_id=? WHERE id=? AND event_ref=?").bind(ref,platform,url,sessionId,existing.id,existing.event_ref).run();
+  await db.prepare("UPDATE OR IGNORE bot_deliveries SET event_ref=?,platform=?,publication_url=?,session_id=?,approval_note=? WHERE id=? AND event_ref=?").bind(ref,platform,url,sessionId,note,existing.id,existing.event_ref).run();
   const upgraded=await one<DeliveryRow>(db,"SELECT * FROM bot_deliveries WHERE id=?",existing.id);
   if(!upgraded||upgraded.event_ref!==ref||!matches(upgraded))throw new Bad("BOT_EVENT_CONFLICT","成果已被其他回報更新，請核對原紀錄",409);
   return {id:existing.id,botCode:bot.code,eventRef:ref,duplicate:true};
