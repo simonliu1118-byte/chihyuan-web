@@ -53,8 +53,8 @@ test("timeline rows collapse to one line and reveal shared expand toggle only fo
 });
 test("Threads card shows daily totals and targeted dialogs have narrower widths",()=>{
  assert.doesNotMatch(page,/state\.workSummary\.patrols\.latest\?\.detail/);
- assert.match(page,/今日巡視 <strong><button.*state\.workSummary\.patrols\.sentToday/);
- assert.match(page,/state\.workSummary\.patrols\.reports\.map/);
+ assert.match(page,/今日送出留言 <strong><button.*state\.workSummary\.patrols\.sentToday/);
+ assert.match(page,/state\.workSummary\.patrols\.sessions\.map/);
  assert.match(dialog,/className="cy-bot-push-dialog"/);
  assert.match(page,/className="cy-bot-settings-dialog"/);
  assert.match(css,/\.cy-dialog\.cy-bot-push-dialog > \.cy-dialog-surface\{width:min\(414px/);

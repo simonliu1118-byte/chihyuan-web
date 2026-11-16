@@ -18,12 +18,13 @@ test('patrol detail contains only individually sent patrol replies; post cards a
 test('sent detail keyset pagination is complete at equal timestamps and excludes other Taipei days',async t=>{
  const f=await setup(t),a=await f.create('patrol',50,'page-a'),b=await f.create('patrol',5,'page-b');
  for(const d of [a,b])ok(await f.call(`/api/bot-center/drafts/${d.id}/review`,'POST',{decision:'approved'}));
- const range=day(),at=new Date(Date.parse(range.start)+3600000).toISOString();f.sql.prepare('UPDATE bot_draft_items SET sent_at=?').run(at);
+ const range=day(),at=new Date(Date.parse(range.start)+3600000).toISOString();for(const d of [a,b])ok(await f.call(`/api/bot-ingest/drafts/${d.id}/sent`,'POST',{items:Array.from({length:d.itemCounts.total},(_,i)=>i+1)},f.auth));f.sql.prepare('UPDATE bot_deliveries SET sent_at=?').run(at);
  const d=await f.create('patrol',2,'outside');ok(await f.call(`/api/bot-center/drafts/${d.id}/review`,'POST',{decision:'approved'}));
- f.sql.prepare('UPDATE bot_draft_items SET sent_at=? WHERE draft_id=? AND seq=1').run(new Date(Date.parse(range.start)-1).toISOString(),d.id);f.sql.prepare('UPDATE bot_draft_items SET sent_at=? WHERE draft_id=? AND seq=2').run(range.end,d.id);
+ ok(await f.call(`/api/bot-ingest/drafts/${d.id}/sent`,'POST',{items:[1,2]},f.auth));
+ f.sql.prepare('UPDATE bot_deliveries SET sent_at=? WHERE draft_id=? AND item_id=(SELECT id FROM bot_draft_items WHERE draft_id=? AND seq=1)').run(new Date(Date.parse(range.start)-1).toISOString(),d.id,d.id);f.sql.prepare('UPDATE bot_deliveries SET sent_at=? WHERE draft_id=? AND item_id=(SELECT id FROM bot_draft_items WHERE draft_id=? AND seq=2)').run(range.end,d.id,d.id);
  const first=ok(await f.call('/api/bot-center/sent-items?kind=patrol'));assert.equal(first.items.length,50);assert.equal(first.more,true);
  const next=ok(await f.call('/api/bot-center/sent-items?kind=patrol&before='+encodeURIComponent(first.nextBefore)));assert.equal(next.items.length,5);assert.equal(next.more,false);assert.equal(new Set([...first.items,...next.items].map(i=>i.id)).size,55);
- const actual=f.queries.find(q=>q.includes("ORDER BY i.sent_at DESC,i.id DESC"));assert(actual);const plan=f.sql.prepare("EXPLAIN QUERY PLAN "+actual).all("patrol",range.start,range.end,"","","",0,51);assert(plan.some(p=>p.detail.includes('idx_bot_draft_items_sent')));
+ const actual=f.queries.find(q=>q.includes("ORDER BY x.sent_at DESC,x.id DESC"));assert(actual);const plan=f.sql.prepare("EXPLAIN QUERY PLAN "+actual).all("patrol",range.start,range.end,"","","",0,51);assert(plan.some(p=>p.detail.includes('idx_bot_deliveries_sent')));
 });
 test('patrol reports preserve BOT supplied session names and summaries instead of guessing them',async t=>{
  const f=await setup(t);const range=day(),at=new Date(Date.parse(range.start)+3600000).toISOString();

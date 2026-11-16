@@ -88,6 +88,22 @@ async function setup(t) {
   };
   return { ...fixture, config, calls, fetchImpl, client: createReporter(config, { fetchImpl }) };
 }
+
+test('external work uses actual receipts, short sessions and existing safe token without fake review',async t=>{
+ const f=await setup(t);
+ await f.client.run('patrol-session',{sessionRef:'synthetic-noon',label:'午巡'});
+ const input={eventId:'synthetic-external-reply',kind:'patrol',title:'合成已送出回覆',body:'合成回覆全文',approvalSource:'line',approvalNote:'合成外部核准',sessionRef:'synthetic-noon'};
+ const first=await f.client.run('delivery',input);
+ assert.equal((await f.client.run('delivery',input)).id,first.id);
+ const result=await f.client.run('delivery-status',{eventId:input.eventId});assert.equal(result.item.body,input.body);
+ assert.equal(data(await f.call('/api/bot-center')).draftCounts.pending,0);
+ await assert.rejects(f.client.run('delivery',{...input,eventId:'bad',approvalNote:''}),code('INPUT_INVALID'));
+ await assert.rejects(f.client.run('delivery',{...input,eventId:'bad',approvalSource:'cyweb'}),code('INPUT_INVALID'));
+ const dir=await sandbox(t),file=join(dir,'synthetic.png');await writeFile(file,Buffer.from([137,80,78,71,13,10,26,10]));
+ f.env.HR_FILES={put:async()=>{},delete:async()=>{}};
+ const image=await f.client.run('delivery-image',{eventId:input.eventId,file});assert.equal(image.contentType,'image/png');
+ assert.equal((await f.client.run('delivery-image',{eventId:input.eventId,file})).id,image.id);
+});
 test("configuration rejects insecure destinations and never accepts per-message identity or endpoint overrides", async (t) => {
   const env = { CYWEB_BASE_URL: "https://synthetic.test", CYWEB_BOT_TOKEN: fakeToken, CYWEB_BOT_CODE: "SOCIAL_EDITOR", CYWEB_REPORTER_STATE_DIR: await sandbox(t) };
   assert.equal(configFromEnv(env).origin, "https://synthetic.test");
@@ -186,7 +202,7 @@ test('check verifies the token owner and typed completions retain server dedupli
  const another=createReporter({...f.config,stateDir:await sandbox(t)},{fetchImpl:f.fetchImpl});
  assert.equal((await another.run('complete',input)).id,first.id);
  const page=data(await f.call('/api/bot-center'));
- assert.equal(page.workSummary.articles.count,1);assert.equal(page.timeline[0].workType,'article_published');
+ assert.equal(page.workSummary.articles.count,0,"completion text alone is not a publication receipt");assert.equal(page.timeline[0].workType,'article_published');
  await assert.rejects(f.client.run('complete',{...input,eventId:'invalid',workType:'arbitration'}),code('INPUT_INVALID'));
 });
 

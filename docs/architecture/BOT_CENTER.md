@@ -1,5 +1,20 @@
 # BOT 管理中心
 
+## V0.21.2 成果與手機審稿（工程實作，未部署）
+
+以下為本版現行契約，優先於下方歷史沿革。
+
+- 審核與實際成果分離。bot_deliveries為逐篇／逐則已發出的快照，文章count、發表清單、留言N與點閱均以此來源；bot_completions保留時間軸，文字完成回報本身不當成有全文的發布成果。0077保留既有sent的post／patrol items並建立ledger，不猜測general舊稿或僅有completion的內容。
+- POST /api/bot-ingest/deliveries：同BOT固定eventRef，kind=post/patrol；cyweb來源必須連自己的已通過稿件或item，內容完全相同。chat/line/other來源填真實核准說明與完整內容，可不經CYWEB送審。這是已發出成果回報，不是新的發布授權。可附platform、HTTPS url、真實sentAt。
+- 固定事件、原稿／則、發布網址防重複；同內容重試回原紀錄、衝突409。舊sent來源可一次補穩定事件編號／空白平台與巡視場次，原id及數量不變。其餘成果不可覆寫。實際新寫入與一次完成事件、對應pending解決同batch，隨機write_key限制只有勝出者能解決對應稿件，並行敗者不會動到其他待審稿。
+- 外部成果連到pending時記externally_completed_at，原review_status、reviewer、理由不改；人員讀模型以external／外部已處理呈現，只讀、不計pending、不重做CYWEB審核或推播，同批其他pending保留。已發出／外部已處理版本不可被新版覆蓋。外部來源不偽造CYWEB通過。
+- POST /api/bot-ingest/patrol-sessions：sessionRef、day、label及可選40字note。同場更新同一行，日期不可改；label由BOT給，不從時間／長標題猜。摘要顯示「午巡｜已送出N則」，N查同一ledger；未補場次舊成果只顯示「已送出N則」，不假造午巡名稱。帳號與連結在點N的逐則全文。
+- GET人員 /api/bot-center/deliveries/:id、/delivery-images/:id沿用CYID＋BOT_CENTER；機器GET /api/bot-ingest/deliveries?eventRef=限制原BOT。正文安全文字呈現、連結只HTTPS。主頁文章metadata及sent-items均50筆keyset；點文章只讀一筆全文＋圖；沒有新歷史輪詢，progress仍僅主檔／整合狀態。
+- 外部成果可用POST /api/bot-ingest/deliveries/:id/images?uploadRef=SHA256補圖片，檔頭驗證、2MB、每篇10張、雜湊去重；沿用BotImages／原圖放大與Dialog。bot_delivery_images屬ephemeral，隔日清理，不進portable backup。
+- 手機待審用共用ListRow壓兩列：初稿／2修＋標題、時間＋BOT＋內容摘要，右側StatusChip；全部原資訊保留，整列點閱。桌機維持表格。手機審稿共用Dialog，一次一則，上一則／下一則，底部通過／退回，批次動作共用OverflowMenu；送審說明可用既有ExpandToggle讀取。無背景關閉與重複X。
+- 0077與backup schema同步；ledger／巡視場次為業務資料會備份，舊備份restore upgrade由已sent items重建ledger。原SOCIAL_EDITOR token、持久收據、routine與推播設定均不動。回報工具與技能須等WEB先部署後更新。
+
+
 沿用 CYWEB 殼層、`#bot-center` 路由及 `BOT_CENTER` 模組，在左側 ERP 查詢下一項。SUPER_ADMIN 自動具有模組權限；其他人須取得模組權限。以下為目前 V0.15.0 介面契約與既有 V0.12.4 伺服端推播契約；正式部署狀態以根 TODO 為準。
 
 ## V0.18.13 工作卡片與送出內容（已部署，待Claude事後審查）

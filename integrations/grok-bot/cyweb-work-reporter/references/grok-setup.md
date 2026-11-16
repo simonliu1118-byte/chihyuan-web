@@ -56,7 +56,7 @@ Grok Bots 共用雲端電腦；持久檔案放在 `/workspace`，不要放臨時
 
 ## 6. 後續讓其他 BOT 使用
 
-小編實機驗收後，再為其他 BOT 啟用同一技能及各自的代碼／憑證。核准結果可由 webhook 喚醒後主動讀取，設定步驟如下；不新增輪詢排程。文章發布完成用 `complete.workType=article_published`，Threads 巡視完成用 `threads_patrol`；其他完成用 general，連線測試不進文章／巡視卡片。拍板結案僅畫面保留，沒有後臺串接。
+小編實機驗收後，再為其他 BOT 啟用同一技能及各自的代碼／憑證。核准結果可由 webhook 喚醒後主動讀取，設定步驟如下；不新增輪詢排程。文章／留言實際發出後統一用 delivery，巡視場次用 patrol-session；其他一般完成仍用 complete.general，連線測試不進文章／巡視卡片。拍板結案僅畫面保留，沒有後臺串接。
 
 參考官方文件：[自訂工具與電腦](https://docs.x.ai/grok-bot/computer-and-apps)、[共用私人技能](https://docs.x.ai/grok-bot/skills-routines-and-automations)、[安全祕密](https://docs.x.ai/grok-bot/vault)。
 
@@ -76,4 +76,15 @@ Grok Bots 共用雲端電腦；持久檔案放在 `/workspace`，不要放臨時
 
 ## 更新至 V0.18.12
 
-保留原 token、原收據目錄與既有 routine；只替換工具與技能檔。更新後 check 確認 SOCIAL_EDITOR，routine 繼續把同一四欄喚醒交給 review-notification，已有新版的舊喚醒會安靜略過。改稿 submit 要帶 previousDraftId，圖片每則最多 10 張。實際發布後 sent 與具固定 eventId 的 article_published 完成事件各回報一次；不要為補畫面而重報歷史已完成事件。
+保留原 token、原收據目錄與既有 routine；只替換工具與技能檔。更新後 check 確認 SOCIAL_EDITOR，routine 繼續把同一四欄喚醒交給 review-notification，已有新版的舊喚醒會安靜略過。改稿 submit 要帶 previousDraftId，圖片每則最多 10 張。新版已改為 delivery 一次回報，詳見下方 V0.21.2 更新；不要再重複呼叫 sent＋article_published。
+
+## 更新至 V0.21.2（先部署 WEB／0077）
+
+只替換本包既定5檔；原token、安全環境、收據、固定工作編號、webhook與routine都保留。check確認版號與身分後再使用新命令。不要重跑pilot，也不要重發已發布內容。
+
+- routine讀審核結果的四欄喚醒與review-notification不變；external表示已由外部處理，安靜停止，不再要求使用者補審。
+- 實際發出後以delivery回報，每篇／每則一個穩定eventId。CYWEB核准帶原externalRef與item；Chat／LINE核准填真實approvalSource與approvalNote，連同完整文案、真實送出時間、平台及實際發布連結，不建立流程性待審稿。
+- 巡視先patrol-session指定同場sessionRef和早巡／午巡／晚巡名稱；每則delivery帶同sessionRef，分批送出仍合併計數。note一般留空，必要時只寫40字內需要處理的例外，不列帳號、網址、則號、核准人、稿號。
+- 現有有篇數沒內容的成果：確認確實已發布後，用原外部工作編號及真實時間補完整成果；有補登待審稿就連externalRef／item，系統標外部已處理而非通過。既有sent六則只需連原稿／則補場次，不再增加計數。所有範例與操作契約均為合成資料，不依標題批量猜測歷史。
+- delivery已建立全文、數量與完成事件，不再另送sent或complete.article_published；舊收據保持原樣。巡視整場完成可沿用一次complete.threads_patrol，不逐批追加長篇摘要。
+- 啟用後核對：文章N篇下面每篇可點全文；今日送出留言N則可點；午巡只一行；外部已處理不留待審。圖片仍隔日清理，不承諾永久保存。
