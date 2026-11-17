@@ -79,14 +79,16 @@ CF_IDENTITY_SERVICE
 R2 / KV / Queue resource identifiers
 ```
 
-They should be stored in the appropriate GitHub Deployment Environment variables/secrets or another approved deployment-time secret/config store.
+They must never travel through GitHub **variables** in a deploy job: the runner prints job/step `env` values in clear text before any `::add-mask::` runs, and Public repository logs are public. CY Web resolves them at deployment time from Cloudflare (the Worker serving the public hostname and its live bindings) and masks them before use (`scripts/resolve-deploy-runtime.mjs`, V0.21.4). Values that cannot be looked up belong in GitHub **secrets**, which the runner masks automatically.
 
 The production deployment flow should conceptually be:
 
 ```text
 Checkout source
 ↓
-Read GitHub Environment Variables / Secrets
+Read GitHub Environment Secrets (API token, account)
+↓
+Resolve resource identifiers from Cloudflare and mask them
 ↓
 Generate deployment-only Wrangler configuration
 ↓

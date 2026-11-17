@@ -1,5 +1,11 @@
 # CY Web 版本紀錄
 
+## CY Web V0.21.4 — 部署紀錄不再印出部署識別值（2026-11-17，Claude）
+
+- 部署與 CYID 稽核工作不再從 GitHub variables 讀 Worker、D1、CYID 服務、Application／Workspace ID、R2 等識別值：Actions runner 會在任何遮蔽之前把 env 明碼印進 log，而本 repo 的 log 公開。
+- 新增 `scripts/resolve-deploy-runtime.mjs`：從正式網域查 Cloudflare 上目前服務該網域的 Worker 與其綁定，逐一核對（網域唯一、CY Web 版本標記、`DB`／`IDENTITY` 綁定、D1 metadata），全部值與帳號 workers.dev 子網域先遮蔽再寫入工作環境；之後 CYID 正式版核對照舊。只有備份開關仍為 GitHub variables。
+- 不改 Worker 程式、資料庫與綁定；部署結果與 V0.21.3 相同。
+
 ## CY Web V0.21.3 — BOT 實際成果與緊密手機審稿（2026-11-17，Claude 審查）
 
 - 外部Chat／LINE核准且已發出的文章／留言可直接登錄完整成果，不必補流程性審核；數量、清單與點閱使用同一份成果紀錄，保留原核准來源。

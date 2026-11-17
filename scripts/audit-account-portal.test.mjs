@@ -145,6 +145,6 @@ test("real deployment resolves before render and performs strict canonical check
   const deploy=workflow.slice(workflow.indexOf("\n  deploy-development:"),workflow.indexOf("\n  audit-identity:"));
   assert.ok(deploy.indexOf("node scripts/resolve-production-identity.mjs") < deploy.indexOf("node scripts/render-deploy-config.mjs"));
   assert.ok(deploy.indexOf("node scripts/audit-account-portal.mjs --require-production") > deploy.indexOf("npx wrangler deploy --config"));
-  assert.match(deploy,/CYID_LOOKUP_SERVICE:/);
+  assert.ok(deploy.indexOf("node scripts/resolve-deploy-runtime.mjs") < deploy.indexOf("node scripts/resolve-production-identity.mjs"));
   assert.doesNotMatch(deploy,/account.only|identity.only|CF_D1_DATABASE_ID=.*prod/);
 });
