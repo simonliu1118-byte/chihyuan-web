@@ -29,14 +29,16 @@ Secrets:
 - `CLOUDFLARE_API_TOKEN`
 - `CLOUDFLARE_ACCOUNT_ID`
 
-Variables in the existing protected `development` Environment (historical name):
+Resource identifiers are no longer GitHub variables (V0.21.4). The Actions runner prints every job/step `env` value in clear text before any `::add-mask::` can run, and this repository's logs are public. `scripts/resolve-deploy-runtime.mjs` runs first in the deploy and identity-audit jobs: starting from the public hostname (`admin.chihyuancm.com`) it reads, from Cloudflare, the Worker serving that hostname and its live bindings, masks every value, and only then writes them to the job environment:
 
-- `CF_WORKER_NAME`
-- `CF_D1_DATABASE_NAME`
-- `CF_D1_DATABASE_ID`
-- `CF_IDENTITY_SERVICE`
-- `CF_IDENTITY_APPLICATION_ID`
-- `CF_IDENTITY_WORKSPACE_ID`
+- `CF_WORKER_NAME` ← Worker serving the hostname (Workers Custom Domain);
+- `CF_D1_DATABASE_ID` / `CF_D1_DATABASE_NAME` ← `DB` binding and its D1 metadata;
+- `CF_IDENTITY_SERVICE` / `CYID_LOOKUP_SERVICE` ← `IDENTITY` binding, handed to the canonical resolver as its development seed (`-prod` → `-dev`) until the CYapps naming cleanup lets it take the production name directly;
+- `CF_IDENTITY_APPLICATION_ID` / `CF_IDENTITY_WORKSPACE_ID` ← live Worker vars, then re-verified against the production CYID provider by `resolve-production-identity.mjs`;
+- optional `HR_FILES`, `CYINVOICE_RECOVERY`, and (when `CF_BACKUP_ENABLED=true`) `BACKUP_R2` / `GCS_BUCKET` ← live bindings;
+- the account `workers.dev` subdomain is masked too, because `wrangler deploy` prints the Worker URL.
+
+The live Worker is the source of truth for its own bindings: to retarget one, change it in Cloudflare first. The resolver refuses to continue when the hostname, the CY Web build markers or a required binding cannot be verified. Only on/off switches (`CF_BACKUP_ENABLED`, `CF_BACKUP_SCHEDULE_ENABLED`) remain GitHub variables.
 
 Resolution:
 
@@ -50,6 +52,7 @@ Real Workspace IDs, service targets and Cloudflare resource IDs remain deploymen
 ## Deployment source path
 
 - `wrangler.deploy.template.jsonc`
+- `scripts/resolve-deploy-runtime.mjs`
 - `scripts/resolve-production-identity.mjs`
 - `scripts/audit-account-portal.mjs`
 - `scripts/render-deploy-config.mjs`
