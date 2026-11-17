@@ -15,13 +15,14 @@ import {useConfirmation} from "../../ui/overlays/useConfirmation";
 import {StatusChip} from "../../ui/primitives/StatusChip";
 import {BotPushSettingsDialog} from "./BotPushSettingsDialog";
 import {BotReviewDialog} from "./BotReviewDialog";
-import {BotText} from "./BotText";
+import {BotDeliveryDialog} from "./BotDeliveryDialog";
+import {ListRow} from "../../ui/mobile/ListRow";
 import {BotSentPatrolDialog} from "./BotSentPatrolDialog";
 import {BOT_DRAFT_KIND_LABELS} from "../../../shared/bot-center";
 import "./bot-center.css";
 
 const STATUS_TONE:Record<BotStatus,"neutral"|"info"|"warning"|"success">={idle:"neutral",working:"info",blocked:"warning",done:"success"};
-const REVIEW_TONE:Record<BotReviewStatus,"warning"|"success"|"danger">={pending:"warning",approved:"success",rejected:"danger"};
+const REVIEW_TONE:Record<BotReviewStatus,"warning"|"success"|"danger"|"neutral">={pending:"warning",approved:"success",rejected:"danger",external:"neutral"};
 const messageOf=(error:unknown)=>error instanceof ApiClientError?error.message||error.code:"BOT 管理中心暫時無法使用";
 const PUSH_LABELS={queued:'待送出',sending:'傳送中',accepted:'已送出',failed:'失敗'};
 const firstLine=(text:string)=>{const line=text.split("\n").find(row=>row.trim())??"";return line.length>80?line.slice(0,80)+"…":line};
@@ -67,6 +68,7 @@ export function BotCenterPage(){
  const [state,setState]=useState<BotCenterState|null>(null),[loading,setLoading]=useState(true),[busy,setBusy]=useState(false);
  const [settingsOpen,setSettingsOpen]=useState(false),[reportsOpen,setReportsOpen]=useState(false);
  const [timelineOpen,setTimelineOpen]=useState(false);
+ const [publication,setPublication]=useState<number|null>(null);
  const [patrolOpen,setPatrolOpen]=useState(false);
  const [openReport,setOpenReport]=useState<number|null>(null);
  const [token,setToken]=useState<string|null>(null);
@@ -156,6 +158,7 @@ export function BotCenterPage(){
  if(!state)return <section className="cy-op-panel"><h2>BOT 管理中心</h2><p>{message??"目前無法載入。"}</p></section>;
  return <div className="cy-bot-center">
   <FeedbackBanner message={message} tone={tone}/>{confirmationDialog}
+  {publication!==null?<BotDeliveryDialog id={publication} onClose={()=>setPublication(null)}/>:null}
   {patrolOpen?<BotSentPatrolDialog botCode={state.botCode??undefined} onClose={()=>setPatrolOpen(false)}/>:null}
   {reviewing?<BotReviewDialog ids={reviewing.ids} initialId={reviewing.id} onlyItemSeq={reviewing.itemSeq} canReview={!reviewing.readOnly} onClose={()=>setReviewing(null)} onChanged={()=>void refresh(draftStatus).catch(()=>{})}/>:null}
   <section className="cy-op-panel cy-bot-overview" aria-label="今日工作總覽">
@@ -183,8 +186,15 @@ export function BotCenterPage(){
   </section>
    <section className="cy-op-panel cy-bot-review" aria-label="審稿清單">
     <div className="cy-op-panel-header"><h2>{draftStatus==="pending"?"待審核":"審稿紀錄"}</h2></div>
-    <StatusFilter label="審稿狀態" value={draftStatus==="all"?"":draftStatus} counts={state.draftCounts} options={(["pending","approved","rejected"] as const).map(status=>({code:status,label:BOT_REVIEW_LABELS[status],tone:REVIEW_TONE[status]}))} onChange={status=>{if(!busy)void filter((status||"all") as BotReviewStatus|"all")}}/>
-    <div className="cy-op-table-wrap"><table className="cy-op-table cy-rt cy-mobile-wrap-table cy-bot-review-table" aria-label="審稿清單">
+    <StatusFilter label="審稿狀態" value={draftStatus==="all"?"":draftStatus} counts={state.draftCounts} options={(["pending","approved","rejected","external"] as const).map(status=>({code:status,label:BOT_REVIEW_LABELS[status],tone:REVIEW_TONE[status]}))} onChange={status=>{if(!busy)void filter((status||"all") as BotReviewStatus|"all")}}/>
+    {compact?<div className="cy-bot-mobile-drafts">{state.drafts.length?state.drafts.map(draft=><div key={draft.id}>
+     <ListRow disabled={busy} label={(draft.revisionNumber===1?"初稿":draft.revisionNumber+"修")+"，"+formatDateTime(draft.createdAt)+"，"+draft.botLabel+"，"+draft.title+"，"+BOT_REVIEW_LABELS[draft.status]+"，"+draft.body}
+      title={<span className="cy-bot-mobile-title"><span>{draft.revisionNumber===1?"初稿":draft.revisionNumber+"修"}</span><strong>{draft.title}</strong></span>}
+      subtitle={<span className="cy-bot-mobile-summary"><time dateTime={draft.createdAt}>{formatDateTime(draft.createdAt).slice(5)}</time><span>{draft.botLabel}</span><span className="cy-bot-mobile-content">{draft.itemCounts?BOT_DRAFT_KIND_LABELS[draft.kind]+draft.itemCounts.total+"則・":""}{firstLine(draft.body)}</span></span>}
+      trailing={<StatusChip tone={REVIEW_TONE[draft.status]}>{BOT_REVIEW_LABELS[draft.status]}</StatusChip>}
+      onClick={()=>setReviewing({ids:state.drafts.map(row=>row.id),id:draft.id})}/>
+     {draft.pushStatus==="failed"&&state.canManageCredentials?<button type="button" className="cy-op-button mini soft" disabled={busy} onClick={()=>void retryPush(draft.id)}>重送推播</button>:null}
+    </div>):<p>尚無{draftStatus==="pending"?"待審稿件":"審稿紀錄"}</p>}</div>:    <div className="cy-op-table-wrap"><table className="cy-op-table cy-rt cy-mobile-wrap-table cy-bot-review-table" aria-label="審稿清單">
      <colgroup><col style={{width:"4em"}}/><col style={{width:"10em"}}/><col style={{width:"7em"}}/><col style={{width:"21%"}}/><col/><col style={{width:"5em"}}/>{draftStatus!=="pending"?<><col style={{width:"14em"}}/><col style={{width:'5.5em'}}/></>:null}<col style={{width:"9em"}}/></colgroup>
      <thead><tr><th>版本</th><th>送審時間</th><th>BOT</th><th>事項</th><th>內容</th><th className="is-center">狀態</th>{draftStatus!=="pending"?<><th>審核資訊</th><th className="is-center">推播</th></>:null}<th className="is-center">操作</th></tr></thead>
      <tbody>{state.drafts.length?state.drafts.map(draft=>{
@@ -195,16 +205,16 @@ export function BotCenterPage(){
        {draft.status!=="pending"&&draft.pushStatus==='failed'&&state.canManageCredentials?<button type="button" className="cy-op-button compact" disabled={busy} onClick={()=>void retryPush(draft.id)}>重送</button>:null}</div></td>
       </tr>;
      }):<tr><td colSpan={draftStatus==="pending"?7:9}>尚無{draftStatus==="pending"?"待審稿件":"審稿紀錄"}</td></tr>}</tbody>
-    </table></div>
+    </table></div>}
     {state.draftsMore?<div className="cy-bot-more"><button type="button" className="cy-op-button compact" disabled={busy} onClick={()=>void loadMore("drafts")}>載入更多審稿</button></div>:null}
    </section>
   <section className="cy-bot-work-cards" aria-label="工作摘要">
    <article className="cy-op-panel cy-bot-work-card"><h3>新文章通知</h3><div className="cy-bot-work-count"><strong>{state.workSummary.articles.count}</strong> 篇</div>
-    <div className="cy-bot-reviewed">{state.workSummary.articles.published.items.map(item=><button key={item.id} type="button" className="cy-bot-reviewed-row" onClick={()=>setReviewing({ids:[item.draftId],id:item.draftId,itemSeq:item.seq,readOnly:true})}><span>{item.title}</span><small>已發布</small></button>)}
+    <div className="cy-bot-reviewed">{state.workSummary.articles.published.items.map(item=><button key={item.id} type="button" className="cy-bot-reviewed-row" onClick={()=>setPublication(item.id)}><span>{item.title}</span><small>已發布</small></button>)}
     {state.workSummary.articles.published.more?<button type="button" className="cy-op-button compact" disabled={busy} onClick={()=>void morePublished()}>載入更多發布紀錄</button>:null}</div></article>
    <article className="cy-op-panel cy-bot-work-card"><h3>Threads 巡視回報</h3>
-    <div className="cy-bot-work-count">今日巡視 <strong><button type="button" className="cy-bot-count-button" aria-label={`查看今日送出的 ${state.workSummary.patrols.sentToday} 則海巡回覆`} onClick={()=>setPatrolOpen(true)}>{state.workSummary.patrols.sentToday}</button></strong> 則</div>
-    <div className="cy-bot-patrol-reports">{state.workSummary.patrols.reports.map(report=><article key={report.id}><strong>{report.title}</strong>{report.detail?<BotText text={report.detail}/>:null}</article>)}</div></article>
+    <div className="cy-bot-work-count">今日送出留言 <strong><button type="button" className="cy-bot-count-button" aria-label={`查看今日送出的 ${state.workSummary.patrols.sentToday} 則海巡回覆`} onClick={()=>setPatrolOpen(true)}>{state.workSummary.patrols.sentToday}</button></strong> 則</div>
+    <div className="cy-bot-patrol-reports">{state.workSummary.patrols.sessions.map(session=><article key={session.id}><span>{session.label?session.label+"｜":""}已送出{session.sent}則</span>{session.note?<span className="cy-bot-session-note">{session.note}</span>:null}</article>)}</div></article>
    <article className="cy-op-panel cy-bot-work-card"><h3>拍板結案</h3><div className="cy-bot-work-count">—</div></article>
    <article className="cy-op-panel cy-bot-work-card"><h3>待核准</h3><div className="cy-bot-work-count"><strong className="cy-bot-pending-count">{state.workSummary.pending.count}</strong> 件</div>
     {state.workSummary.pending.posts||state.workSummary.pending.patrols?<p>貼文 {state.workSummary.pending.posts} 篇・海巡 {state.workSummary.pending.patrols} 則</p>:null}

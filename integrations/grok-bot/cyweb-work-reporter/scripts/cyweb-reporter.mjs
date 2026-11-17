@@ -7,8 +7,12 @@ Commands:
   progress     {status,summary?}
   submit       {externalRef,title,body,kind?,items?,previousDraftId?} (kind post/patrol: items [{ref?,title,body}] reviewed one by one)
   review       {externalRef} (multi-item drafts include each item's result)
-  image        {externalRef,file,item?} (review-only picture: JPEG/PNG/WebP, max 2MB, 5 per draft or item)
+  image        {externalRef,file,item?} (review-only picture: JPEG/PNG/WebP, max 2MB, 10 per draft or item)
   sent         {externalRef,items?} (report approved work actually sent; items = item numbers for post/patrol)
+  delivery     {eventId,kind,approvalSource,title?,body?,platform?,url?,sentAt?,approvalNote?,externalRef?,item?,sessionRef?}
+  delivery-status {eventId} (read-only actual publication/reply receipt)
+  delivery-image {eventId,file} (same ten-picture/2MB/next-day policy)
+  patrol-session {sessionRef,label,day?,note?} (one short session summary; updating the same session does not add a row)
   review-notification {type,eventId,botCode,draftId} (read fresh review after webhook)
   report       {eventId,title,body}
   complete     {eventId,title,detail?,completedAt?,reviewRef?,workType?}

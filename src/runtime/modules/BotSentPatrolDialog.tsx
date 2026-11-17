@@ -25,7 +25,7 @@ export function BotSentPatrolDialog({botCode,onClose}:{botCode?:string;onClose:(
   {!page&&busy?<Loading/>:null}
   {page?<div className="cy-bot-sent-items">{page.items.length?page.items.map(item=><article key={item.id}>
    <header className="cy-bot-sent-heading"><strong>{item.title}</strong><time dateTime={item.sentAt}>{formatDateTime(item.sentAt)}</time></header>
-   <BotText text={item.body}/>
+   <BotText text={item.body}/>{item.url?<a href={item.url} target="_blank" rel="noopener noreferrer">查看已送出留言</a>:null}
   </article>):<p>今日尚無已送出的海巡回覆</p>}</div>:null}
   {page?.more?<div className="cy-bot-more"><button type="button" className="cy-op-button compact" disabled={busy} onClick={()=>void load(page.nextBefore??undefined)}>載入更多回覆</button></div>:null}
  </Dialog>;

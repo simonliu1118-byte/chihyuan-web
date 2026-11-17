@@ -1,60 +1,56 @@
-# 共用回報操作契約
+# 共用回報操作契約（V0.21.3／0077）
 
-入口：`node /workspace/cyweb-work-reporter/scripts/cyweb-reporter.mjs <command>`。JSON 從標準輸入，不從命令參數讀內容。`--help` 不需連線設定。
+入口：`node /workspace/cyweb-work-reporter/scripts/cyweb-reporter.mjs <command>`。JSON從標準輸入，token僅由安全Secrets注入。只有同源CYWEB API，禁止轉址，15秒逾時；沒有登入、核准或對外發布命令。
 
-## 命令與 JSON
+## 新版成果回報
 
-| 命令 | JSON | 結果 |
-| --- | --- | --- |
-| `check` | `{}` | 健康、版本與 `/identity` 憑證歸屬檢查；不送出業務 POST |
-| `progress` | `{"status":"working","summary":"正在準備貼文"}` | 狀態與更新時間；status：idle／working／blocked／done，摘要最多 200 字 |
-| `submit` | `{"externalRef":"social-post-20261107-r1","title":"測試標題","body":"待審全文"}` | 送審 ID、externalRef、pending／approved／rejected、理由與審核時間 |
-| `submit`（多則） | `{"externalRef":"threads-patrol-20261109-r1","title":"Threads 巡視 11/9 下午","body":"本次巡視說明","kind":"patrol","items":[{"ref":"thread-123","title":"回覆 @某帳號","body":"回覆全文"}]}` | 同上，另含 `kind` 與 `items`（各則 seq、ref、title、status、reason、sentAt）。kind：post 貼文、patrol 海巡；1–50 則 |
-| `image` | `{"externalRef":"threads-patrol-20261109-r1","item":1,"file":"/workspace/shots/1.jpg"}` | 審核用圖片；JPEG／PNG／WebP、2MB 內、每篇或每則 10 張；只能加在待審稿；item 省略則附在整篇 |
-| `sent` | `{"externalRef":"threads-patrol-20261109-r1","items":[1,3]}` | 回報已實際送出的則號（單篇省略 items）；只接受通過的則，重複回報不重算 |
-| `review-notification` | `{"type":"cyweb.review_result","eventId":"bot-review-123","botCode":"SOCIAL_EDITOR","draftId":123}` | 以本 BOT 憑證即時讀指定稿件；ignored 表示安靜略過，正式結果在 review，不發布 |
-| `review` | `{"externalRef":"social-post-20261107-r1"}` | 只讀這個 BOT 的同編號審核結果 |
-| `report` | `{"eventId":"task-01:milestone-1","title":"資料整理完成","body":"已整理合成測試素材，待撰稿"}` | 紀錄 ID、是否送達／是否由既有收據抑制重複 |
-| `complete` | `{"eventId":"task-01:completed","title":"貼文已發布","detail":"實際成果與平台","reviewRef":"social-post-20261107-r1","workType":"article_published"}` | 讀回核准後記錄完成；不需審核可省略 reviewRef；workType 預設 general，其他為 article_published／threads_patrol |
-| `pilot-start` | `{"reference":"social-editor-pilot-20261107-01"}` | 僅小編，送測試稿、回報及待人工審核摘要 |
-| `pilot-finish` | 同一 reference | 僅小編，核准後記錄測試完成，不發文 |
+|命令|輸入|用途|
+|---|---|---|
+|delivery|eventId、kind、approvalSource；選填 title、body、platform、url、sentAt、approvalNote、externalRef、item、sessionRef|每篇／每則實際發出後一次回報，全文、計數及時間軸一致|
+|delivery-status|eventId|只讀原成果，回 item、images；查不到為BOT_NOT_FOUND|
+|delivery-image|eventId、file絕對路徑|2MB、10張、SHA-256防重複，隔日清理|
+|patrol-session|sessionRef、label、選填 day、note|同場巡視只一行，可更新名稱／短摘要；日期不可變|
 
-多則稿每則標題最多 120 字、內容 4,000 字、ref 80 字；整份 JSON 輸入上限 256KB。標題最多 120 字，正文／詳情 4,000 字，externalRef 80 字、eventId 120 字、pilot reference 70 字，皆以 Unicode code point 計。`complete.completedAt` 選填有效 UTC ISO 時間（如 `2026-11-07T02:00:00.000Z`），不填用伺服器現在時間。不能回報尚未完成的事；不要預設未來時間。未列出的輸入欄位會拒絕；review-notification 對不合法喚醒安靜略過。身份由安全憑證固定，只有 review-notification 的 botCode 用來比對自己的身份，不能覆寫；不能傳 URL 或 token。
+外部已核准文章的合成範例：
+```json
+{"eventId":"synthetic-post-01","kind":"post","approvalSource":"chat","approvalNote":"使用者已在外部核准","title":"合成文章標題","body":"實際發布完整文案","platform":"IG","url":"https://example.invalid/posts/one","sentAt":"2026-11-13T04:00:00.000Z"}
+```
 
-輸出只有一份 JSON；成功 `{"ok":true,"data":{...}}`，失敗 `{"ok":false,"error":{"code":"...","message":"..."}}` 並回傳非零程序狀態。不要把非零狀態忽略後仍繼續依賴操作。
+CYWEB逐則已核准成果：
+```json
+{"eventId":"synthetic-post-02","kind":"post","approvalSource":"cyweb","externalRef":"synthetic-review-r1","item":1,"platform":"IG","url":"https://example.invalid/posts/two"}
+```
 
-## 實際使用的 API
+巡視先：`{"sessionRef":"synthetic-20261113-noon","label":"午巡","day":"2026-11-13"}`；實際留言的 delivery 用 kind=patrol 並帶此 sessionRef。每則自己的 eventId 固定，note 最多40字且一般留空。系統依成果計「午巡｜已送出N則」。
 
-只呼叫 `/api/health` 與 `/api/bot-ingest/identity|progress|reports|drafts|drafts/:id/images|drafts/:id/sent|completions`，機器 Authorization 由工具加入；健康檢查不帶憑證。禁止轉址，不提供員工登入、審核、輪換憑證、任意 URL 或對外發布命令。HTTP 逾時 15 秒，不自動重試寫入。多則、圖片與送出回報要求 WEB V0.15.0／0060；改稿要求 WEB V0.18.12／0068；其餘要求 WEB V0.12.4 Build 1／0058，identity 會回傳憑證實際歸屬。
+- kind：post／patrol；approvalSource：cyweb／chat／line／other。外部來源必填完整 title、body、approvalNote；cyweb 必須連結自己的已通過原稿／則，內容與原稿完全相同。不能用它自行授權發文。
+- externalRef 由工具轉為 draftId；item轉itemSeq。外部成果可連到自己的待審補登稿並標「外部已處理」，原 reviewer、review_status、理由不改。同批其他待審項目不受影響。
+- title120字、body4000字、eventId120字、platform40字、url2048字且僅HTTPS無帳密、approvalNote200字；sessionRef120字、label12字、note40字，以Unicode code point計。sentAt為有效UTC ISO日期，不能在未來；省略採首次伺服器時間，原編號重試保留原時間。補登舊成果必填真實時間，不能冒充今天發布。
+- 成果不可任意改內容。同eventId／同來源則／同發布網址不能重算。舊sent已入帳的同來源則，可一次連上固定eventId及空白平台／場次資料；之後衝突回409。
+- 系統自動建立一次完成紀錄。**不用再對同一成果呼叫 sent 或 complete.article_published。**舊complete仍保留於時間軸，不靠它增加文章篇數。
+- 發布圖片沿用短期保留，隔日清除；不是永久圖片歸檔。
 
-伺服器送審以同 BOT + externalRef 去重，只回傳原資料。新版 complete 把 eventId 傳為 eventRef，伺服器以同 BOT + eventRef 唯一索引去重；相同內容回原紀錄，不同內容回 409 BOT_EVENT_CONFLICT，未分類舊完成紀錄不猜測分類。非 general 分類必須有 eventRef，同一實際發布／巡視始終保持相同編號。完成 API 仍允許舊客戶端不帶 eventRef 的一般紀錄，此時沒有伺服器去重。
+## 原有命令維持
 
-report 仍無伺服器 idempotency key。工具對 report／complete 都在首次寫入前保存本機 pending 收據，成功後原子替換為 delivered；收據只含雜湊、狀態與 ID，不存內容或憑證。並行首次送出以獨占建立收據避免重複，不能泛稱所有操作都是多電腦 exactly-once。general 舊收據的 fingerprint 保持相容，更新不重送已完成事件，也不將它改算新文章。
+|命令|輸入|
+|---|---|
+|check|{}；只讀健康與憑證歸屬|
+|progress|status、summary?；idle／working／blocked／done，摘要200字|
+|submit|externalRef、title、body、kind?、items?、previousDraftId?；post／patrol用1–50個items，每則ref?／title／body|
+|review|externalRef；只讀自己的審核，各則另回status、reason、sentAt|
+|image|externalRef、file、item?；待審圖片，每則10張／2MB|
+|sent|externalRef、items?；舊版相容，仍只記已通過且實際送出的則，新成果推薦delivery|
+|report|eventId、title、body|
+|complete|eventId、title、detail?、completedAt?、reviewRef?、workType?；general／article_published／threads_patrol|
+|review-notification|type=cyweb.review_result、eventId=bot-review-ID、botCode、draftId；四欄只作喚醒，重新讀取原結果|
+|pilot-start／pilot-finish|同一reference；首次小編合成連線測試，先人工核准，無外部發布|
 
-已確認的 API 4xx 拒絕會釋放該收據，修正原因後可用原事件再試；逾時、斷線、5xx 或無法辨識回應會保留 pending，禁止盲目重送。收據目錄不可刪除或在不同執行之間換位置。無法確認時到 WEB 核對並交由人工處理，不直接操作正式資料庫。
+送審externalRef80字，改稿用新編號＋目前最新版previousDraftId，已送出或外部已處理稿不能覆蓋。每則title120字、body4000字、ref80字；整份JSON最多256KB。退回理由由人工填，機器不能寫人員審核API。
 
-## 權限與限制
+## API與安全
 
-- 憑證在伺服器綁定 bot_id。寫入只可操作自己，傳不相符的 botCode 回 403；按 ID 讀別隻 BOT 的稿件回 404，按外部編號指定別隻 BOT 回 403。工具輸入仍不能覆寫 BOT 身分。原共用憑證已原樣歸屬 SOCIAL_EDITOR，其他 BOT 必須取得自己的憑證。
-- `complete.reviewRef` 的核准檢查只在本工具發送前執行，沒有修改伺服器完成 API 或加入發布交易。不能宣稱任何持有憑證的客戶端都必須先審核，也不能宣稱核准與外部發布原子同步。
-- `check` 以 GET identity 確認實際身份，不再用不存在稿件的 404 推論成功。憑證失效或 BOT 設定不符都會失敗。
-- 沒有對所有歷史的輪詢，也不會拉取客戶／訂單資料。每次 submit 查該編號是否已存在，再按需新增版本；每次 review 一次 GET。附 reviewRef 的 complete 會先讀該份審核。pilot 是有限次設定與送出，不是常駐服務。
-- 正常 UI 依自己的刷新機制更新；CLI 回傳成功不代表瀏覽器立刻重繪，必要時手動重新整理管理中心。
-- 只有 article_published／threads_patrol 的成功完成事件進對應今日卡片；detail 可放平台或巡視結果。一般 report、送審、人工核准、測試皆不直接增加文章數。拍板結案目前沒有分類／後臺。推播僅傳四個識別欄位，不含審核決定、理由或稿件正文；收到後一次 GET 讀回正式結果。重送可能重複喚醒，不能宣稱外部工作 exactly-once。
+新增機器API：POST／GET `/api/bot-ingest/deliveries`、POST `/api/bot-ingest/deliveries/:id/images?uploadRef=SHA256`、POST `/api/bot-ingest/patrol-sessions`。GET成果以eventRef查詢並限制自己的BOT；其餘原API不變。設定沒有新增BOT或憑證管理能力。
 
-CYWEB 完整契約見主專案 `docs/architecture/BOT_CENTER.md`。
+人員需原CYWEB session＋BOT_CENTER權限：GET `/api/bot-center/deliveries/:id`、`/delivery-images/:id`、`/sent-items?kind=post|patrol`。明細當日50筆游標分頁，只在點開時讀全文；主頁文章只取metadata。30秒progress仍只查主檔／整合狀態，不查歷史。
 
-## 新版覆蓋（WEB V0.18.12／0068）
-
-`submit` 新增選填 `previousDraftId`（正整數，原稿 id），externalRef 必須換新。新列會設 previous_draft_id 與 revision_number=原稿+1，原稿保留歷史但不再出現在待審／主清單與統計。新稿重新待審；不能從別隻 BOT、不同 kind、已有新版或已送出任一則的稿件分叉。競爭失敗回 409，先讀回最新版，不盲目重試。舊 externalRef 仍可直接 GET，回 supersededById；工具會阻止依舊稿進行後續操作。
-
-送審回應多 revisionNumber、previousDraftId、supersededById；review 輸出保留 revisionNumber／supersededById。歷史 legacy r2／r10 不依標題猜配對；此版起必須明確帶 previousDraftId，才會連成版本鏈。
-
-新文章卡的發布總數仍以 complete.article_published 計數；卡下清單改以該稿／則的實際 sent_at 台北當日列出。一次海巡完成的 complete.threads_patrol 與逐則 sent 是不同維度。兩種回報不可互相冒充，單純審核不是實際送出。
-
-
-## V0.18.13 顯示規則
-
-巡視卡N取sent回報的海巡回覆則數；complete.threads_patrol仍是一個巡視事件，title原樣顯示名稱＋實際狀態，detail原樣顯示摘要。示例title「午巡 已送出」，detail「本次回覆的重點與待人工確認事項」。每次巡視一個固定eventId，不逐則建立巡視完成事件。
-
-文章每個post item即一篇發布內容，items.title／body分別放標題與該篇全文；實際發布後sent該seq，再用article_published完成事件記入總篇數與時間軸。若有送審保留對應reviewRef。不要依標題猜配對、不重報舊事件、不把尚未送出的內容標成已發布。人員端的sent-items查詢不在BOT工具呼叫範圍，BOT不使用員工session。
+舊report／complete收據的檔名與fingerprint不改。原token、收據目錄、routine保留；report只有本機防重複，complete另有server eventRef。新delivery有server去重；結果不明先delivery-status，查到即停止。4xx衝突不可換編號繞過；5xx／斷線不代表未送達。所有命令輸出一份JSON，失敗非零，不回顯環境值或token。

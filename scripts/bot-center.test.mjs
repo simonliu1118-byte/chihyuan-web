@@ -144,10 +144,10 @@ test("dashboard counts are complete, Taipei-day bounded and independent of bot-f
   assert.equal(global.draftCounts.pending,68);
   assert.equal(global.botStats.FINANCE.todayCompleted,61);
   assert.equal(global.botStats.CEO.todayCompleted,5);
-  assert.deepEqual(global.botStats.SOCIAL_EDITOR,{todayCompleted:0,draftCounts:{pending:0,approved:0,rejected:0}});
+  assert.deepEqual(global.botStats.SOCIAL_EDITOR,{todayCompleted:0,draftCounts:{pending:0,approved:0,rejected:0,external:0}});
   const page=ok(await call('/api/bot-center?botCode=FINANCE'));
   assert.equal(page.botCode,'FINANCE');
-  assert.deepEqual(page.draftCounts,{pending:65,approved:1,rejected:0});
+  assert.deepEqual(page.draftCounts,{pending:65,approved:1,rejected:0,external:0});
   assert.equal(page.botStats.CEO.todayCompleted,5,'global card totals remain available when one bot is selected');
   for(const key of ['drafts','reports','timeline']){assert.equal(page[key].length,50);assert(page[key].every(row=>row.botCode==='FINANCE'))}
   const older=ok(await call('/api/bot-center?botCode=FINANCE&draftBefore='+page.draftNextBefore+'&reportBefore='+page.reportNextBefore+'&timelineBefore='+encodeURIComponent(page.timelineNextBefore)));
@@ -187,7 +187,7 @@ test("progress polling reads no drafts, reports, completions or historical count
     assert.equal(sql.prepare("SELECT total_changes() n").get().n, before);
     assert.equal(queries.filter(query => /FROM bot_profiles/i.test(query)).length, 1);
     assert.equal(queries.filter(query => /FROM bot_ingest_credentials/i.test(query)).length, 1);
-    assert.equal(queries.some(query => /bot_drafts|bot_reports|bot_completions|count\s*\(/i.test(query)), false);
+    assert.equal(queries.some(query => /bot_drafts|bot_reports|bot_completions|bot_deliveries|bot_patrol_sessions|count\s*\(/i.test(query)), false);
   } finally { sql.close(); }
   const denied = fixture("USER");
   try { assert.equal((await denied.call("/api/bot-center/progress")).status, 403); }

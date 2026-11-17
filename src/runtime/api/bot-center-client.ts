@@ -1,6 +1,6 @@
 import { apiRequest } from "../../api/client";
 import type {
-  BotSentItemPage,BotSentItemSummary,BotCenterState, BotCredentialView, BotDraftDetail, BotDraftView, BotProfileView, BotProgressState, BotReviewStatus,
+  BotDeliveryDetail,BotSentItemPage,BotSentItemSummary,BotCenterState, BotCredentialView, BotDraftDetail, BotDraftView, BotProfileView, BotProgressState, BotReviewStatus,
 } from "../../../shared/bot-center";
 
 export type BotCenterPageCursor = { botCode?: string; draftBefore?: number; reportBefore?: number; timelineBefore?: string };
@@ -59,3 +59,6 @@ export function loadPublishedPosts(before?:string,botCode?:string):Promise<BotSe
  const query=new URLSearchParams({kind:"post",summary:"1"});if(before)query.set("before",before);if(botCode)query.set("botCode",botCode);
  return apiRequest<BotSentItemPage<BotSentItemSummary>>("/api/bot-center/sent-items?"+query);
 }
+
+export const deliveryImageUrl=(id:number)=>`/api/bot-center/delivery-images/${id}`;
+export function loadDelivery(id:number):Promise<BotDeliveryDetail>{return apiRequest(`/api/bot-center/deliveries/${id}`)}

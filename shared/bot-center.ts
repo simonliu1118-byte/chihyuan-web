@@ -17,12 +17,13 @@ export const BOT_STATUS_LABELS: Record<BotStatus, string> = {
   done: "已完成",
 };
 
-export const BOT_REVIEW_STATUSES = ["pending", "approved", "rejected"] as const;
+export const BOT_REVIEW_STATUSES = ["pending", "approved", "rejected", "external"] as const;
 export type BotReviewStatus = (typeof BOT_REVIEW_STATUSES)[number];
 export const BOT_REVIEW_LABELS: Record<BotReviewStatus, string> = {
   pending: "待審",
   approved: "通過",
   rejected: "退回",
+  external: "外部已處理",
 };
 
 export const BOT_LIMITS = {
@@ -79,7 +80,7 @@ export interface BotDraftView {
   pushStatus: "queued" | "sending" | "accepted" | "failed" | null;
   kind: BotDraftKind;
   /** Multi-item drafts only: how many items are in each review state. Null for a single draft. */
-  itemCounts: { total: number; pending: number; approved: number; rejected: number } | null;
+  itemCounts: { total: number; pending: number; approved: number; rejected: number; external?:number } | null;
   /** Single draft: when the BOT reported it carried the approved work out. */
   sentAt: string | null;
   imageCount: number;
@@ -121,8 +122,10 @@ export interface BotCompletionView {
   eventRef: string | null;
 }
 
-export interface BotSentItemSummary {id:number;draftId:number;seq:number;title:string;sentAt:string}
-export interface BotSentItemView extends BotSentItemSummary {body:string;draftTitle:string;botCode:string;botLabel:string}
+export interface BotSentItemSummary {id:number;draftId:number|null;seq:number|null;title:string;sentAt:string}
+export interface BotSentItemView extends BotSentItemSummary {body:string;draftTitle:string;botCode:string;botLabel:string;platform:string;url:string;approvalSource:"cyweb"|"chat"|"line"|"other";approvalNote:string;sessionLabel:string}
+export interface BotDeliveryDetail {item:BotSentItemView;images:(BotReviewImageView & {deliveryImage?:boolean})[]}
+export interface BotPatrolSummary {id:number;label:string;note:string;sent:number}
 export interface BotSentItemPage<T=BotSentItemView> {day:string;items:T[];more:boolean;nextBefore:string|null}
 
 export interface BotCredentialView {
@@ -146,7 +149,7 @@ export interface BotCenterState extends BotProgressState {
     /** `reviewed`: legacy field name: post drafts with actual sent_at today (Taipei), newest first; open to read. */
     articles: { count: number; latest: BotCompletionView | null; reviewed: BotDraftView[]; published:BotSentItemPage<BotSentItemSummary> };
     /** count 保留巡視批次 API；主卡用 sentToday 顯示今日實際送出則數，toSend 是尚未退回也尚未送出的海巡則數; `reviewed` is the legacy name for actually sent patrol drafts. */
-    patrols: { count: number; latest: BotCompletionView | null; sentToday: number; toSend: number; reviewed: BotDraftView[]; reports:BotCompletionView[] };
+    patrols: { count: number; latest: BotCompletionView | null; sentToday: number; toSend: number; reviewed: BotDraftView[]; reports:BotCompletionView[];sessions:BotPatrolSummary[] };
     /** Pending drafts, plus the undecided items of multi-item drafts by kind. */
     pending: { count: number; latest: BotDraftView | null; posts: number; patrols: number };
   };

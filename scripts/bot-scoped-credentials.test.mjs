@@ -80,7 +80,7 @@ test('typed completed work is idempotent in the server and never counts generic 
   ok(await send({title:'已發布但只是舊版文字，不能猜分類'}));
   ok(await send({title:'合成巡視完成',workType:'threads_patrol',eventRef:'patrol-1'}));
   const page=ok(await f.call('/api/bot-center'));
-  assert.equal(page.workSummary.articles.count,1);assert.equal(page.workSummary.patrols.count,1);
+  assert.equal(page.workSummary.articles.count,0);assert.equal(page.workSummary.patrols.count,1);
   assert.deepEqual(Object.keys(page.workSummary).sort(),['articles','patrols','pending']);
   assert.equal(f.sql.prepare('SELECT count(*) n FROM bot_completions').get().n,3);
  }finally{f.sql.close()}
@@ -93,6 +93,9 @@ test('work cards use complete scoped Taipei-day counts beyond pagination; pendin
   const day=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Taipei',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
   const start=new Date(day+'T00:00:00+08:00').toISOString(),end=new Date(Date.parse(start)+86400000).toISOString();
   const insert=f.sql.prepare('INSERT INTO bot_completions(bot_id,title,detail,completed_at,work_type,event_ref) VALUES(?,?,?,?,?,?)');
+  const actual=f.sql.prepare("INSERT INTO bot_deliveries(bot_id,event_ref,kind,title,body,sent_at,approval_source) VALUES(?,?,'post',?,'合成全文',?,'chat')");
+  for(let i=0;i<61;i++)actual.run(editor,'actual-'+i,'合成文章'+i,start);
+  actual.run(editor,'actual-yesterday','昨天文章',new Date(Date.parse(start)-1).toISOString());actual.run(editor,'actual-tomorrow','明天文章',end);actual.run(it,'actual-finance','合成財務文章',start);
   for(let i=0;i<61;i++)insert.run(editor,'合成文章'+i,'合成摘要',start,'article_published','article-'+i);
   insert.run(editor,'昨天文章','',new Date(Date.parse(start)-1).toISOString(),'article_published','yesterday');
   insert.run(editor,'明天文章','',end,'article_published','tomorrow');

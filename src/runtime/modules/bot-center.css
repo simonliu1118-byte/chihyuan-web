@@ -124,3 +124,25 @@
 .cy-bot-sent-items>article:last-child{border-bottom:0}
 .cy-bot-sent-heading{display:flex;flex-wrap:wrap;gap:4px 12px;align-items:baseline;margin-bottom:4px}
 .cy-bot-sent-heading time{font-size:var(--cy-fs-sm);color:var(--cy-text-muted)}
+/* Mobile review queue: same ListRow, two lines including all review metadata. */
+.cy-bot-mobile-drafts{display:grid;margin-top:8px}
+.cy-bot-mobile-drafts>div{min-width:0;border-bottom:1px solid var(--cy-border)}
+.cy-bot-mobile-drafts .cy-list-row{width:100%;margin:0;padding:7px 0;border-radius:0;min-height:54px;text-align:left}
+.cy-bot-mobile-drafts .cy-list-row-main{min-width:0;gap:3px}
+.cy-bot-mobile-title,.cy-bot-mobile-summary{display:flex;align-items:baseline;gap:6px;min-width:0;white-space:nowrap}
+.cy-bot-mobile-title>span,.cy-bot-mobile-summary>time,.cy-bot-mobile-summary>span:not(.cy-bot-mobile-content){flex:none;font-size:var(--cy-fs-xs)}
+.cy-bot-mobile-title>strong,.cy-bot-mobile-content{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cy-bot-mobile-content{font-size:var(--cy-fs-xs)}
+.cy-bot-mobile-drafts .cy-list-row-trailing{margin-left:4px}
+.cy-bot-session-note{display:block;font-size:var(--cy-fs-sm)}
+.cy-bot-mobile-item-nav{display:flex;align-items:center;justify-content:space-between;gap:8px}
+@media(max-width:820px){
+ .cy-bot-review-dialog > .cy-dialog-surface{width:calc(100vw - 16px);max-height:calc(100dvh - 16px)}
+ .cy-bot-review-dialog > .cy-dialog-surface > .cy-dialog-header{padding:10px 12px}
+ .cy-bot-review-dialog > .cy-dialog-surface > .cy-dialog-body{padding:10px 12px}
+ .cy-bot-review-meta{gap:4px 8px;margin-bottom:8px;font-size:var(--cy-fs-xs)}
+ .cy-bot-review-item{padding:8px;gap:6px}
+ .cy-bot-review-item header{flex-wrap:wrap}
+ .cy-bot-review-footer{gap:6px}
+ .cy-bot-review-nav{width:100%;justify-content:space-between;margin:0}
+}

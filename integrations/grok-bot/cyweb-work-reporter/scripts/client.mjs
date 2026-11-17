@@ -76,7 +76,7 @@ function createReporter(config, { fetchImpl = fetch, timeoutMs = 15e3 } = {}) {
   async function rawReview(ref) {
     if (ref.includes(token)) bad("INPUT_CONTAINS_SECRET", "送審編號不可包含連線憑證");
     const data = checkRecord(await request(refQuery(ref)));
-    if (data.externalRef !== ref || !["pending", "approved", "rejected"].includes(data.status)) bad("RESPONSE_UNCONFIRMED", "送審回應的編號或狀態不正確");
+    if (data.externalRef !== ref || !["pending", "approved", "rejected", "external"].includes(data.status)) bad("RESPONSE_UNCONFIRMED", "送審回應的編號或狀態不正確");
     if(data.supersededById)bad("DRAFT_SUPERSEDED","此稿已有新版，請使用新版編號");
     return data;
   }
@@ -93,9 +93,10 @@ function createReporter(config, { fetchImpl = fetch, timeoutMs = 15e3 } = {}) {
     let data;
     try { data = checkRecord(await request("/api/bot-ingest/drafts/" + input.draftId)); }
     catch (error) { if (error.code === "BOT_NOT_FOUND") return ignored("draft_not_found"); throw error; }
-    if (data.id !== input.draftId || !["pending", "approved", "rejected"].includes(data.status)) bad("RESPONSE_UNCONFIRMED", "送審回應的編號或狀態不正確");
+    if (data.id !== input.draftId || !["pending", "approved", "rejected", "external"].includes(data.status)) bad("RESPONSE_UNCONFIRMED", "送審回應的編號或狀態不正確");
     if(data.supersededById)return ignored("draft_superseded");
     if (data.status === "pending") return ignored("review_pending");
+    if (data.status === "external") return ignored("externally_completed");
     return { ignored: false, eventId: input.eventId, review: reviewView(await withItems(data)), automaticPublication: false };
   }
   async function progress(input) {
@@ -158,7 +159,8 @@ function createReporter(config, { fetchImpl = fetch, timeoutMs = 15e3 } = {}) {
     fields(input, ["externalRef", "items"]);
     const externalRef = string(input.externalRef, "送審固定編號", 80);
     const draft = await withItems(await rawReview(externalRef));
-    if (draft.status !== "approved") bad(draft.status === "rejected" ? "REVIEW_REJECTED" : "APPROVAL_PENDING", draft.status === "rejected" ? "此稿件已全部退回，不可回報送出" : "尚未審完，不可回報送出");
+    if (!draft.itemCounts && draft.status !== "approved") bad(draft.status === "rejected" ? "REVIEW_REJECTED" : "APPROVAL_PENDING", draft.status === "rejected" ? "此稿件已全部退回，不可回報送出" : "尚未審完，不可回報送出");
+    if(draft.status==="pending"&&draft.itemCounts&&!draft.items.some(item=>item.status==="approved"))bad("APPROVAL_PENDING","尚無通過的則，不可回報送出");
     let body = {};
     if (draft.itemCounts) {
       if (!Array.isArray(input.items) || !input.items.length || input.items.some(seq => !Number.isSafeInteger(seq) || seq < 1)) bad("INPUT_INVALID", "請以 items 列出實際已送出的則號");
@@ -245,7 +247,39 @@ function createReporter(config, { fetchImpl = fetch, timeoutMs = 15e3 } = {}) {
       bad("DELIVERY_UNCERTAIN", "寫入結果未能確認；請到 CYWEB 核對，勿刪收據或更換事件編號盲目重送");
     }
   }
+  async function delivery(input){
+    fields(input,["eventId","kind","title","body","sentAt","platform","url","approvalSource","approvalNote","externalRef","item","sessionRef"]);
+    const eventRef=string(input.eventId,"成果固定編號",120),source=input.approvalSource;
+    if(!["post","patrol"].includes(input.kind)||!["cyweb","chat","line","other"].includes(source))bad("INPUT_INVALID","請填成果分類與真實核准來源");
+    const payload={botCode,eventRef,kind:input.kind,approvalSource:source};
+    for(const [key,max]of [["title",120],["body",4000],["platform",40],["url",2048],["approvalNote",200],["sessionRef",120],["sentAt",30]])if(input[key]!==undefined)payload[key]=string(input[key],key,max,false)??"";
+    if(source!=="cyweb"&&(!payload.title||!payload.body||!payload.approvalNote))bad("INPUT_INVALID","外部核准成果須填完整標題、內容與核准來源說明");
+    if(input.externalRef!==undefined){
+      const draft=await rawReview(string(input.externalRef,"送審固定編號",80));payload.draftId=draft.id;
+      if(input.item!==undefined){if(!Number.isSafeInteger(input.item)||input.item<1||input.item>50)bad("INPUT_INVALID","則號須為1至50");payload.itemSeq=input.item;}
+    }else if(input.item!==undefined||source==="cyweb")bad("INPUT_INVALID","CYWEB 核准成果須指定原送審編號／則號");
+    const data=checkRecord(await request("/api/bot-ingest/deliveries",payload));
+    return {id:data.id,eventId:eventRef,delivered:true,duplicateSuppressed:data.duplicate};
+  }
+  async function deliveryStatus(input){
+    fields(input,["eventId"]);const eventId=string(input.eventId,"成果固定編號",120);
+    if(eventId.includes(token))bad("INPUT_CONTAINS_SECRET","成果編號不可包含憑證");
+    const data=await request("/api/bot-ingest/deliveries?"+new URLSearchParams({eventRef:eventId}));
+    if(data.item?.botCode!==botCode)bad("RESPONSE_UNCONFIRMED","成果不屬於此BOT");return data;
+  }
+  async function deliveryImage(input){
+    fields(input,["eventId","file"]);const eventId=string(input.eventId,"成果固定編號",120),file=string(input.file,"圖片路徑",1024);
+    if(!isAbsolute(file))bad("INPUT_INVALID","圖片路徑須為絕對路徑");
+    let bytes;try{bytes=new Uint8Array(await readFile(file))}catch{bad("INPUT_INVALID","無法讀取圖片檔")}
+    const type=imageType(bytes);if(!type||!bytes.length||bytes.length>2097152)bad("INPUT_INVALID","圖片需為JPEG／PNG／WebP且不超過2MB");
+    const data=await deliveryStatus({eventId}),uploadRef=createHash("sha256").update(bytes).digest("hex");
+    return request('/api/bot-ingest/deliveries/'+data.item.id+'/images?'+new URLSearchParams({uploadRef}),undefined,{binary:{type,bytes}});
+  }
   async function run(command, input = {}) {
+    if(command==="delivery")return delivery(input);
+    if(command==="delivery-status")return deliveryStatus(input);
+    if(command==="delivery-image")return deliveryImage(input);
+    if(command==="patrol-session"){fields(input,["sessionRef","day","label","note"]);return checkRecord(await request("/api/bot-ingest/patrol-sessions",{...input,botCode}));}
     if (command === "review-notification") return reviewNotification(input);
     if (command === "progress") return progress(input);
     if (command === "submit") return submit(input);
