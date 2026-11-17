@@ -1,4 +1,6 @@
-# CYWEB V0.21.2 — 實際成果與手機審稿交接
+# CYWEB V0.21.3 — 實際成果與手機審稿交接
+
+> 版本更正（2026-11-17，Claude）：V0.21.2 已用於價格觀測室連結（#523，已部署），本 PR 合併最新 main 後改為 **V0.21.3**、Build 0；migration 仍為 0077。下文的「V0.21.2」指本 PR 原提交時的版本號。
 
 ## 範圍與狀態
 
@@ -58,8 +60,15 @@
 
 ## Claude 最終審查
 
-- 狀態：待審查。
-- Claude意見／複審結論：待Claude填寫。
+- 狀態：**審查通過（2026-11-17，Claude）**，無阻擋問題；合併與部署仍待使用者授權。
+- 審查範圍：0077 回填、`saveDelivery` 來源驗證與防重複、並行勝出者（write_key）保護、外部處理對 pending 稿／則的影響、舊 sent 升級路徑、巡視場次、圖片清理條件、備份同步、手機 ListRow／逐則審稿與 BotDeliveryDialog。
+- 0077 回填：已唯讀查詢正式 D1，post／patrol 稿全部是逐則（items）形式，未逐則的已送出稿只有 general 類，不在成果範圍；回填只取 `bot_draft_items.sent_at`，與正式資料相符，部署後今日文章／留言數不會因回填缺漏而下降。
+- 並行：INSERT 以 `ON CONFLICT DO NOTHING` 搭配唯一索引（event_ref／item／draft／url），後續 UPDATE 以本次 `write_key` 存在為條件，同一 batch 內只有勝出者能把 pending 標為外部已處理，敗者讀回後依內容回傳重複或 409，不會動到其他稿。確認無誤。
+- 外部處理：只寫 `externally_completed_at`，不改原 review_status／reviewer；人工審核 UPDATE 都加上 `externally_completed_at IS NULL`，不會覆蓋外部已處理的則。整稿只有在沒有其他 pending 則時才標外部已處理。確認無誤。
+- 非阻擋備註（不需修改）：
+  1. 並行敗者若用相同 eventRef 且內容相同，回傳 `duplicate:false`（實際是對方寫入），只影響回報顯示，不影響資料。
+  2. `sentAt` 只接受 UTC ISO 格式（含 `+08:00` 的時間會被拒），工具端已以 UTC 送出，維持即可。
+  3. 外部處理的稿，審稿圖片隔日清除後，發布明細就只剩成果自己的圖片；與既有「圖片隔日清理」政策一致。
 
 ## 最終驗證／PR
 

@@ -1,4 +1,4 @@
-# 共用回報操作契約（V0.21.2／0077）
+# 共用回報操作契約（V0.21.3／0077）
 
 入口：`node /workspace/cyweb-work-reporter/scripts/cyweb-reporter.mjs <command>`。JSON從標準輸入，token僅由安全Secrets注入。只有同源CYWEB API，禁止轉址，15秒逾時；沒有登入、核准或對外發布命令。
 

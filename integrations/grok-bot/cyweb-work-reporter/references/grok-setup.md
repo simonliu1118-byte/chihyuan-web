@@ -76,9 +76,9 @@ Grok Bots 共用雲端電腦；持久檔案放在 `/workspace`，不要放臨時
 
 ## 更新至 V0.18.12
 
-保留原 token、原收據目錄與既有 routine；只替換工具與技能檔。更新後 check 確認 SOCIAL_EDITOR，routine 繼續把同一四欄喚醒交給 review-notification，已有新版的舊喚醒會安靜略過。改稿 submit 要帶 previousDraftId，圖片每則最多 10 張。新版已改為 delivery 一次回報，詳見下方 V0.21.2 更新；不要再重複呼叫 sent＋article_published。
+保留原 token、原收據目錄與既有 routine；只替換工具與技能檔。更新後 check 確認 SOCIAL_EDITOR，routine 繼續把同一四欄喚醒交給 review-notification，已有新版的舊喚醒會安靜略過。改稿 submit 要帶 previousDraftId，圖片每則最多 10 張。新版已改為 delivery 一次回報，詳見下方 V0.21.3 更新；不要再重複呼叫 sent＋article_published。
 
-## 更新至 V0.21.2（先部署 WEB／0077）
+## 更新至 V0.21.3（先部署 WEB／0077）
 
 只替換本包既定5檔；原token、安全環境、收據、固定工作編號、webhook與routine都保留。check確認版號與身分後再使用新命令。不要重跑pilot，也不要重發已發布內容。
 

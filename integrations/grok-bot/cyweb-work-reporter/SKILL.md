@@ -5,7 +5,7 @@ description: 回報 CYWEB BOT 工作進度、待審稿、實際發布貼文、�
 
 # CYWEB 共用工作回報
 
-先讀 [操作契約](references/wire-contract.md)；首次設定或更新既有 routine 時讀 [Grok 設定](references/grok-setup.md)。本版要求 WEB V0.21.2／0077 先部署，部署前沿用舊工具，不試新寫入。
+先讀 [操作契約](references/wire-contract.md)；首次設定或更新既有 routine 時讀 [Grok 設定](references/grok-setup.md)。本版要求 WEB V0.21.3／0077 先部署，部署前沿用舊工具，不試新寫入。
 
 ## 身分與安全
 
