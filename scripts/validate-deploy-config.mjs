@@ -63,7 +63,10 @@ try {
   // Opt-in must preserve the canonical CYID binding and resolve only
   // the private exported Invoice RPC, never its default public fetch.
   const workflow = fs.readFileSync(new URL("../.github/workflows/development-deploy.yml", import.meta.url), "utf8");
-  if (!workflow.includes("CF_CYINVOICE_RECOVERY_SERVICE: ${{ vars.CF_CYINVOICE_RECOVERY_SERVICE }}"))
+  // Resolved from the live Worker's CYINVOICE_RECOVERY binding (never a GitHub variable: those print in the public log).
+  const resolver = fs.readFileSync(new URL("./resolve-deploy-runtime.mjs", import.meta.url), "utf8");
+  if (!workflow.includes("node scripts/resolve-deploy-runtime.mjs") || !resolver.includes("CF_CYINVOICE_RECOVERY_SERVICE")
+      || /vars\.CF_CYINVOICE_RECOVERY_SERVICE/.test(workflow))
     throw new Error("Optional recovery service not passed to deployment renderer");
   const recoveryEnv = {...env, CF_CYINVOICE_RECOVERY_SERVICE:"synthetic-cyinvoice-recovery"};
   renderDeployConfig({env:recoveryEnv,outputPath:output});

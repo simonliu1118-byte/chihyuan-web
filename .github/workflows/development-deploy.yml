@@ -13,6 +13,8 @@ on:
       - "scripts/provision-backup-recovery.mjs"
       - "scripts/provision-backup-recovery.test.mjs"
       - "scripts/resolve-production-identity.mjs"
+      - "scripts/resolve-deploy-runtime.mjs"
+      - "scripts/resolve-deploy-runtime.test.mjs"
       - "scripts/audit-account-portal.mjs"
       - "scripts/audit-account-portal.test.mjs"
       - "scripts/render-backup-secrets.mjs"
@@ -105,7 +107,7 @@ jobs:
           persist-credentials: false
 
       - name: Test read-only account portal audit
-        run: node --test scripts/audit-account-portal.test.mjs
+        run: node --test scripts/audit-account-portal.test.mjs scripts/resolve-deploy-runtime.test.mjs
 
       - name: Render CI-only deployment config
         env:
