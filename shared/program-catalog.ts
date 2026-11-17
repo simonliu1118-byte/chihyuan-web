@@ -86,9 +86,9 @@ export const verifiedProgramCatalog: ProgramCatalog = {
     { id: "watermark", name: "盲浮水印工具", platform: "windows", icon: "WM",
       description: "商品圖片盲浮水印工具，支援批次嵌入、圖片驗證與 PDF 驗證報告。",
       version: null, publishedAt: null, releaseUrl: null, downloadUrl: null, websiteUrl: null },
-    { id: "price-desk", name: "價格觀測室（原型）", navLabel: "價格觀測室", platform: "web", icon: null,
-      description: "獨立查價原型，手動記錄商品與蝦皮、momo 等平台報價，比較最低價及價差。使用 ChatGPT 私有登入；資料儲存在目前瀏覽器。",
+    { id: "price-desk", name: "價格觀測室", navLabel: "價格觀測室", platform: "web", icon: null,
+      description: "查詢 momo、蝦皮、酷澎參考價，追蹤商品定期查價，作為調整定價的依據。以 CYID 員工帳號登入。",
       version: null, publishedAt: null, releaseUrl: null, downloadUrl: null,
-      websiteUrl: "https://price-desk-simon.workspace-110444.chatgpt.site/" },
+      websiteUrl: "https://price.chihyuancm.com/" },
   ],
 };

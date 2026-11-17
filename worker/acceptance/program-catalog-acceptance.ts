@@ -45,7 +45,7 @@ export async function acceptProgramCatalog(db?: D1Database): Promise<void> {
   check(selectProgramRelease(pending[0], [newest]) === null, "PENDING_RELEASE_NOT_GUESSED");
   const prototype = result.programs.find(program => program.id === "price-desk");
   check(prototype?.version === null && prototype.publishedAt === null && prototype.releaseUrl === null && prototype.downloadUrl === null
-    && prototype.websiteUrl === "https://price-desk-simon.workspace-110444.chatgpt.site/"
+    && prototype.websiteUrl === "https://price.chihyuancm.com/"
     && getProgramAction(prototype).kind === "website", "PROTOTYPE_WEBSITE_WITHOUT_RELEASE");
   check(selectProgramRelease(prototype, [newest]) === null, "PROTOTYPE_RELEASE_NOT_GUESSED");
   let pages = 0;

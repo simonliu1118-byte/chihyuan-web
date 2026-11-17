@@ -9,7 +9,7 @@ test("unreleased independent website remains available without a fabricated Rele
   assert.equal(program.downloadUrl, null);
   assert.equal(program.publishedAt, null);
   assert.equal(program.icon, null);
-  assert.deepEqual(getProgramAction(program), { kind: "website", url: "https://price-desk-simon.workspace-110444.chatgpt.site/" });
+  assert.deepEqual(getProgramAction(program), { kind: "website", url: "https://price.chihyuancm.com/" });
 });
 
 test("existing desktop release gates and website precedence are preserved", () => {
