@@ -18,14 +18,6 @@ const applicationId = /^[A-Z0-9][A-Z0-9_-]{1,63}$/;
 const workspaceId = /^[A-Za-z0-9_-]{5,80}$/;
 const fail = code => { throw new Error(code); };
 
-/** Temporary: the canonical CYapps resolver still derives production from a development seed name
- * (`-dev` → `-prod`). Until that naming cleanup lands, hand it the seed that maps back to the live binding. */
-export function identitySeedFor(productionService) {
-  if (productionService.endsWith("-prod")) return productionService.slice(0, -"-prod".length) + "-dev";
-  if (productionService.endsWith("-production")) return productionService.slice(0, -"-production".length) + "-development";
-  return fail("CYWEB_DEPLOY_IDENTITY_NAME_UNSUPPORTED");
-}
-
 export async function resolveDeployRuntime({ accountId, apiToken, publicHostname, backupEnabled = "", fetchImpl = fetch }) {
   if (!accountId || !apiToken || !hostname.test(publicHostname ?? "")) fail("CYWEB_DEPLOY_INPUT_INVALID");
   const api = `https://api.cloudflare.com/client/v4/accounts/${encodeURIComponent(accountId)}`;
@@ -62,13 +54,14 @@ export async function resolveDeployRuntime({ accountId, apiToken, publicHostname
 
   const identity = only("IDENTITY", "service");
   if (!workerName.test(identity?.service ?? "") || identity.service === worker) fail("CYWEB_DEPLOY_IDENTITY_UNBOUND");
-  const seed = identitySeedFor(identity.service);
+  // The canonical resolver accepts the production name directly (CYapps governance 2.3.63) and re-verifies it.
+  if (!/-(prod|production)$/.test(identity.service)) fail("CYWEB_DEPLOY_IDENTITY_NAME_UNSUPPORTED");
   const application = text("IDENTITY_APPLICATION_ID"), workspace = text("IDENTITY_WORKSPACE_ID");
   if (!applicationId.test(application) || !workspaceId.test(workspace)) fail("CYWEB_DEPLOY_IDENTITY_SCOPE_INVALID");
 
   const values = {
     CF_WORKER_NAME: worker, CF_D1_DATABASE_ID: db.id, CF_D1_DATABASE_NAME: database.name,
-    CF_IDENTITY_SERVICE: seed, CYID_LOOKUP_SERVICE: seed,
+    CF_IDENTITY_SERVICE: identity.service, CYID_LOOKUP_SERVICE: identity.service,
     CF_IDENTITY_APPLICATION_ID: application, CF_IDENTITY_WORKSPACE_ID: workspace,
   };
   const hrFiles = only("HR_FILES", "r2_bucket")?.bucket_name;
@@ -85,7 +78,7 @@ export async function resolveDeployRuntime({ accountId, apiToken, publicHostname
   // wrangler prints the workers.dev URL, which carries the account subdomain.
   const subdomain = (await read("/workers/subdomain"))?.subdomain ?? "";
   if (!/^[a-z0-9-]{1,63}$/i.test(subdomain)) fail("CYWEB_DEPLOY_SUBDOMAIN_UNAVAILABLE");
-  return { values, masks: [...new Set([...Object.values(values), identity.service, subdomain])] };
+  return { values, masks: [...new Set([...Object.values(values), subdomain])] };
 }
 
 async function cli() {

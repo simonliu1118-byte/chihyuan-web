@@ -148,3 +148,8 @@ test("real deployment resolves before render and performs strict canonical check
   assert.ok(deploy.indexOf("node scripts/resolve-deploy-runtime.mjs") < deploy.indexOf("node scripts/resolve-production-identity.mjs"));
   assert.doesNotMatch(deploy,/account.only|identity.only|CF_D1_DATABASE_ID=.*prod/);
 });
+test("production identity name is accepted directly without reading a development seed Worker",async()=>{
+  const f=fixture();const options=productionOptions(f);
+  options.env.CF_IDENTITY_SERVICE=f.state.prod;options.env.CYID_LOOKUP_SERVICE=f.state.prod;
+  assert.equal((await resolveCyWebProductionIdentity(options)).CF_IDENTITY_SERVICE,f.state.prod);
+});

@@ -9,7 +9,7 @@
 - [x] PR #524 合併部署；下載該次 log 以 Cloudflare 實際值逐一比對，查不到；audit-identity 亦通過（2026-11-17、11-18）。
 - [x] 使用者已刪除 GitHub Environment `development` 已不用的 variables（2026-11-18）（`CF_WORKER_NAME`、`CF_D1_DATABASE_NAME`、`CF_D1_DATABASE_ID`、`CF_IDENTITY_SERVICE`、`CF_IDENTITY_APPLICATION_ID`、`CF_IDENTITY_WORKSPACE_ID`、`CF_CYINVOICE_RECOVERY_SERVICE`、`CF_HR_FILES_R2_BUCKET`）。`GCS_BUCKET`、`CF_BACKUP_R2_BUCKET` 仍供 audit-backup（以 secrets 傳入、已遮蔽），`CF_BACKUP_ENABLED`／`CF_BACKUP_SCHEDULE_ENABLED` 為開關，保留。
 - [x] CYapps 同樣處理（CYapps #628，governance 2.3.62，`REPO_POLICY` 已寫入規則）；價格觀測室、CYACC 部署 log 驗證乾淨。舊 log 依使用者決定不清除（90 天後自然過期）。
-- [ ] CYapps 命名整理後，canonical CYID resolver 直接接受正式名稱，移除 `resolve-deploy-runtime.mjs` 的 `-prod` → `-dev` 暫時轉換。
+- [x] canonical CYID resolver 已直接接受正式名稱（CYapps #630），V0.21.5 移除 `-prod` → `-dev` 暫時轉換。
 
 ## 舊 GAS 系統（chihyuan-legacy-private）
 

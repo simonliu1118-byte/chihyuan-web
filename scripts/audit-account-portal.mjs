@@ -54,7 +54,10 @@ export async function inspectAccountPortal({ accountId, apiToken, configuredIden
   // The DEVELOPMENT deployment input only seeds the canonical production name. The
   // development CYID Worker was removed (user, 2026-10-29: unused D1／Workers cleaned up);
   // when it still exists it must really be development.
-  const configuredIdentity = await read(`/workers/scripts/${encodeURIComponent(configuredIdentityService)}/settings`, { missingOk: true });
+  // A production name (naming cleanup 2026-11-18) is the provider itself, not a development seed.
+  const productionSeed = /-(prod|production)$/.test(configuredIdentityService);
+  const configuredIdentity = productionSeed ? null
+    : await read(`/workers/scripts/${encodeURIComponent(configuredIdentityService)}/settings`, { missingOk: true });
   if (configuredIdentity && value(configuredIdentity, "APP_ENV") !== "development") fail("CYWEB_AUDIT_DEVELOPMENT_INPUT_UNVERIFIED");
   const runtime = await resolveProductionRuntime({ accountId, apiToken,
     developmentService: configuredIdentityService, requirePortal: false, fetchImpl: readOnlyFetch });
