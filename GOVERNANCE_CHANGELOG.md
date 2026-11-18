@@ -1,5 +1,9 @@
 # CY Web Governance Changelog
 
+## 1.1.30 — 2026/11/18
+
+- 部署維運規則（使用者 2026-11-18：「之後不想再碰到這類問題」）。`REPO_POLICY.md` §6 新增：部署識別碼不得經由 GitHub variables（V0.21.4 已實作）、不得以命名慣例推導資源（V0.21.5 已移除 `-prod`→`-dev`）、刪除 Cloudflare 資源須同輪清掉引用、跨 repo 依賴 CYapps CYID 核對程式的檢查方式、部署流程變更須實際部署並比對 log。與 CYapps governance 2.3.64 同步。
+
 ## 1.1.29 — 2026/11/08
 
 - 使用者同意恢復 ChatGPT／Claude 可用的受控發布分支 `deploy/cyweb-development`。`development-deploy.yml` 允許僅此分支的 `push` 啟動既有正式部署，保留 `main` 的 `workflow_dispatch` 手動入口；不因一般 PR 合併或 main push 自動發布。
