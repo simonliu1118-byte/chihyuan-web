@@ -1,6 +1,6 @@
 import { apiRequest } from "../../api/client";
 import type {
-  BotDeliveryDetail,BotSentItemPage,BotSentItemSummary,BotCenterState, BotCredentialView, BotDraftDetail, BotDraftView, BotProfileView, BotProgressState, BotReviewStatus,
+  BotPatrolSessionItem,BotDeliveryDetail,BotSentItemPage,BotSentItemSummary,BotCenterState, BotCredentialView, BotDraftDetail, BotDraftView, BotProfileView, BotProgressState, BotReviewStatus,
 } from "../../../shared/bot-center";
 
 export type BotCenterPageCursor = { botCode?: string; draftBefore?: number; reportBefore?: number; timelineBefore?: string };
@@ -23,8 +23,8 @@ export function loadBotCenter(
   return apiRequest<BotCenterState>(`/api/bot-center${query}`);
 }
 
-export function reviewDraft(id: number, decision: "approved" | "rejected", reason?: string): Promise<BotDraftView> {
-  return apiRequest<BotDraftView>(`/api/bot-center/drafts/${id}/review`, { method: "POST", json: { decision, reason } });
+export function reviewDraft(id: number, decision: "approved" | "rejected", reason?: string, choice?: number): Promise<BotDraftView> {
+  return apiRequest<BotDraftView>(`/api/bot-center/drafts/${id}/review`, { method: "POST", json: { decision, reason, ...(choice === undefined ? {} : { choice }) } });
 }
 
 export function issueBotCredential(code: string): Promise<{ token: string; botCode: string; createdAt: string }> {
@@ -51,9 +51,13 @@ export function reviewDraftItem(id:number,seq:number,decision:"approved"|"reject
 /** Same-origin image for review; the session cookie authorises it. */
 export const reviewImageUrl=(id:number)=>`/api/bot-center/images/${id}`;
 
-export function loadSentPatrolItems(before?:string,botCode?:string):Promise<BotSentItemPage>{
- const query=new URLSearchParams({kind:"patrol"});if(before)query.set("before",before);if(botCode)query.set("botCode",botCode);
+export function loadSentPatrolItems(before?:string,botCode?:string,sessionId?:number):Promise<BotSentItemPage>{
+ const query=new URLSearchParams({kind:"patrol"});if(before)query.set("before",before);if(botCode)query.set("botCode",botCode);if(sessionId!==undefined)query.set("sessionId",String(sessionId));
  return apiRequest<BotSentItemPage>("/api/bot-center/sent-items?"+query);
+}
+/** 場次裡待審、或已通過但 BOT 還沒送出的則。 */
+export function loadPatrolSessionItems(sessionId:number):Promise<{items:BotPatrolSessionItem[]}>{
+ return apiRequest(`/api/bot-center/patrol-sessions/${sessionId}/items`);
 }
 export function loadPublishedPosts(before?:string,botCode?:string):Promise<BotSentItemPage<BotSentItemSummary>>{
  const query=new URLSearchParams({kind:"post",summary:"1"});if(before)query.set("before",before);if(botCode)query.set("botCode",botCode);

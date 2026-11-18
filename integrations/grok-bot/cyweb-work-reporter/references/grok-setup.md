@@ -56,7 +56,7 @@ Grok Bots 共用雲端電腦；持久檔案放在 `/workspace`，不要放臨時
 
 ## 6. 後續讓其他 BOT 使用
 
-小編實機驗收後，再為其他 BOT 啟用同一技能及各自的代碼／憑證。核准結果可由 webhook 喚醒後主動讀取，設定步驟如下；不新增輪詢排程。文章／留言實際發出後統一用 delivery，巡視場次用 patrol-session；其他一般完成仍用 complete.general，連線測試不進文章／巡視卡片。拍板結案僅畫面保留，沒有後臺串接。
+小編實機驗收後，再為其他 BOT 啟用同一技能及各自的代碼／憑證。核准結果可由 webhook 喚醒後主動讀取，設定步驟如下；不新增輪詢排程。文章／留言實際發出後統一用 delivery，巡視場次用 patrol-session；其他一般完成仍用 complete.general，連線測試不進文章／巡視卡片。拍板結案自 V0.22.0 起用 `decision` 串接（見「更新至 V0.22.0」）。
 
 參考官方文件：[自訂工具與電腦](https://docs.x.ai/grok-bot/computer-and-apps)、[共用私人技能](https://docs.x.ai/grok-bot/skills-routines-and-automations)、[安全祕密](https://docs.x.ai/grok-bot/vault)。
 
@@ -77,6 +77,16 @@ Grok Bots 共用雲端電腦；持久檔案放在 `/workspace`，不要放臨時
 ## 更新至 V0.18.12
 
 保留原 token、原收據目錄與既有 routine；只替換工具與技能檔。更新後 check 確認 SOCIAL_EDITOR，routine 繼續把同一四欄喚醒交給 review-notification，已有新版的舊喚醒會安靜略過。改稿 submit 要帶 previousDraftId，圖片每則最多 10 張。新版已改為 delivery 一次回報，詳見下方 V0.21.3 更新；不要再重複呼叫 sent＋article_published。
+
+## 更新至 V0.22.0（先部署 WEB／0079）
+
+WEB V0.22.0 與 V0.21.6 一起部署；部署並確認 migration 0079 後再替換工具。只替換本包既定 5 檔，原 token、安全環境、收據目錄、固定工作編號、webhook 與 routine 全部保留；不重跑 pilot、不輪換憑證、不重發已送出的內容。舊命令的輸入輸出不變，可直接沿用。
+
+1. 更新後先 `check`，確認身分仍是自己的 BOT。
+2. **新增 `decision`**：要請使用者拍板（同意／不同意）的事項改用它，欄位 externalRef、title、body、category（自由填寫，最多 20 字）；選填 amount（新台幣元）、deadline（含時區的 ISO 時間）、options（2 至 5 個）。用 `review` 讀回決定與所選選項；`decision.expired=true` 表示期限已過、人已不能決定，請以新編號重新送審。webhook 喚醒的處理不變。
+3. **海巡稿連結場次**：先 `patrol-session`，再把該場要送審的海巡稿 `submit` 時帶同一個 `sessionRef`。CYWEB 主頁依此顯示每場狀態（待審核／已審核／已完成）；人審核只改變狀態，不需要你再回報。場次全部處理完、或剩下不打算送的通過項目時，以 `patrol-session` 帶 `completed:true` 明確結束。
+4. **delivery 的 platform 只能是 FB、IG、Threads**（不分大小寫）；其他名稱會被拒絕，不確定就不填。舊紀錄不需要補。
+5. 小編 routine 的指示補一句：「需要使用者決定的事用 decision，不要用 submit；讀到 expired 就改用新編號重送。」只是文字指示，不新增排程或權限。
 
 ## 更新至 V0.21.3（先部署 WEB／0077）
 

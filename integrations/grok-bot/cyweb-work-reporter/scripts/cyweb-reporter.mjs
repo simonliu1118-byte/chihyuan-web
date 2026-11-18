@@ -5,14 +5,15 @@ Usage: node scripts/cyweb-reporter.mjs <command> < input.json
 Commands:
   check        {} (read-only API/credential check)
   progress     {status,summary?}
-  submit       {externalRef,title,body,kind?,items?,previousDraftId?} (kind post/patrol: items [{ref?,title,body}] reviewed one by one)
-  review       {externalRef} (multi-item drafts include each item's result)
+  submit       {externalRef,title,body,kind?,items?,previousDraftId?,sessionRef?} (kind post/patrol: items [{ref?,title,body}] reviewed one by one; patrol may link a same-day patrol-session by sessionRef)
+  decision     {externalRef,title,body,category,amount?,deadline?,options?,previousDraftId?} (a matter for a human to decide: category free text up to 20 chars, amount in NT$, deadline ISO time with timezone, options 2-5 strings)
+  review       {externalRef} (multi-item drafts include each item's result; a decision returns decision.chosenOptionText and decision.expired)
   image        {externalRef,file,item?} (review-only picture: JPEG/PNG/WebP, max 2MB, 10 per draft or item)
   sent         {externalRef,items?} (report approved work actually sent; items = item numbers for post/patrol)
-  delivery     {eventId,kind,approvalSource,title?,body?,platform?,url?,sentAt?,approvalNote?,externalRef?,item?,sessionRef?}
+  delivery     {eventId,kind,approvalSource,title?,body?,platform?(FB|IG|Threads),url?,sentAt?,approvalNote?,externalRef?,item?,sessionRef?}
   delivery-status {eventId} (read-only actual publication/reply receipt)
   delivery-image {eventId,file} (same ten-picture/2MB/next-day policy)
-  patrol-session {sessionRef,label,day?,note?} (one short session summary; updating the same session does not add a row)
+  patrol-session {sessionRef,label,day?,note?,completed?} (one short session summary; updating the same session does not add a row; completed:true closes the session)
   review-notification {type,eventId,botCode,draftId} (read fresh review after webhook)
   report       {eventId,title,body}
   complete     {eventId,title,detail?,completedAt?,reviewRef?,workType?}

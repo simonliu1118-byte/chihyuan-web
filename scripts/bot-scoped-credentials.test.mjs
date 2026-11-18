@@ -81,7 +81,7 @@ test('typed completed work is idempotent in the server and never counts generic 
   ok(await send({title:'合成巡視完成',workType:'threads_patrol',eventRef:'patrol-1'}));
   const page=ok(await f.call('/api/bot-center'));
   assert.equal(page.workSummary.articles.count,0);assert.equal(page.workSummary.patrols.count,1);
-  assert.deepEqual(Object.keys(page.workSummary).sort(),['articles','patrols','pending']);
+  assert.deepEqual(Object.keys(page.workSummary).sort(),['articles','decisions','patrols','pending']);
   assert.equal(f.sql.prepare('SELECT count(*) n FROM bot_completions').get().n,3);
  }finally{f.sql.close()}
 });
@@ -103,7 +103,7 @@ test('work cards use complete scoped Taipei-day counts beyond pagination; pendin
   insert.run(editor,'合成巡視','',start,'threads_patrol','patrol-1');
   f.sql.prepare("INSERT INTO bot_drafts(bot_id,title,body,created_at) VALUES(?,'舊日待審','合成本文','2020-01-01T00:00:00.000Z')").run(editor);
   const all=ok(await f.call('/api/bot-center?draftStatus=approved'));
-  assert.equal(all.workSummary.articles.count,62);assert.equal(all.workSummary.pending.count,1);assert.equal(all.workSummary.pending.latest.title,'舊日待審');
+  assert.equal(all.workSummary.articles.count,62);assert.equal(all.workSummary.pending.count,1);assert.equal(all.workSummary.pending.other,1);assert.equal('latest' in all.workSummary.pending,false);
   const scoped=ok(await f.call('/api/bot-center?botCode=SOCIAL_EDITOR'));
   assert.equal(scoped.workSummary.articles.count,61);assert.equal('latest' in scoped.workSummary.articles,false);assert.equal(scoped.workSummary.patrols.count,1);
   assert.equal(scoped.timeline.length,50);

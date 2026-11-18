@@ -299,3 +299,58 @@ test('new draft references replace the previous revision and stale wakeups stop 
  await assert.rejects(f.client.run('sent',{externalRef:'replace-r1'}),code('DRAFT_SUPERSEDED'));
  assert.deepEqual(await f.client.run('review-notification',{type:'cyweb.review_result',eventId:'bot-review-'+a.id,botCode:'SOCIAL_EDITOR',draftId:a.id}),{ignored:true,reason:'draft_superseded',notifyHuman:false});
 });
+
+// V0.22.0 工具：拍板、場次連結、平台選項、場次明確結束。
+test("decision command submits, validates, is idempotent and reads back the human's choice",async t=>{
+ const f=await setup(t),deadline="2026-11-19T18:00:00+08:00";
+ const input={externalRef:"synthetic-decision-1",title:"合成廣告加碼",body:"合成說明",category:"廣告預算",amount:3000,deadline,options:["加碼三天","加碼兩天"]};
+ const first=await f.client.run("decision",input);
+ assert.equal(first.status,"pending");assert.deepEqual(first.decision,{category:"廣告預算",amount:3000,deadline:"2026-11-19T10:00:00.000Z",options:["加碼三天","加碼兩天"],chosenOption:null,chosenOptionText:null,expired:false});
+ assert.equal(f.sql.prepare("SELECT amount FROM bot_draft_decisions").get().amount,300000,"the wire carries cents");
+ const again=await f.client.run("decision",input);assert.equal(again.id,first.id);assert.equal(f.sql.prepare("SELECT count(*) n FROM bot_draft_decisions").get().n,1);
+ await assert.rejects(f.client.run("decision",{...input,body:"改過的說明"}),code("DRAFT_REVISION_REQUIRED"));
+ await assert.rejects(f.client.run("decision",{...input,options:["加碼三天","加碼一天"]}),code("DRAFT_REVISION_REQUIRED"));
+ for(const bad of [{category:""},{category:"字".repeat(21)},{amount:-1},{amount:1.005},{amount:"3000"},{deadline:"明天"},{deadline:"2026-11-19T18:00:00"},{options:["只有一個"]},{options:["a","a"]},{options:["a","b","c","d","e","f"]},{options:["a","字".repeat(81)]},{extra:1}])
+  await f.client.run("decision",{...input,externalRef:"synthetic-bad",...bad}).then(()=>assert.fail("accepted "+JSON.stringify(bad)),error=>assert.equal(error.code,"INPUT_INVALID",JSON.stringify(bad)+" "+error.message));
+ await assert.rejects(f.client.run("decision",{...input,externalRef:"synthetic-bad",body:f.config.token}),code("INPUT_CONTAINS_SECRET"));
+ assert.equal(f.sql.prepare("SELECT count(*) n FROM bot_drafts WHERE external_ref='synthetic-bad'").get().n,0);
+ assert.equal(data(await f.call(`/api/bot-center/drafts/${first.id}/review`,"POST",{decision:"approved",choice:1})).status,"approved");
+ const reviewed=await f.client.run("review",{externalRef:input.externalRef});
+ assert.equal(reviewed.status,"approved");assert.equal(reviewed.decision.chosenOption,1);assert.equal(reviewed.decision.chosenOptionText,"加碼兩天");
+ const plain=await f.client.run("decision",{externalRef:"synthetic-decision-2",title:"合成簡單",body:"合成內容",category:"其他"});
+ assert.deepEqual(plain.decision,{category:"其他",amount:null,deadline:null,options:null,chosenOption:null,chosenOptionText:null,expired:false});
+ const revised=await f.client.run("decision",{externalRef:"synthetic-decision-3",title:"合成簡單 v2",body:"合成改過",category:"其他",previousDraftId:plain.id});
+ assert.equal(revised.revisionNumber,2);
+ await assert.rejects(f.client.run("review",{externalRef:"synthetic-decision-2"}),code("DRAFT_SUPERSEDED"),"the old version points to the new one");
+ const expiredInput={externalRef:"synthetic-late",title:"合成逾期",body:"合成內容",category:"其他",deadline:"2020-01-01T00:00:00Z"};
+ assert.equal((await f.client.run("decision",expiredInput)).decision.expired,true);
+});
+test("submit links a patrol draft to a session; patrol-session can close it; delivery platform is FB, IG or Threads",async t=>{
+ const f=await setup(t);
+ await f.client.run("patrol-session",{sessionRef:"synthetic-noon-2",label:"午巡"});
+ const draft=await f.client.run("submit",{externalRef:"synthetic-patrol-linked",title:"合成海巡",body:"合成說明",kind:"patrol",items:[{title:"回覆",body:"合成回覆全文"}],sessionRef:"synthetic-noon-2"});
+ assert.equal(f.sql.prepare("SELECT session_id FROM bot_drafts WHERE id=?").get(draft.id).session_id>0,true);
+ assert.equal((await f.client.run("submit",{externalRef:"synthetic-patrol-linked",title:"合成海巡",body:"合成說明",kind:"patrol",items:[{title:"回覆",body:"合成回覆全文"}],sessionRef:"synthetic-noon-2"})).id,draft.id);
+ await assert.rejects(f.client.run("submit",{externalRef:"synthetic-nolink",title:"貼文",body:"x",kind:"post",items:[{title:"一",body:"x"}],sessionRef:"synthetic-noon-2"}),code("INPUT_INVALID"));
+ await assert.rejects(f.client.run("submit",{externalRef:"synthetic-nosession",title:"海巡",body:"x",kind:"patrol",items:[{title:"一",body:"x"}],sessionRef:"missing"}),code("BOT_INVALID"));
+ const plain=await f.client.run("submit",{externalRef:"synthetic-patrol-plain",title:"合成海巡二",body:"x",kind:"patrol",items:[{title:"一",body:"x"}]});
+ await assert.rejects(f.client.run("submit",{externalRef:"synthetic-patrol-plain",title:"合成海巡二",body:"x",kind:"patrol",items:[{title:"一",body:"x"}],sessionRef:"synthetic-noon-2"}),code("DRAFT_REVISION_REQUIRED"));
+ assert.equal(plain.status,"pending");
+ const closed=await f.client.run("patrol-session",{sessionRef:"synthetic-noon-2",label:"午巡",completed:true});
+ assert.equal(closed.completed,true);
+ await assert.rejects(f.client.run("patrol-session",{sessionRef:"synthetic-noon-2",label:"午巡",completed:"yes"}),code("INPUT_INVALID"));
+ data(await f.call(`/api/bot-center/drafts/${draft.id}/review`,"POST",{decision:"approved"}));
+ const session=data(await f.call("/api/bot-center")).workSummary.patrols.sessions.find(x=>x.label==="午巡");assert.equal(session.status,"done");
+ const receipt={eventId:"synthetic-platform",kind:"post",title:"合成貼文",body:"合成全文",approvalSource:"chat",approvalNote:"合成核准"};
+ assert.equal((await f.client.run("delivery",{...receipt,platform:"ig"})).delivered,true);
+ assert.equal(f.sql.prepare("SELECT platform FROM bot_deliveries WHERE event_ref='synthetic-platform'").get().platform,"IG");
+ for(const platform of ["Twitter","LINE","","  "])await assert.rejects(f.client.run("delivery",{...receipt,eventId:"synthetic-platform-bad",platform}),code("INPUT_INVALID"),platform);
+ assert.equal((await f.client.run("delivery",{...receipt,eventId:"synthetic-no-platform"})).delivered,true,"platform stays optional");
+});
+test("older tool commands keep working unchanged",async t=>{
+ const f=await setup(t);
+ const draft=await f.client.run("submit",{externalRef:"synthetic-old-style",title:"合成舊式",body:"合成內容"});
+ assert.equal("decision" in draft,false);assert.equal(draft.status,"pending");
+ assert.deepEqual(Object.keys(await f.client.run("review",{externalRef:"synthetic-old-style"})).sort(),["externalRef","id","reason","reviewedAt","revisionNumber","status","supersededById"]);
+ const session=await f.client.run("patrol-session",{sessionRef:"synthetic-old-session",label:"早巡"});assert.equal(session.id>0,true);
+});

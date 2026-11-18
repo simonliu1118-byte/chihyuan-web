@@ -1,4 +1,4 @@
-# 共用回報操作契約（V0.21.3／0077）
+# 共用回報操作契約（V0.22.0／0079）
 
 入口：`node /workspace/cyweb-work-reporter/scripts/cyweb-reporter.mjs <command>`。JSON從標準輸入，token僅由安全Secrets注入。只有同源CYWEB API，禁止轉址，15秒逾時；沒有登入、核准或對外發布命令。
 
@@ -9,7 +9,7 @@
 |delivery|eventId、kind、approvalSource；選填 title、body、platform、url、sentAt、approvalNote、externalRef、item、sessionRef|每篇／每則實際發出後一次回報，全文、計數及時間軸一致|
 |delivery-status|eventId|只讀原成果，回 item、images；查不到為BOT_NOT_FOUND|
 |delivery-image|eventId、file絕對路徑|2MB、10張、SHA-256防重複，隔日清理|
-|patrol-session|sessionRef、label、選填 day、note|同場巡視只一行，可更新名稱／短摘要；日期不可變|
+|patrol-session|sessionRef、label、選填 day、note、completed|同場巡視只一行，可更新名稱／短摘要；日期不可變。completed:true 記下結束時間（只記第一次），不帶或 false 不會重新開啟|
 
 外部已核准文章的合成範例：
 ```json
@@ -23,12 +23,29 @@ CYWEB逐則已核准成果：
 
 巡視先：`{"sessionRef":"synthetic-20261113-noon","label":"午巡","day":"2026-11-13"}`；實際留言的 delivery 用 kind=patrol 並帶此 sessionRef。每則自己的 eventId 固定，note 最多40字且一般留空。系統依成果計「午巡｜已送出N則」。
 
-- kind：post／patrol；approvalSource：cyweb／chat／line／other。外部來源必填完整 title、body、approvalNote；cyweb 必須連結自己的已通過原稿／則，內容與原稿完全相同。不能用它自行授權發文。
+- kind：post／patrol；approvalSource：cyweb／chat／line／other。**platform 只收 FB、IG、Threads**（不分大小寫，伺服器存標準寫法）；其他字串回 400，省略仍可。舊資料的自由文字照原樣顯示。外部來源必填完整 title、body、approvalNote；cyweb 必須連結自己的已通過原稿／則，內容與原稿完全相同。不能用它自行授權發文。
 - externalRef 由工具轉為 draftId；item轉itemSeq。外部成果可連到自己的待審補登稿並標「外部已處理」，原 reviewer、review_status、理由不改。同批其他待審項目不受影響。
 - title120字、body4000字、eventId120字、platform40字、url2048字且僅HTTPS無帳密、approvalNote200字；sessionRef120字、label12字、note40字，以Unicode code point計。sentAt為有效UTC ISO日期，不能在未來；省略採首次伺服器時間，原編號重試保留原時間。補登舊成果必填真實時間，不能冒充今天發布。
 - 成果不可任意改內容。同eventId／同來源則／同發布網址不能重算。舊sent已入帳的同來源則，可一次連上固定eventId及空白平台／場次資料；之後衝突回409。
 - 系統自動建立一次完成紀錄。**不用再對同一成果呼叫 sent 或 complete.article_published。**舊complete仍保留於時間軸，不靠它增加文章篇數。
 - 發布圖片沿用短期保留，隔日清除；不是永久圖片歸檔。
+
+## V0.22.0 新增
+
+|命令|輸入|用途|
+|---|---|---|
+|decision|externalRef、title、body、category；選填 amount、deadline、options、previousDraftId|送請人拍板的事項；與稿件共用審核、版本鏈與推播|
+|submit（擴充）|選填 sessionRef|海巡稿連結到自己、同一台北日已登錄的巡視場次|
+
+decision 範例（合成資料）：
+```json
+{"externalRef":"synthetic-decision-01","title":"IG 廣告加碼 3 天","body":"三天觸及 1.2 萬、點擊率 2.8%，申請再投 3 天。","category":"廣告預算","amount":3000,"deadline":"2026-11-19T18:00:00+08:00","options":["加碼 3 天，每日 NT$1,000","加碼 2 天，每日 NT$800"]}
+```
+
+- category 1–20 字自由填寫；amount 為新台幣**元**（≥0、最多兩位小數），工具轉成「分」送出，伺服器以整數分儲存；deadline 為含時區的 ISO 時間，工具轉為 UTC；options 2–5 個、每個 1–80 字、不可重複。只有 category 必填。
+- 線路（`POST /api/bot-ingest/drafts`）的 `decision` 物件為 `{category,amount?(分),deadline?(UTC ISO),options?}`，只能用在一般單篇，不可與 items、kind=post／patrol 併用，錯誤回 400。同 externalRef 重送回原紀錄、不覆寫。改稿用 previousDraftId＋新 externalRef，**新版必須再帶 decision**（缺少回 400，普通稿改成拍板回 409）。
+- 讀回（`GET /api/bot-ingest/drafts/:id`、`?externalRef=`、工具 `review`）含 `decision:{category,amount,deadline,options,chosenOption,expired}`；工具的 amount 已換回元並多一個 `chosenOptionText`。人決定：approved＝同意（有 options 時 `chosenOption` 為選項序號，從 0 起）、rejected＝不同意（reason 為備註，必填）。**期限已過且仍待決定時 `expired:true`，人員端回 409 `BOT_DECISION_EXPIRED`，不能再決定。**
+- 場次狀態由伺服器推算，BOT 不回報：連結的稿件有待審的則＝待審核；否則有通過但尚無送出成果的則、且場次未被明確結束＝已審核；其餘＝已完成。沒有連結稿件的舊場次：有送出成果＝已完成，沒有成果也沒有結束者不列在主頁。人員 API：`GET /api/bot-center/sent-items?kind=patrol&sessionId=`、`GET /api/bot-center/patrol-sessions/:id/items`。
 
 ## 原有命令維持
 
@@ -36,8 +53,8 @@ CYWEB逐則已核准成果：
 |---|---|
 |check|{}；只讀健康與憑證歸屬|
 |progress|status、summary?；idle／working／blocked／done，摘要200字|
-|submit|externalRef、title、body、kind?、items?、previousDraftId?；post／patrol用1–50個items，每則ref?／title／body|
-|review|externalRef；只讀自己的審核，各則另回status、reason、sentAt|
+|submit|externalRef、title、body、kind?、items?、previousDraftId?、sessionRef?；post／patrol用1–50個items，每則ref?／title／body|
+|review|externalRef；只讀自己的審核，各則另回status、reason、sentAt；拍板事項另回decision|
 |image|externalRef、file、item?；待審圖片，每則10張／2MB|
 |sent|externalRef、items?；舊版相容，仍只記已通過且實際送出的則，新成果推薦delivery|
 |report|eventId、title、body|

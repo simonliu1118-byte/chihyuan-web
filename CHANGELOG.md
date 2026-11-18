@@ -1,5 +1,20 @@
 # CY Web 版本紀錄
 
+## CY Web V0.22.0 — BOT 管理中心改版：拍板事項、巡視場次狀態、平台選項（2026-11-18）
+
+與 V0.21.6 一起部署（兩版目前都尚未部署）。migration 0079。
+
+- 頁首：以「BOT 狀態列」取代進行中／受阻／待命計數與逐 BOT 晶片，並移除「BOT 當日摘要」區。只列需要注意的 BOT：受阻（紅，「名稱・受阻 HH:MM」）、進行中且最後回報超過 6 小時（琥珀，「名稱・N 小時無回報」）；點晶片開視窗看最新摘要與時間；其餘顯示「其餘 N 個 BOT 正常」。資料來自既有 `/progress`，沒有新增輪詢。
+- 四張摘要卡同一結構（標題＋連結、大數字＋說明、最多三列淡底資料列）：新文章通知（平台 FB／IG／Threads 標籤＋時間）、Threads 巡視回報（每場一列：待審核／已審核／已完成）、待核准（只計內容稿，單位件）、拍板結案。今日完成時間軸移到卡片下方。
+- 待審核表與手機清單新增連續「項次」（載入更多不重編）與「期限」欄；拍板列顯示「拍板」＋［BOT 類別］，按鈕為「決定」；待審檢視中拍板事項依期限排最前。
+- 拍板事項：`POST /api/bot-ingest/drafts` 可帶 `decision:{category,amount?,deadline?,options?}`（側表 `bot_draft_decisions`），與稿件共用審核、版本鏈、推播與稽核。人員決定為同意／不同意，有選項時同意須選一個；期限已過回 409 `BOT_DECISION_EXPIRED`，BOT 讀回 `expired:true`。新增拍板視窗。
+- 平台：新寫入的 delivery `platform` 只收 FB、IG、Threads（不分大小寫）；舊自由文字照原樣顯示。
+- 巡視場次：海巡稿可帶 `sessionRef` 連結同日場次（`bot_drafts.session_id`）；場次狀態由伺服器依連結的稿件與送出成果推算，BOT 可用 `patrol-sessions` 的 `completed:true` 明確結束（`completed_at`）。
+- `workSummary.pending` 改為內容稿計數 `{count,posts,patrolDrafts,patrolItems,other}`，新增 `decisions:{count,items}`；舊 `pending.latest` 移除。
+- Grok 工具：新增 `decision`、`submit` 的 `sessionRef`、delivery 平台選項、`patrol-session` 的 `completed`；SKILL／操作契約／設定文件同步（含「更新至 V0.22.0」）。
+- 備份：`bot_draft_decisions` 與新欄位納入可攜備份，`CURRENT_MIGRATION=0079`。
+- 不做：拍板到期提醒推播（使用者決定不做）。
+
 ## CY Web V0.21.6 — 委外代工與 BOT 事後審查修正（2026-11-18，Claude）
 
 - 委外交貨：「不扣料」改為明確的 `noConsumption: true`（`bomRecipeId` 省略或 null 仍是沿用成品列的 BOM）；成品列自己綁定的 BOM 之後被停用仍可交貨，另選的 BOM 才須啟用。扣料預覽同一規則。

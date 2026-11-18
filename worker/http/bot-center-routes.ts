@@ -1,10 +1,10 @@
 import { AuditService } from "../audit/audit-service";
 import { requireModuleAccess } from "../auth/guard";
 import {
-  BOT_WORK_TYPES, BOT_LIMITS, BOT_DRAFT_KINDS, BOT_ITEM_LIMITS, BOT_IMAGE_LIMITS,
+  BOT_DECISION_LIMITS, canonicalBotPlatform, BOT_WORK_TYPES, BOT_LIMITS, BOT_DRAFT_KINDS, BOT_ITEM_LIMITS, BOT_IMAGE_LIMITS,
   type BotDeliveryDetail,type BotPatrolSummary,type BotSentItemSummary,type BotSentItemView,type BotSentItemPage,type BotDraftKind, type BotDraftDetail, type BotDraftItemView, type BotReviewImageView, type BotImageType, BOT_PAGE_SIZE, BOT_REVIEW_STATUSES, BOT_STATUSES, INITIAL_BOTS,
   taipeiTodayRange, type BotCenterState, type BotCompletionView, type BotCredentialView,
-  type BotDraftView, type BotProfileView, type BotProgressState, type BotReportView, type BotReviewStatus, type BotStatus, type BotWorkType,
+  type BotDecisionView, type BotPatrolStatus, type BotPatrolSessionItem, type BotDraftView, type BotProfileView, type BotProgressState, type BotReportView, type BotReviewStatus, type BotStatus, type BotWorkType,
 } from "../../shared/bot-center";
 import { identityClient, type IdentityRuntimeEnv } from "./auth-routes";
 import { failure, success } from "./response";
@@ -22,6 +22,7 @@ type DraftRow = {
   display_name: string | null; employee_no: string | null; created_at: string;bot_id:number;push_status:BotDraftView["pushStatus"];
   revision_number: number; previous_draft_id: number|null; superseded_by_id: number|null;
   kind: BotDraftKind; sent_at: string | null; item_total: number; item_pending: number; item_approved: number; item_rejected: number; image_count: number;
+  session_id: number | null; is_decision: number; decision_category: string | null; decision_amount: number | null; decision_deadline: string | null; decision_options: string | null; decision_chosen: number | null;
 };
 type ReportRow = { id: number; code: string; label: string; title: string; body: string; reported_at: string };
 type CompletionRow = { id: number; code: string; label: string; title: string; detail: string; completed_at: string; work_type: BotWorkType; event_ref: string | null };
@@ -88,7 +89,18 @@ function timelineCursor(value: string | null): { at: string; id: number } | null
 const profileView = (row: ProfileRow): BotProfileView => ({
   id: row.id, code: row.code, label: row.label, status: row.status, summary: row.summary, updatedAt: row.updated_at,
 });
+const optionsOf = (json: string | null): string[] | null => {
+  if (!json) return null;
+  try { const parsed = JSON.parse(json); return Array.isArray(parsed) ? parsed.filter((x): x is string => typeof x === "string") : null; } catch { return null; }
+};
+/** 逾期＝仍待決定、期限已過。 */
+const decisionView = (row: DraftRow, nowMs = Date.now()): BotDecisionView | null => row.is_decision ? {
+  category: row.decision_category ?? "", amount: row.decision_amount ?? null, deadline: row.decision_deadline ?? null,
+  options: optionsOf(row.decision_options), chosenOption: row.decision_chosen ?? null,
+  expired: row.review_status === "pending" && row.decision_deadline != null && Date.parse(row.decision_deadline) <= nowMs,
+} : null;
 const draftView = (row: DraftRow): BotDraftView => ({
+  decision: decisionView(row), sessionId: row.session_id ?? null,
   revisionNumber: row.revision_number ?? 1, previousDraftId: row.previous_draft_id ?? null, supersededById: row.superseded_by_id ?? null,
   id: row.id, botCode: row.code, botLabel: row.label, externalRef: row.external_ref, title: row.title, body: row.body,
   status: row.review_status, reason: row.review_reason, reviewedAt: row.reviewed_at, createdAt: row.created_at,
@@ -109,8 +121,9 @@ const DRAFT_SQL = `SELECT d.id,d.bot_id,b.code,b.label,d.external_ref,d.title,d.
  (SELECT count(*) FROM bot_draft_items i WHERE i.draft_id=d.id AND i.review_status='pending' AND i.externally_completed_at IS NULL) AS item_pending,
  (SELECT count(*) FROM bot_draft_items i WHERE i.draft_id=d.id AND i.review_status='approved') AS item_approved,
  (SELECT count(*) FROM bot_draft_items i WHERE i.draft_id=d.id AND i.review_status='rejected') AS item_rejected,
- (SELECT count(*) FROM bot_review_images g WHERE g.draft_id=d.id) AS image_count
- FROM bot_drafts d JOIN bot_profiles b ON b.id=d.bot_id LEFT JOIN app_members m ON m.id=d.reviewed_by LEFT JOIN bot_review_push_outbox p ON p.draft_id=d.id`;
+ (SELECT count(*) FROM bot_review_images g WHERE g.draft_id=d.id) AS image_count,
+ d.session_id,(dd.draft_id IS NOT NULL) AS is_decision,dd.category AS decision_category,dd.amount AS decision_amount,dd.deadline_at AS decision_deadline,dd.options_json AS decision_options,dd.chosen_option AS decision_chosen
+ FROM bot_drafts d JOIN bot_profiles b ON b.id=d.bot_id LEFT JOIN app_members m ON m.id=d.reviewed_by LEFT JOIN bot_review_push_outbox p ON p.draft_id=d.id LEFT JOIN bot_draft_decisions dd ON dd.draft_id=d.id`;
 
 async function ensureInitialBots(db: D1Database, now: string): Promise<void> {
   // Read-only when already initialized. Needed after recovery of an older backup.
@@ -198,24 +211,44 @@ async function deliveryDetail(db:D1Database,id:number,owner?:number):Promise<Bot
   "SELECT id,item_id,content_type,bytes FROM bot_review_images WHERE draft_id=? AND (item_id=? OR item_id IS NULL AND (SELECT count(*) FROM bot_draft_items WHERE draft_id=?)<=1) ORDER BY id",row.draft_id,row.item_id,row.draft_id):[];
  return {item:deliveryView(row),images:[...reviewImages.map(g=>({id:g.id,itemId:g.item_id,contentType:g.content_type,bytes:g.bytes})),...images.map(g=>({id:g.id,itemId:null,contentType:g.content_type,bytes:g.bytes,deliveryImage:true}))]};
 }
-async function sentItemsPage(db:D1Database,kind:"post"|"patrol",now:string,before:string|null,selectedId?:number,summaryOnly=false):Promise<BotSentItemPage<BotSentItemSummary|BotSentItemView>>{
+async function sentItemsPage(db:D1Database,kind:"post"|"patrol",now:string,before:string|null,selectedId?:number,summaryOnly=false,sessionId?:number):Promise<BotSentItemPage<BotSentItemSummary|BotSentItemView>>{
  const today=taipeiTodayRange(new Date(now)),position=timelineCursor(before);
- const fields=summaryOnly?"SELECT x.id,x.draft_id,i.seq,x.title,x.sent_at FROM bot_deliveries x LEFT JOIN bot_draft_items i ON i.id=x.item_id":DELIVERY_SQL;
+ const fields=summaryOnly?"SELECT x.id,x.draft_id,i.seq,x.title,x.sent_at,x.platform FROM bot_deliveries x LEFT JOIN bot_draft_items i ON i.id=x.item_id":DELIVERY_SQL;
+ // sessionId 0 = 尚未歸入場次的舊成果；其他為場次編號。
+ const sessionClause=sessionId===undefined?"":sessionId===0?"AND x.session_id IS NULL":"AND x.session_id=?";
  const rows=await many<DeliveryRow>(db,fields+` WHERE x.kind=? AND x.sent_at>=? AND x.sent_at<?
- AND (?='' OR x.sent_at<? OR (x.sent_at=? AND x.id<?)) ${selectedId===undefined?"":"AND x.bot_id=?"}
- ORDER BY x.sent_at DESC,x.id DESC LIMIT ?`,kind,today.start,today.end,position?.at??"",position?.at??"",position?.at??"",position?.id??0,...(selectedId===undefined?[]:[selectedId]),BOT_PAGE_SIZE+1);
+ AND (?='' OR x.sent_at<? OR (x.sent_at=? AND x.id<?)) ${selectedId===undefined?"":"AND x.bot_id=?"} ${sessionClause}
+ ORDER BY x.sent_at DESC,x.id DESC LIMIT ?`,kind,today.start,today.end,position?.at??"",position?.at??"",position?.at??"",position?.id??0,...(selectedId===undefined?[]:[selectedId]),...(sessionId?[sessionId]:[]),BOT_PAGE_SIZE+1);
  const visible=rows.slice(0,BOT_PAGE_SIZE),last=visible.at(-1),more=rows.length>BOT_PAGE_SIZE;
- return {day:today.day,more,nextBefore:more&&last?last.sent_at+"|"+last.id:null,items:visible.map(r=>summaryOnly?{id:r.id,draftId:r.draft_id,seq:r.seq,title:r.title,sentAt:r.sent_at}:deliveryView(r))};
+ return {day:today.day,more,nextBefore:more&&last?last.sent_at+"|"+last.id:null,items:visible.map(r=>summaryOnly?{id:r.id,draftId:r.draft_id,seq:r.seq,title:r.title,sentAt:r.sent_at,platform:r.platform}:deliveryView(r))};
 }
 async function deliveryCount(db:D1Database,kind:string,start:string,end:string,owner?:number){
  return (await one<{n:number}>(db,`SELECT count(*) n FROM bot_deliveries WHERE kind=? AND sent_at>=? AND sent_at<? ${owner===undefined?"":"AND bot_id=?"}`,kind,start,end,...(owner===undefined?[]:[owner])))?.n??0;
 }
+/**
+ * 場次狀態（V0.22.0）：連結的稿件有待審的則 → 待審核；否則有已通過但還沒有送出成果的則、且場次未被 BOT 明確結束 → 已審核；
+ * 其餘 → 已完成。沒有連結稿件的舊場次：有送出成果才算已完成（沒有成果也沒有明確結束的空場次不列）。
+ */
+function patrolStatus(pending:number,awaiting:number,completed:boolean):BotPatrolStatus{
+ return pending>0?"pending":awaiting>0&&!completed?"approved":"done";
+}
 async function patrolSummaries(db:D1Database,day:string,start:string,end:string,owner?:number):Promise<BotPatrolSummary[]>{
  // One row per declared session; counts come from the same delivery ledger as the clickable N.
- const rows=await many<{id:number;label:string;note:string;sent:number}>(db,`SELECT s.id,s.label,s.note,(SELECT count(*) FROM bot_deliveries x WHERE x.session_id=s.id AND x.sent_at>=? AND x.sent_at<?) sent
+ const sessions=await many<{id:number;label:string;note:string;completed_at:string|null;sent:number}>(db,`SELECT s.id,s.label,s.note,s.completed_at,(SELECT count(*) FROM bot_deliveries x WHERE x.session_id=s.id AND x.sent_at>=? AND x.sent_at<?) sent
  FROM bot_patrol_sessions s WHERE s.day=? ${owner===undefined?"":"AND s.bot_id=?"} ORDER BY s.updated_at DESC,s.id DESC LIMIT ?`,start,end,day,...(owner===undefined?[]:[owner]),BOT_PAGE_SIZE);
+ // 連結稿件的待審／待送則數：只看最新版，依 idx_bot_drafts_session 以場次編號取稿。
+ const linked=sessions.length?await many<{session_id:number;draft_id:number;pending:number;awaiting:number}>(db,`SELECT d.session_id,d.id AS draft_id,
+  (SELECT count(*) FROM bot_draft_items i WHERE i.draft_id=d.id AND i.review_status='pending' AND i.externally_completed_at IS NULL) AS pending,
+  (SELECT count(*) FROM bot_draft_items i WHERE i.draft_id=d.id AND i.review_status='approved' AND NOT EXISTS(SELECT 1 FROM bot_deliveries x WHERE x.item_id=i.id)) AS awaiting
+  FROM bot_drafts d WHERE d.session_id IN(SELECT value FROM json_each(?)) AND NOT EXISTS(SELECT 1 FROM bot_drafts newer WHERE newer.previous_draft_id=d.id) ORDER BY d.id`,JSON.stringify(sessions.map(x=>x.id))):[];
+ const rows:BotPatrolSummary[]=[];
+ for(const s of sessions){
+  const mine=linked.filter(x=>x.session_id===s.id),pending=mine.reduce((n,x)=>n+x.pending,0),awaiting=mine.reduce((n,x)=>n+x.awaiting,0);
+  if(!mine.length&&!s.sent&&!s.completed_at)continue;
+  rows.push({id:s.id,label:s.label,note:s.note,sent:s.sent,status:patrolStatus(pending,awaiting,!!s.completed_at),pendingItems:pending,awaitingItems:awaiting,draftIds:mine.map(x=>x.draft_id)});
+ }
  const unassigned=await one<{n:number}>(db,`SELECT count(*) n FROM bot_deliveries WHERE kind='patrol' AND session_id IS NULL AND sent_at>=? AND sent_at<? ${owner===undefined?"":"AND bot_id=?"}`,start,end,...(owner===undefined?[]:[owner]));
- if(unassigned?.n)rows.push({id:0,label:"",note:"",sent:unassigned.n});
+ if(unassigned?.n)rows.push({id:0,label:"",note:"",sent:unassigned.n,status:"done",pendingItems:0,awaitingItems:0,draftIds:[]});
  return rows;
 }
 function publicationUrl(value:unknown):string{
@@ -226,19 +259,25 @@ function publicationUrl(value:unknown):string{
 }
 async function patrolSession(db:D1Database,botId:number,body:Record<string,unknown>,now:string){
  const ref=text(body.sessionRef,"巡視固定編號",120,true),label=text(body.label,"巡視名稱",12,true),note=text(body.note,"巡視摘要",40);
+ if(body.completed!==undefined&&body.completed!==true&&body.completed!==false)throw new Bad("BOT_INVALID","completed 須為 true 或 false");
+ const completed=body.completed===true?1:0;
  const day=body.day??taipeiTodayRange(new Date(now)).day;
  if(typeof day!=="string"||!/^\d{4}-\d\d-\d\d$/.test(day)||!Number.isFinite(Date.parse(day+"T00:00:00Z"))||new Date(day+"T00:00:00Z").toISOString().slice(0,10)!==day)throw new Bad("BOT_INVALID","巡視日期不正確");
- await db.prepare(`INSERT INTO bot_patrol_sessions(bot_id,session_ref,day,label,note,updated_at) VALUES(?,?,?,?,?,?)
- ON CONFLICT(bot_id,session_ref) DO UPDATE SET label=excluded.label,note=excluded.note,updated_at=excluded.updated_at WHERE day=excluded.day`).bind(botId,ref,day,label,note,now).run();
- const saved=await one<{id:number;day:string}>(db,"SELECT id,day FROM bot_patrol_sessions WHERE bot_id=? AND session_ref=?",botId,ref);
+ // completed:true 只在第一次記下結束時間；不傳或 false 不會重新開啟，也不會改動已有的結束時間。
+ await db.prepare(`INSERT INTO bot_patrol_sessions(bot_id,session_ref,day,label,note,updated_at,completed_at) VALUES(?,?,?,?,?,?,CASE WHEN ?=1 THEN ? ELSE NULL END)
+ ON CONFLICT(bot_id,session_ref) DO UPDATE SET label=excluded.label,note=excluded.note,updated_at=excluded.updated_at,completed_at=CASE WHEN ?=1 THEN COALESCE(bot_patrol_sessions.completed_at,excluded.updated_at) ELSE bot_patrol_sessions.completed_at END WHERE day=excluded.day`).bind(botId,ref,day,label,note,now,completed,now,completed).run();
+ const saved=await one<{id:number;day:string;completed_at:string|null}>(db,"SELECT id,day,completed_at FROM bot_patrol_sessions WHERE bot_id=? AND session_ref=?",botId,ref);
  if(saved?.day!==day)throw new Bad("BOT_EVENT_CONFLICT","同一巡視編號不能改日期",409);
- return {id:saved.id,sessionRef:ref,day,label,note};
+ return {id:saved.id,sessionRef:ref,day,label,note,completed:!!saved.completed_at,completedAt:saved.completed_at};
 }
 /** Immutable actual-work receipt. External approval is provenance, never a CYWEB review decision. */
 async function saveDelivery(db:D1Database,bot:ProfileRow,body:Record<string,unknown>,now:string){
  const ref=text(body.eventRef,"成果固定編號",120,true),kind=body.kind,source=body.approvalSource;
  if(kind!=="post"&&kind!=="patrol"||!["cyweb","chat","line","other"].includes(String(source)))throw new Bad("BOT_INVALID","成果分類或核准來源不正確");
- const note=text(body.approvalNote,"核准來源說明",200,source!=="cyweb"),platform=text(body.platform,"平台",40),url=publicationUrl(body.url);
+ const note=text(body.approvalNote,"核准來源說明",200,source!=="cyweb"),url=publicationUrl(body.url);
+ // V0.22.0：新寫入的平台只收 FB／IG／Threads（不分大小寫），以標準寫法保存；留空維持未填。
+ const rawPlatform=text(body.platform,"平台",40),platform=rawPlatform===""?"":canonicalBotPlatform(rawPlatform)??"";
+ if(rawPlatform!==""&&!platform)throw new Bad("BOT_INVALID","平台須為 FB、IG 或 Threads",400);
  let target:DraftRow|null=null,item:ItemRow|null=null;
  if(body.draftId!==undefined){
   if(!Number.isSafeInteger(body.draftId)||Number(body.draftId)<1)throw new Bad("BOT_INVALID","稿件編號不正確");
@@ -307,8 +346,11 @@ async function state(db: D1Database, url: URL, now: string, canManageCredentials
   if (requestedBot !== null && !selected) throw new Bad("BOT_NOT_FOUND", "沒有這個 BOT", 404);
   const scopedArgs = selected ? [selected.id] : [];
   // Static clauses with bound IDs let the per-BOT indexes serve every page.
-  const draftRows = await many<DraftRow>(db, `${DRAFT_SQL} WHERE NOT EXISTS(SELECT 1 FROM bot_drafts newer WHERE newer.previous_draft_id=d.id) AND (?='all' OR (CASE WHEN d.externally_completed_at IS NOT NULL THEN 'external' ELSE d.review_status END)=?) AND (?=0 OR d.id<?) ${selected ? "AND d.bot_id=?" : ""} ORDER BY d.id DESC LIMIT ?`,
+  // 待審檢視：拍板事項另外取、固定排在最前（期限近到遠，沒有期限的在後），其餘內容稿照原順序分頁。
+  const draftRows = await many<DraftRow>(db, `${DRAFT_SQL} WHERE NOT EXISTS(SELECT 1 FROM bot_drafts newer WHERE newer.previous_draft_id=d.id) AND (?='all' OR (CASE WHEN d.externally_completed_at IS NOT NULL THEN 'external' ELSE d.review_status END)=?) AND (?=0 OR d.id<?) ${draftStatus === "pending" ? "AND dd.draft_id IS NULL" : ""} ${selected ? "AND d.bot_id=?" : ""} ORDER BY d.id DESC LIMIT ?`,
     draftStatus, draftStatus, draftBefore, draftBefore, ...scopedArgs, BOT_PAGE_SIZE + 1);
+  const decisionRows = draftStatus === "pending" && draftBefore === 0 ? await many<DraftRow>(db, `${DRAFT_SQL} WHERE d.review_status='pending' AND d.externally_completed_at IS NULL AND dd.draft_id IS NOT NULL AND NOT EXISTS(SELECT 1 FROM bot_drafts newer WHERE newer.previous_draft_id=d.id) ${selected ? "AND d.bot_id=?" : ""} ORDER BY dd.deadline_at IS NULL, dd.deadline_at, d.id DESC LIMIT ?`,
+    ...scopedArgs, BOT_PAGE_SIZE) : [];
   const counts = await many<{ bot_id: number; review_status: BotReviewStatus; n: number }>(db,
     "SELECT bot_id,CASE WHEN d.externally_completed_at IS NOT NULL THEN 'external' ELSE d.review_status END AS review_status,count(*) n FROM bot_drafts d WHERE NOT EXISTS(SELECT 1 FROM bot_drafts newer WHERE newer.previous_draft_id=d.id) GROUP BY bot_id,(CASE WHEN d.externally_completed_at IS NOT NULL THEN 'external' ELSE d.review_status END)");
   const completions = await many<{bot_id:number;work_type:BotWorkType;n:number}>(db,
@@ -328,19 +370,29 @@ async function state(db: D1Database, url: URL, now: string, canManageCredentials
     if (!selected || selected.id===bot.id) for (const status of BOT_REVIEW_STATUSES) draftCounts[status]+=totals[status];
   }
   const countWork = (type: BotWorkType) => completions.filter(row => row.work_type===type && (!selected || row.bot_id===selected.id)).reduce((sum,row)=>sum+row.n,0);
-  const latestPending = await one<DraftRow>(db, `${DRAFT_SQL} WHERE NOT EXISTS(SELECT 1 FROM bot_drafts newer WHERE newer.previous_draft_id=d.id) AND d.review_status='pending' AND d.externally_completed_at IS NULL ${selected ? "AND d.bot_id=?" : ""} ORDER BY d.id DESC LIMIT 1`, ...scopedArgs);
   // V0.15.0: pending items by kind, patrol daily totals, and today's actually sent drafts per card.
   const scope = "AND NOT EXISTS(SELECT 1 FROM bot_drafts newer WHERE newer.previous_draft_id=d.id)" + (selected ? " AND d.bot_id=?" : "");
-  const itemTotals = await one<{posts:number;patrols:number;to_send:number}>(db, `SELECT
-    (SELECT count(*) FROM bot_draft_items i JOIN bot_drafts d ON d.id=i.draft_id WHERE i.review_status='pending' AND i.externally_completed_at IS NULL AND d.kind='post' ${scope}) AS posts,
+  const itemTotals = await one<{patrols:number;to_send:number}>(db, `SELECT
     (SELECT count(*) FROM bot_draft_items i JOIN bot_drafts d ON d.id=i.draft_id WHERE i.review_status='pending' AND i.externally_completed_at IS NULL AND d.kind='patrol' ${scope}) AS patrols,
     (SELECT count(*) FROM bot_draft_items i JOIN bot_drafts d ON d.id=i.draft_id WHERE d.kind='patrol' AND i.review_status IN ('pending','approved') AND i.sent_at IS NULL AND i.externally_completed_at IS NULL ${scope}) AS to_send`,
+    ...scopedArgs, ...scopedArgs);
+  // 待核准只計內容稿（不含拍板），單位為件；依 idx_bot_drafts_status 只掃待審範圍。
+  const pendingScope = "d.review_status='pending' AND d.externally_completed_at IS NULL AND NOT EXISTS(SELECT 1 FROM bot_drafts newer WHERE newer.previous_draft_id=d.id)" + (selected ? " AND d.bot_id=?" : "");
+  const contentPending = await one<{posts:number;patrol_drafts:number;other:number}>(db, `SELECT
+    (SELECT count(*) FROM bot_drafts d WHERE d.kind='post' AND ${pendingScope}) AS posts,
+    (SELECT count(*) FROM bot_drafts d WHERE d.kind='patrol' AND ${pendingScope}) AS patrol_drafts,
+    (SELECT count(*) FROM bot_drafts d WHERE d.kind='general' AND NOT EXISTS(SELECT 1 FROM bot_draft_decisions dd WHERE dd.draft_id=d.id) AND ${pendingScope}) AS other`,
     ...scopedArgs, ...scopedArgs, ...scopedArgs);
+  // 拍板結案：尚未逾期、等你決定的事項；逾期的仍留在審核表（顯示已逾期）但不能再決定，所以不計入。
+  const decisionScope = `FROM bot_drafts d JOIN bot_draft_decisions dd ON dd.draft_id=d.id WHERE ${pendingScope} AND (dd.deadline_at IS NULL OR dd.deadline_at>?)`;
+  const decisionCount = await one<{n:number}>(db, `SELECT count(*) n ${decisionScope}`, ...scopedArgs, now);
+  const decisionTop = await many<{id:number;title:string;deadline_at:string|null}>(db, `SELECT d.id,d.title,dd.deadline_at ${decisionScope} ORDER BY dd.deadline_at IS NULL, dd.deadline_at, d.id DESC LIMIT 3`, ...scopedArgs, now);
   const patrolReports=await many<CompletionRow>(db,`${COMPLETION_SQL} WHERE c.work_type='threads_patrol' AND c.completed_at>=? AND c.completed_at<? ${selected?"AND c.bot_id=?":""} ORDER BY c.completed_at DESC,c.id DESC LIMIT ?`,today.start,today.end,...scopedArgs,BOT_PAGE_SIZE);
   const workSummary: BotCenterState["workSummary"] = {
     articles: { count: await deliveryCount(db,"post",today.start,today.end,selected?.id), published:await sentItemsPage(db,"post",now,null,selected?.id,true) },
     patrols: { count: countWork("threads_patrol"), latest: patrolReports[0]?completionView(patrolReports[0]):null, sentToday: await deliveryCount(db,"patrol",today.start,today.end,selected?.id), toSend: itemTotals?.to_send ?? 0,reports:patrolReports.map(completionView),sessions:await patrolSummaries(db,today.day,today.start,today.end,selected?.id) },
-    pending: { count: draftCounts.pending, latest: latestPending ? draftView(latestPending) : null, posts: itemTotals?.posts ?? 0, patrols: itemTotals?.patrols ?? 0 },
+    pending: { count: (contentPending?.posts ?? 0) + (contentPending?.patrol_drafts ?? 0) + (contentPending?.other ?? 0), posts: contentPending?.posts ?? 0, patrolDrafts: contentPending?.patrol_drafts ?? 0, patrolItems: itemTotals?.patrols ?? 0, other: contentPending?.other ?? 0 },
+    decisions: { count: decisionCount?.n ?? 0, items: decisionTop.map(row => ({ id: row.id, title: row.title, deadline: row.deadline_at })) },
   };
   const visibleDrafts = draftRows.slice(0, BOT_PAGE_SIZE);
   const visibleReports = reportRows.slice(0, BOT_PAGE_SIZE);
@@ -348,7 +400,7 @@ async function state(db: D1Database, url: URL, now: string, canManageCredentials
   return {
     ...currentProgress, workSummary,
     botCode: selected?.code ?? null, botStats,
-    drafts: visibleDrafts.map(draftView), draftStatus, draftCounts,
+    drafts: [...decisionRows, ...visibleDrafts].map(draftView), draftStatus, draftCounts,
     draftsMore: draftRows.length > BOT_PAGE_SIZE,
     draftNextBefore: draftRows.length > BOT_PAGE_SIZE ? visibleDrafts.at(-1)!.id : null,
     reports: visibleReports.map(reportView),
@@ -377,7 +429,18 @@ async function human(request: Request, env: BotEnv, requestId: string, url: URL,
     const kind=url.searchParams.get("kind");if(kind!=="post"&&kind!=="patrol")throw new Bad("BOT_INVALID","請選擇貼文或海巡");
     const summary=url.searchParams.get("summary");if(summary!==null&&summary!=="1")throw new Bad("BOT_INVALID","顯示方式不正確");
     const code=url.searchParams.get("botCode"),selected=code===null?undefined:await profileByCode(db,botCode(code));
-    return success(await sentItemsPage(db,kind,now,url.searchParams.get("before"),selected?.id,summary==="1"),requestId);
+    const sessionParam=url.searchParams.get("sessionId");
+    if(sessionParam!==null&&!/^\d{1,12}$/.test(sessionParam))throw new Bad("BOT_INVALID","場次編號不正確");
+    return success(await sentItemsPage(db,kind,now,url.searchParams.get("before"),selected?.id,summary==="1",sessionParam===null?undefined:Number(sessionParam)),requestId);
+  }
+  // 場次詳情（V0.22.0）：這個場次連結稿件裡「待審」與「已通過但還沒有送出成果」的則；已送出的走 sent-items?sessionId=。
+  const sessionItems=/^patrol-sessions\/(\d+)\/items$/.exec(path);
+  if(sessionItems&&request.method==="GET"){
+    const rows=await many<{id:number;draft_id:number;seq:number;title:string;body:string;review_status:BotReviewStatus}>(db,`SELECT i.id,d.id AS draft_id,i.seq,i.title,i.body,i.review_status
+     FROM bot_drafts d JOIN bot_draft_items i ON i.draft_id=d.id WHERE d.session_id=? AND NOT EXISTS(SELECT 1 FROM bot_drafts newer WHERE newer.previous_draft_id=d.id)
+     AND ((i.review_status='pending' AND i.externally_completed_at IS NULL) OR (i.review_status='approved' AND NOT EXISTS(SELECT 1 FROM bot_deliveries x WHERE x.item_id=i.id)))
+     ORDER BY d.id,i.seq LIMIT ?`,Number(sessionItems[1]),BOT_PAGE_SIZE);
+    return success({items:rows.map((r):BotPatrolSessionItem=>({id:r.id,draftId:r.draft_id,seq:r.seq,title:r.title,body:r.body,status:r.review_status}))},requestId);
   }
 
   const deliveryRoute=/^deliveries\/(\d+)$/.exec(path);
@@ -450,19 +513,31 @@ async function human(request: Request, env: BotEnv, requestId: string, url: URL,
       if (notify?.enabled === 1) ctx?.waitUntil(deliverReviewPushes(env, { draftId: id }).catch(() => undefined));
       return success(draftView(await draftById(db, id)), requestId);
     }
+    // 拍板事項（V0.22.0）：逾期不能決定；有選項而同意時必須選一個（選項序號從 0 起）。
+    let chosen: number | null = null, chosenText: string | undefined;
+    if (current.is_decision) {
+      const view = decisionView(current)!;
+      if (view.expired) throw new Bad("BOT_DECISION_EXPIRED", "這項拍板已逾期，不能再決定", 409);
+      if (decision === "approved" && view.options?.length) {
+        if (!Number.isSafeInteger(body.choice) || Number(body.choice) < 0 || Number(body.choice) >= view.options.length) throw new Bad("BOT_INVALID", "請選擇一個選項");
+        chosen = Number(body.choice); chosenText = view.options[chosen];
+      }
+    }
     // Commit the review, its audit and optional notification atomically before attempting delivery.
-    const [updated] = await db.batch([
+    const batch = await db.batch([
+      ...(chosen !== null ? [db.prepare("UPDATE bot_draft_decisions SET chosen_option=? WHERE draft_id=? AND EXISTS(SELECT 1 FROM bot_drafts WHERE id=? AND review_status='pending' AND externally_completed_at IS NULL AND NOT EXISTS(SELECT 1 FROM bot_drafts newer WHERE newer.previous_draft_id=bot_drafts.id))").bind(chosen, id, id)] : []),
       db.prepare("UPDATE bot_drafts SET review_status=?,review_reason=?,reviewed_by=?,reviewed_at=? WHERE id=? AND review_status='pending' AND externally_completed_at IS NULL AND NOT EXISTS(SELECT 1 FROM bot_drafts newer WHERE newer.previous_draft_id=bot_drafts.id)")
         .bind(decision, reason, actor, now, id),
       new AuditService(db).prepareRecord({
         entityType: "bot_draft", entityKey: String(id), action: decision === "approved" ? "bot_draft.approved" : "bot_draft.rejected",
         actorEmployeeId: actor, requestId, statusFrom: "pending", statusTo: decision,
-        after: { name: current.title, ...(reason ? { reason } : {}) },
+        after: { name: current.title, ...(reason ? { reason } : {}), ...(chosenText ? { choice: chosenText } : {}) },
       // This must immediately follow the UPDATE in the same atomic batch.
       // A concurrent loser changes zero rows, even when its timestamp matches.
       }, { sql: "changes()=1" }),
       ...(notify?.enabled===1?[db.prepare("INSERT INTO bot_review_push_outbox(draft_id,next_attempt_at,created_at,updated_at) SELECT ?,?,?,? WHERE changes()=1 ON CONFLICT DO NOTHING").bind(id,now,now,now)]:[]),
     ]);
+    const updated = batch[chosen !== null ? 1 : 0];
     if (updated.meta.changes !== 1) throw new Bad("ALREADY_REVIEWED", "這篇審稿已經有結果", 409);
     if(notify?.enabled===1)ctx?.waitUntil(deliverReviewPushes(env,{draftId:id}).catch(()=>undefined));
     const saved = await draftById(db, id);
@@ -554,7 +629,45 @@ function itemsOf(value: unknown): ItemInput[] {
   });
   return items;
 }
-async function saveDraft(db: D1Database, botId: number, externalRef: string | null, title: string, body: string, now: string, kind: BotDraftKind = "general", items: ItemInput[] = [], previousId?: number): Promise<DraftRow> {
+type DecisionInput = { category: string; amount: number | null; deadline: string | null; options: string[] | null };
+/** 拍板事項內容的伺服器端驗證（V0.22.0）。錯誤一律 400。 */
+function decisionOf(value: unknown): DecisionInput | null {
+  if (value === undefined || value === null) return null;
+  const invalid = (message: string) => new Bad("BOT_INVALID", message, 400);
+  if (typeof value !== "object" || Array.isArray(value)) throw invalid("拍板內容格式不正確");
+  const raw = value as Record<string, unknown>;
+  if (Object.keys(raw).some(key => !["category", "amount", "deadline", "options"].includes(key))) throw invalid("拍板內容只能包含 category、amount、deadline、options");
+  const category = typeof raw.category === "string" ? raw.category.trim() : "";
+  if (!category || chars(category) > BOT_DECISION_LIMITS.category) throw invalid(`拍板類別必填，最多 ${BOT_DECISION_LIMITS.category} 字`);
+  let amount: number | null = null;
+  if (raw.amount !== undefined && raw.amount !== null) {
+    if (typeof raw.amount !== "number" || !Number.isSafeInteger(raw.amount) || raw.amount < 0) throw invalid("拍板金額須為不小於 0 的整數（單位：分）");
+    amount = raw.amount;
+  }
+  let deadline: string | null = null;
+  if (raw.deadline !== undefined && raw.deadline !== null) {
+    if (typeof raw.deadline !== "string" || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,3})?Z$/.test(raw.deadline)) throw invalid("拍板期限須為 UTC ISO 時間");
+    const parsed = new Date(raw.deadline);
+    if (Number.isNaN(parsed.getTime()) || parsed.toISOString().slice(0, 19) !== raw.deadline.slice(0, 19)) throw invalid("拍板期限不正確");
+    deadline = parsed.toISOString();
+  }
+  let options: string[] | null = null;
+  if (raw.options !== undefined && raw.options !== null) {
+    const { min, max, length } = BOT_DECISION_LIMITS.options;
+    if (!Array.isArray(raw.options) || raw.options.length < min || raw.options.length > max) throw invalid(`拍板選項需 ${min} 至 ${max} 個`);
+    options = raw.options.map(option => {
+      const label = typeof option === "string" ? option.trim() : "";
+      if (!label || chars(label) > length) throw invalid(`每個選項必填，最多 ${length} 字`);
+      return label;
+    });
+    if (new Set(options).size !== options.length) throw invalid("拍板選項不可重複");
+  }
+  return { category, amount, deadline, options };
+}
+const decisionInsert = (db: D1Database, input: DecisionInput) => db.prepare("INSERT INTO bot_draft_decisions(draft_id,category,amount,deadline_at,options_json) VALUES(last_insert_rowid(),?,?,?,?)")
+  .bind(input.category, input.amount, input.deadline, input.options ? JSON.stringify(input.options) : null);
+
+async function saveDraft(db: D1Database, botId: number, externalRef: string | null, title: string, body: string, now: string, kind: BotDraftKind = "general", items: ItemInput[] = [], previousId?: number, decision: DecisionInput | null = null, sessionId: number | null = null): Promise<DraftRow> {
   if (externalRef) {
     const existing = await one<{ id: number }>(db, "SELECT id FROM bot_drafts WHERE bot_id=? AND external_ref=?", botId, externalRef);
     if (existing) return draftById(db, existing.id);
@@ -562,14 +675,16 @@ async function saveDraft(db: D1Database, botId: number, externalRef: string | nu
   if (previousId !== undefined) {
     if(!externalRef || !Number.isSafeInteger(previousId) || previousId<1)throw new Bad("BOT_INVALID","覆蓋新版需新externalRef與有效previousDraftId");
     const old=await draftById(db,previousId,botId);
-    if(old.kind!==kind)throw new Bad("BOT_REVISION_CONFLICT","新版須保持原稿分類",409);
+    if(old.kind!==kind||(!old.is_decision&&decision))throw new Bad("BOT_REVISION_CONFLICT","新版須保持原稿分類",409);
+    if(old.is_decision&&!decision)throw new Bad("BOT_INVALID","拍板事項的新版也必須附 decision",400);
     if(old.superseded_by_id || old.sent_at || await one(db,"SELECT id FROM bot_draft_items WHERE draft_id=? AND (sent_at IS NOT NULL OR externally_completed_at IS NOT NULL) LIMIT 1",previousId))throw new Bad("BOT_REVISION_CONFLICT","原稿已有新版或已送出，不能覆蓋",409);
     try {
       const [inserted]=await db.batch([
-        db.prepare(`INSERT INTO bot_drafts(bot_id,external_ref,title,body,created_at,kind,previous_draft_id,revision_number)
-          SELECT ?,?,?,?,?,?,d.id,d.revision_number+1 FROM bot_drafts d WHERE d.id=? AND d.bot_id=? AND d.sent_at IS NULL
+        db.prepare(`INSERT INTO bot_drafts(bot_id,external_ref,title,body,created_at,kind,previous_draft_id,revision_number,session_id)
+          SELECT ?,?,?,?,?,?,d.id,d.revision_number+1,COALESCE(?,d.session_id) FROM bot_drafts d WHERE d.id=? AND d.bot_id=? AND d.sent_at IS NULL
           AND NOT EXISTS(SELECT 1 FROM bot_draft_items WHERE draft_id=d.id AND (sent_at IS NOT NULL OR externally_completed_at IS NOT NULL))
-          AND NOT EXISTS(SELECT 1 FROM bot_drafts newer WHERE newer.previous_draft_id=d.id)`).bind(botId,externalRef,title,body,now,kind,previousId,botId),
+          AND NOT EXISTS(SELECT 1 FROM bot_drafts newer WHERE newer.previous_draft_id=d.id)`).bind(botId,externalRef,title,body,now,kind,sessionId,previousId,botId),
+        ...(decision?[db.prepare("INSERT INTO bot_draft_decisions(draft_id,category,amount,deadline_at,options_json) SELECT id,?,?,?,? FROM bot_drafts WHERE bot_id=? AND external_ref=?").bind(decision.category,decision.amount,decision.deadline,decision.options?JSON.stringify(decision.options):null,botId,externalRef)]:[]),
         ...items.map((item,i)=>db.prepare("INSERT INTO bot_draft_items(draft_id,seq,ref,title,body) VALUES((SELECT id FROM bot_drafts WHERE bot_id=? AND external_ref=?),?,?,?,?)").bind(botId,externalRef,i+1,item.ref,item.title,item.body))
       ]);
       if(inserted.meta.changes!==1)throw Error('conflict');
@@ -590,9 +705,9 @@ async function saveDraft(db: D1Database, botId: number, externalRef: string | nu
     }
   }
   try {
-    const inserted = await db.prepare(
-      "INSERT INTO bot_drafts(bot_id,external_ref,title,body,created_at,kind) VALUES(?,?,?,?,?,?)",
-    ).bind(botId, externalRef, title, body, now, kind).run();
+    const insert = db.prepare("INSERT INTO bot_drafts(bot_id,external_ref,title,body,created_at,kind,session_id) VALUES(?,?,?,?,?,?,?)").bind(botId, externalRef, title, body, now, kind, sessionId);
+    // 拍板事項與稿件同一批寫入，不會留下沒有拍板內容的稿件。
+    const inserted = decision ? (await db.batch([insert, decisionInsert(db, decision)]))[0] : await insert.run();
     const id = Number(inserted.meta.last_row_id);
     if (items.length) {
       try {
@@ -673,7 +788,18 @@ async function ingest(request: Request, env: BotEnv, requestId: string, url: URL
     const items = itemsOf(body.items);
     // Same rule as the official client: only a general draft is single; post / patrol drafts need items.
     if ((kind === "general") !== !items.length) throw new Bad("BOT_INVALID", kind === "general" ? "一般稿不可附多則內容" : "貼文與海巡稿需附多則內容 items", 400);
-    return success(draftView(await saveDraft(db, bot.id, externalRef, title, draft, now, kind as BotDraftKind, items, body.previousDraftId as number|undefined)), requestId);
+    const decision = decisionOf(body.decision);
+    if (decision && (kind !== "general" || items.length)) throw new Bad("BOT_INVALID", "拍板事項不可附多則內容，也不是貼文或海巡稿", 400);
+    // 海巡稿可連結同 BOT、同一台北日已登錄的巡視場次。
+    let sessionId: number | null = null;
+    if (body.sessionRef !== undefined) {
+      if (kind !== "patrol") throw new Bad("BOT_INVALID", "只有海巡稿可以指定巡視場次", 400);
+      const ref = text(body.sessionRef, "巡視固定編號", 120, true);
+      const session = await one<{ id: number; day: string }>(db, "SELECT id,day FROM bot_patrol_sessions WHERE bot_id=? AND session_ref=?", bot.id, ref);
+      if (!session || session.day !== taipeiTodayRange(new Date(now)).day) throw new Bad("BOT_INVALID", "請先登錄同日的巡視場次", 400);
+      sessionId = session.id;
+    }
+    return success(draftView(await saveDraft(db, bot.id, externalRef, title, draft, now, kind as BotDraftKind, items, body.previousDraftId as number|undefined, decision, sessionId)), requestId);
   }
   if (path === "drafts" && request.method === "GET") {
     requireBotScope(url.searchParams.get("botCode"),bot);
