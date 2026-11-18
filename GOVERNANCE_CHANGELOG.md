@@ -1,5 +1,10 @@
 # CY Web Governance Changelog
 
+## 1.1.31 — 2026/11/18
+
+- 同步 CYID 契約鏡像 `docs/contracts/cyid/ARCHITECTURE.md`（CYapps #632 補寫 CYID 正式 Worker 部署查詢變數說明後，鏡像不一致使所有 PR 的 Governance Check 失敗）。之後由 CYapps `cyweb-consumer-check.yml` 在這些檔案變更時提醒同步（CYapps governance 2.3.65）。
+- TODO：CYInvoice 已確認改接正式 CYID。
+
 ## 1.1.30 — 2026/11/18
 
 - 部署維運規則（使用者 2026-11-18：「之後不想再碰到這類問題」）。`REPO_POLICY.md` §6 新增：部署識別碼不得經由 GitHub variables（V0.21.4 已實作）、不得以命名慣例推導資源（V0.21.5 已移除 `-prod`→`-dev`）、刪除 Cloudflare 資源須同輪清掉引用、跨 repo 依賴 CYapps CYID 核對程式的檢查方式、部署流程變更須實際部署並比對 log。與 CYapps governance 2.3.64 同步。
