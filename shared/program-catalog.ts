@@ -4,7 +4,7 @@ export interface ProgramEntry {
   name: string;
   navLabel?: string;
   platform: "web" | "windows";
-  icon: "ACC" | "INV" | "CAL" | "CVT" | "Auto" | "AutoQ" | "ENV" | "WM" | null;
+  icon: "ACC" | "INV" | "CAL" | "CVT" | "Auto" | "AutoQ" | "ENV" | "WM" | "PRC" | null;
   description: string;
   version: string | null;
   publishedAt: string | null;
@@ -86,7 +86,7 @@ export const verifiedProgramCatalog: ProgramCatalog = {
     { id: "watermark", name: "盲浮水印工具", platform: "windows", icon: "WM",
       description: "商品圖片盲浮水印工具，支援批次嵌入、圖片驗證與 PDF 驗證報告。",
       version: null, publishedAt: null, releaseUrl: null, downloadUrl: null, websiteUrl: null },
-    { id: "price-desk", name: "價格觀測室", navLabel: "價格觀測室", platform: "web", icon: null,
+    { id: "price-desk", name: "價格觀測室", navLabel: "價格觀測室", platform: "web", icon: "PRC",
       description: "查詢 momo、蝦皮、酷澎參考價，追蹤商品定期查價，作為調整定價的依據。以 CYID 員工帳號登入。",
       version: null, publishedAt: null, releaseUrl: null, downloadUrl: null,
       websiteUrl: "https://price.chihyuancm.com/" },

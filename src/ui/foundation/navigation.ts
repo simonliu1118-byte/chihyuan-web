@@ -5,6 +5,8 @@ export interface NavigationItem {
   description?: string;
   disabled?: boolean;
   external?: boolean;
+  /** App icon image (CY Apps Icon Family) shown instead of the line icon. */
+  iconSrc?: string;
 }
 
 export interface NavigationGroup {
