@@ -129,7 +129,7 @@ export function AppShell({
             event.preventDefault();
             if (item.key === activeNavigationKey) setNavigationOpen(false);
             onNavigate(item);
-          }}><NavIcon name={item.key} /><span>{item.label}</span>{item.external ? <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d="M14 3h7v7M10 14 21 3M21 13v7H3V3h8" /></svg> : null}</a>)}</div>
+          }}>{item.iconSrc ? <img className="cy-shell-nav-icon cy-shell-nav-app-icon" src={item.iconSrc} width="18" height="18" alt="" /> : <NavIcon name={item.key} />}<span>{item.label}</span>{item.external ? <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d="M14 3h7v7M10 14 21 3M21 13v7H3V3h8" /></svg> : null}</a>)}</div>
       </div>)}
     </nav>
   </>;

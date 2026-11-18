@@ -7,17 +7,9 @@ import { getProgramAction, nextProgramCatalogUpdate } from "../../../shared/prog
 import { apiRequest } from "../../api/client";
 import { DataView } from "../../ui/data/DataView";
 import { Section } from "../../ui/primitives/Section";
-import accountingIcon from "../../assets/cy-apps/ACC.svg";
-import invoiceIcon from "../../assets/cy-apps/INV.svg";
-import calculatorIcon from "../../assets/cy-apps/CAL.svg";
-import converterIcon from "../../assets/cy-apps/CVT.svg";
-import autoInputIcon from "../../assets/cy-apps/Auto.svg";
-import autoQueryIcon from "../../assets/cy-apps/AutoQ.svg";
-import envelopeIcon from "../../assets/cy-apps/ENV.svg";
-import watermarkIcon from "../../assets/cy-apps/WM.svg";
 import "./program-catalog.css";
 
-const icons = { ACC: accountingIcon, INV: invoiceIcon, CAL: calculatorIcon, CVT: converterIcon, Auto: autoInputIcon, AutoQ: autoQueryIcon, ENV: envelopeIcon, WM: watermarkIcon };
+import { programIcons as icons } from "./program-icons";
 function version(program: ProgramEntry) { return <strong>{program.version ? "V" + program.version : "尚未發版"}</strong>; }
 function published(program: ProgramEntry) {
   return program.publishedAt ? <time dateTime={program.publishedAt}>{date(program.publishedAt)}</time> : <span>—</span>;
