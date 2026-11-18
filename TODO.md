@@ -3,12 +3,12 @@
 > 本檔是 CY Web 唯一的現況與待辦清單，不是永久規則來源。各版本完成內容與驗證見 `CHANGELOG.md`；規格見 `docs/architecture/README.md`。
 > 2026-11-03、2026-11-09 整理：已完成且已記入 CHANGELOG 的版本段落移除；已結案的交接與工作單移到 Git 固定快照（見 `docs/handoff/README.md`）。
 
-## V0.21.4 部署紀錄不再印出部署識別值（工程實作，待合併／部署）
+## V0.21.4 部署紀錄不再印出部署識別值（已部署 2026-11-17）
 
 - [x] 部署與 CYID 稽核工作不再從 GitHub variables 讀 Worker／D1／CYID／R2 等識別值（runner 會在遮蔽前把 env 明碼印進公開 log）；改由 `scripts/resolve-deploy-runtime.mjs` 從正式網域查 Cloudflare 現行 Worker 綁定，先遮蔽再使用（使用者 2026-11-17 定案：方案 2，以網域查詢）。
-- [ ] 合併後部署一次，下載該次 log 以 Cloudflare 實際值逐一比對，確認查不到。
-- [ ] 確認後刪除 GitHub Environment `development` 已不用的 variables（`CF_WORKER_NAME`、`CF_D1_DATABASE_NAME`、`CF_D1_DATABASE_ID`、`CF_IDENTITY_SERVICE`、`CF_IDENTITY_APPLICATION_ID`、`CF_IDENTITY_WORKSPACE_ID`、`CF_CYINVOICE_RECOVERY_SERVICE`、`CF_HR_FILES_R2_BUCKET`）。`GCS_BUCKET`、`CF_BACKUP_R2_BUCKET` 仍供 audit-backup（以 secrets 傳入、已遮蔽），`CF_BACKUP_ENABLED`／`CF_BACKUP_SCHEDULE_ENABLED` 為開關，保留。
-- [ ] CYapps（CYACC、價格觀測室、CYID、CYInvoice 部署）同樣處理，並另開治理 PR 在 `REPO_POLICY` 寫明「部署流程不得以 variables 傳遞部署識別值」。舊 log 依使用者決定不清除（90 天後自然過期）。
+- [x] PR #524 合併部署；下載該次 log 以 Cloudflare 實際值逐一比對，查不到；audit-identity 亦通過（2026-11-17、11-18）。
+- [x] 使用者已刪除 GitHub Environment `development` 已不用的 variables（2026-11-18）（`CF_WORKER_NAME`、`CF_D1_DATABASE_NAME`、`CF_D1_DATABASE_ID`、`CF_IDENTITY_SERVICE`、`CF_IDENTITY_APPLICATION_ID`、`CF_IDENTITY_WORKSPACE_ID`、`CF_CYINVOICE_RECOVERY_SERVICE`、`CF_HR_FILES_R2_BUCKET`）。`GCS_BUCKET`、`CF_BACKUP_R2_BUCKET` 仍供 audit-backup（以 secrets 傳入、已遮蔽），`CF_BACKUP_ENABLED`／`CF_BACKUP_SCHEDULE_ENABLED` 為開關，保留。
+- [x] CYapps 同樣處理（CYapps #628，governance 2.3.62，`REPO_POLICY` 已寫入規則）；價格觀測室、CYACC 部署 log 驗證乾淨。舊 log 依使用者決定不清除（90 天後自然過期）。
 - [ ] CYapps 命名整理後，canonical CYID resolver 直接接受正式名稱，移除 `resolve-deploy-runtime.mjs` 的 `-prod` → `-dev` 暫時轉換。
 
 ## 舊 GAS 系統（chihyuan-legacy-private）
@@ -22,8 +22,8 @@
 - [x] migration0077、備份與舊sent還原、工具及技能同步，原憑證／收據／routine保持不變。
 - [x] [PR522完整Runtime檢查](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/43911896560)通過：915項Node、local D1、TypeScript、source、build成功；另部署契約與治理成功。
 - [x] Claude 審查通過（見 [handoff](docs/handoff/CYWEB-BOT-DELIVERIES-0212-20261117.md)）；PR #522 合併、部署，正式站 0.21.3、0077 已套用，55 則舊送出紀錄回填 ledger。
-- [ ] 使用者在 BOT 管理中心確認今日文章／留言數量與全文點閱正常。
-- [ ] WEB部署0077後，再交小編更新工具／技能並補目前缺少全文與場次的實際成果；不補審、不重發社群內容。
+- [x] 使用者在 BOT 管理中心確認正常；小編已更新工具／技能（2026-11-18）。
+- [x] WEB部署0077後，小編已更新工具／技能；補登缺少全文與場次的實際成果由小編依原則進行（不補審、不重發社群內容）。
 
 ## V0.18.13 BOT 巡視摘要／發布點閱（已部署，待Claude事後審查）
 
