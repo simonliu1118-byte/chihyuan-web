@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import fs from "node:fs";
-import { resolveDeployRuntime, identitySeedFor } from "./resolve-deploy-runtime.mjs";
+import { resolveDeployRuntime } from "./resolve-deploy-runtime.mjs";
 
 const dbId = "31111111-1111-4111-8111-111111111111";
 const plain = (name, text) => ({ type: "plain_text", name, text });
@@ -38,16 +38,14 @@ test("resolves every identifier from the Worker serving the public hostname and 
   const { values, masks } = await resolveDeployRuntime(f.options);
   assert.deepEqual(values, {
     CF_WORKER_NAME: "synthetic-web", CF_D1_DATABASE_ID: dbId, CF_D1_DATABASE_NAME: "synthetic-db",
-    CF_IDENTITY_SERVICE: "synthetic-identity-dev", CYID_LOOKUP_SERVICE: "synthetic-identity-dev",
+    CF_IDENTITY_SERVICE: "synthetic-identity-prod", CYID_LOOKUP_SERVICE: "synthetic-identity-prod",
     CF_IDENTITY_APPLICATION_ID: "CYWEB", CF_IDENTITY_WORKSPACE_ID: "synthetic-workspace", CF_HR_FILES_R2_BUCKET: "synthetic-hr",
   });
   for (const value of [...Object.values(values), "synthetic-identity-prod", "synthetic-sub"]) assert.ok(masks.includes(value), value);
 });
 
-test("identity seed maps back to the live production binding", () => {
-  assert.equal(identitySeedFor("cycloud-identity-prod"), "cycloud-identity-dev");
-  assert.equal(identitySeedFor("x-production"), "x-development");
-  assert.throws(() => identitySeedFor("cycloud-identity"), /CYWEB_DEPLOY_IDENTITY_NAME_UNSUPPORTED/);
+test("identity binding must be a production name", async () => {
+  await assert.rejects(resolveDeployRuntime(fixture(s => { s.bindings.find(b => b.name === "IDENTITY").service = "synthetic-identity"; }).options), /CYWEB_DEPLOY_IDENTITY_NAME_UNSUPPORTED/);
 });
 
 test("refuses an unverified hostname, a non-CY Web Worker and missing or ambiguous bindings", async () => {

@@ -1,5 +1,9 @@
 # CY Web 版本紀錄
 
+## CY Web V0.21.5 — CYID 直接使用正式名稱（2026-11-18，Claude）
+
+- 部署時查到的 CYID 綁定（正式名稱）直接交給 CYapps 的正式 CYID 核對程式（CYapps #630 起接受正式名稱），移除 V0.21.4 的 `-prod` → `-dev` 暫時轉換；稽核工作不再讀取已刪除的開發版 CYID。Worker 程式、資料庫與綁定不變。
+
 ## CY Web V0.21.4 — 部署紀錄不再印出部署識別值（2026-11-17，Claude）
 
 - 部署與 CYID 稽核工作不再從 GitHub variables 讀 Worker、D1、CYID 服務、Application／Workspace ID、R2 等識別值：Actions runner 會在任何遮蔽之前把 env 明碼印進 log，而本 repo 的 log 公開。

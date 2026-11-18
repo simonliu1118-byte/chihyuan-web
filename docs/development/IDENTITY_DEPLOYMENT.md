@@ -33,7 +33,7 @@ Resource identifiers are no longer GitHub variables (V0.21.4). The Actions runne
 
 - `CF_WORKER_NAME` ← Worker serving the hostname (Workers Custom Domain);
 - `CF_D1_DATABASE_ID` / `CF_D1_DATABASE_NAME` ← `DB` binding and its D1 metadata;
-- `CF_IDENTITY_SERVICE` / `CYID_LOOKUP_SERVICE` ← `IDENTITY` binding, handed to the canonical resolver as its development seed (`-prod` → `-dev`) until the CYapps naming cleanup lets it take the production name directly;
+- `CF_IDENTITY_SERVICE` / `CYID_LOOKUP_SERVICE` ← `IDENTITY` binding (production name), handed directly to the canonical resolver, which accepts production names since CYapps governance 2.3.63 and re-verifies the provider;
 - `CF_IDENTITY_APPLICATION_ID` / `CF_IDENTITY_WORKSPACE_ID` ← live Worker vars, then re-verified against the production CYID provider by `resolve-production-identity.mjs`;
 - optional `HR_FILES`, `CYINVOICE_RECOVERY`, and (when `CF_BACKUP_ENABLED=true`) `BACKUP_R2` / `GCS_BUCKET` ← live bindings;
 - the account `workers.dev` subdomain is masked too, because `wrangler deploy` prints the Worker URL.
