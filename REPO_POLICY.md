@@ -45,6 +45,11 @@
 - 正式部署必須可由 repository source、forward schema migrations 與受控環境設定重建並留下可追蹤紀錄。
 - 正式資料庫 schema 變更必須回寫 migration/source of truth，不得只在 Cloudflare Dashboard 手工修改。
 - 未經使用者明確要求，不因一般 branch push 建立 GitHub Release。
+- 部署識別碼（Worker／D1／R2／Service 名稱與 ID、Application／Workspace ID 等）不得經由 GitHub variables 傳入部署流程：Actions log 會在任何 `::add-mask::` 之前明文印出 env。部署時由正式網域向 Cloudflare 查詢現行綁定、先遮蔽再使用（`scripts/resolve-deploy-runtime.mjs`），無法查詢的值改用 secrets；開關類字串不在此限（2026-11-17）。
+- 部署流程不得以命名慣例推導另一個資源（例如由 `-dev` 推出 `-prod`），一律用實際名稱或查得的現行綁定（2026-11-18）。
+- 刪除 Cloudflare 資源或環境時，同一輪必須移除或改寫所有引用它的 workflow、secret／variable、測試與文件，不得留下只會失敗、平常又不執行的流程。
+- 本 repo 部署時引用 CYapps `main` 的 CYID 正式核對程式；該程式在 CYapps 變更時，由 CYapps `cyweb-consumer-check.yml` 以 PR 版本執行本 repo 的 `audit-account-portal`／`resolve-deploy-runtime` 測試。本 repo 若改動這兩個測試所依賴的介面，須同步確認 CYapps 端檢查仍通過。
+- 部署流程或部署識別值處理方式變更後，必須實際部署一次並下載完整 log 以實際值比對，確認未外洩才算完成。
 
 ## 7. Copyright
 
