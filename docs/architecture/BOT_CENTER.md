@@ -20,7 +20,7 @@
 ## V0.18.13 工作卡片與送出內容（已部署，待Claude事後審查）
 
 - Threads卡片維持「今日巡視N則」，N是台北當日實際sent_at海巡回覆數，不是巡視完成批次。點N開啟共用Dialog，逐則呈現已送出全文／送出時間；未送出或退回項目不列入。
-- N下方呈現當日threads_patrol完成回報的title與detail（最新在上，最多50筆）；早巡／午巡／晚巡及已送出等文字由BOT自行回報，CYWEB不依時間猜名稱、不把巡視完成自動當作已送出。過多回報在卡內捲動，沒有展開收合。舊count／latest／reviewed／toSend API欄位保留相容。
+- N下方呈現當日threads_patrol完成回報的title與detail（最新在上，最多50筆）；早巡／午巡／晚巡及已送出等文字由BOT自行回報，CYWEB不依時間猜名稱、不把巡視完成自動當作已送出。過多回報在卡內捲動，沒有展開收合。巡視的count／latest／toSend欄位保留；V0.21.6起已移除未使用的articles.latest、articles.reviewed、patrols.reviewed。
 - 新文章N篇保持純顯示（仍由article_published完成事件計數）。下方published每列對應一則實際送出的post item，可點開原BotReviewDialog，但僅顯示該篇全文／附圖，不顯示同批其他篇、批次說明、版本導航或審核按鈕。審核圖片仍依原隔日清理政策，不能宣稱長期保存公開平台媒體。
 - 新GET /api/bot-center/sent-items需既有BOT_CENTER人員權限；kind=patrol/post，before=sentAt|itemId，summary=1只回標題與識別／時間、不回正文；botCode選填。每頁50則、以sent_at DESC,id DESC續頁，限制台北當日並排除被取代的稿件，沿用既有sent_at索引，沒有migration。
 - 主頁articles.published首批只取標題／識別，完整內容點開才查；巡視全文也只在點N時讀取。多頁由使用者按載入更多，不先載入全部歷史。主頁巡視回報查詢取代原latest巡視查詢；新增文章逐則metadata一個有界查詢，30秒progress輪詢不變，不增加背景歷史／送出明細輪詢。
@@ -33,7 +33,7 @@
 - 稿件增加版本欄。POST /api/bot-ingest/drafts 可帶 previousDraftId，必須使用新的 externalRef；只可接同 BOT、同 kind 的目前最新版，且不得已實際送出整篇或任一則。新版固定重新待審、自動初稿→2修→3修，舊稿保留唯讀歷史。主清單、各待審計數、工作摘要只計最新版；審稿視窗可看上一版與新版。舊有 rN 不以標題猜測關聯。
 - 審核、附圖與送出除預讀檢查外，寫入亦檢查沒有新版。唯一 previous_draft_id 索引與同一 batch 保證一次只有一個接續版本；已取代的推播不再排送，Grok 收到已在途的舊喚醒仍會重新讀取並略過。
 - 每則／單篇最多 10 張審核圖片（仍每張 2MB）；新版不繼承舊圖。已審或被取代稿件的圖片隔日清除；目前待審稿圖片保留。
-- 卡下清單改按實際送出時間 sent_at 的台北當日，post 在「今日發布的貼文」，patrol 在「今日送出的海巡」。人工審核本身不進清單；點開顯示稿件／各則送出時間。API reviewed 是相容舊欄位名稱，語意已是實際送出。每卡明細最多 50 稿。
+- 卡下清單改按實際送出時間 sent_at 的台北當日，post 在「今日發布的貼文」，patrol 在「今日送出的海巡」。人工審核本身不進清單；點開顯示稿件／各則送出時間。已送出清單以 articles.published／patrols 的 sentToday 提供（V0.21.6 移除舊 reviewed 欄位）。每卡明細最多 50 稿。
 - 文章發布總數／時間軸仍由明確的 complete.article_published 計數；巡視次數由 complete.threads_patrol 計數；sent 表示實際發出哪些稿／則，兩種回報各有用途。回報工具與技能已同步，保留小編原有 token、routine、持久收據。
 - 財務會計 FINANCE 取代 IT。0068 清除 IT 的稿、逐則、回報、完成、憑證與推播設定；審核圖片先加入技術清理佇列，排程每次最多 100 張、儲存空間刪除成功才移除佇列，失敗下次重試。財務會計不繼承 IT 祕密；小編所有整合原值保留。既有全系統 Audit 不改寫。
 - UI 與人員 API 移除新增 BOT，新 BOT 由程式碼 INITIAL_BOTS 定義；設定仍管理現有 BOT 的各自憑證與推播。

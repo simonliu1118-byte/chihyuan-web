@@ -61,5 +61,12 @@
 
 ## Claude 審查（由 Claude 填寫）
 
-- 結論：待Claude事後審查（使用者2026-11-12授權先合併部署）。
-- 審查重點：revision競爭與跨BOT隔離、IT清除範圍及原小編憑證保留、備份還原與ephemeral排除、實際送出／完成事件兩種維度、手機不溢出、工具收據與routine相容。
+- 結論（2026-11-18 事後審查）：**架構通過，需修正 3 項，已修正於 V0.21.6（分支 `cyweb/v0.21.6-review-fixes`，待合併部署）。**
+- 發現：
+  1. 中｜改稿送出的批次把所有錯誤都當成 409 `BOT_REVISION_CONFLICT`，連線中斷等暫時錯誤也被當成衝突，BOT 不會重試。修正於 V0.21.6：只有保護式新增未寫入、`previous_draft_id`／`external_ref` 唯一性衝突回 409；同 BOT、同編號、內容相同回傳既有稿（與非改稿路徑一致）；其他錯誤照常 5xx。
+  2. 中｜單篇稿（無 items）可用 kind post／patrol 送入，與官方工具 `(kind==="general")!==!items` 規則不一致。修正於 V0.21.6：伺服器回 400。
+  3. 低｜首頁摘要的 `reviewedToday`、`sent_today`、`latestWork("article_published")` 已無畫面使用卻做整表掃描。修正於 V0.21.6：移除並同步 `shared/bot-center.ts`。
+- 已核對正確：BOT 只能操作自己的稿（跨 BOT 一律 404／403）；改稿版本鏈擋並行與送出後改稿，被取代的稿不能審核、送出或傳圖；IT／FINANCE 身分分離，0068 只清 IT 資料；圖片檔頭、2MB、每則 10 張檢查，只收 HTTPS 連結，不渲染 HTML；備份 schema 與 migration 同步。
+- 已被 V0.21.3 取代的項目：文章數與清單不一致、發布對話框、巡視卡片內容。
+- 無法驗證：正式資料量、R2 刪除佇列實際狀態、Grok 實機流程。
+

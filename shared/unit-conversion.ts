@@ -120,3 +120,49 @@ export function scaled4ProductToMoney2Exact(quantityScaled4: number, unitPriceSc
   if (!Number.isSafeInteger(asNumber)) throw new Error("MONEY2_RESULT_OUT_OF_RANGE");
   return asNumber;
 }
+
+/** Non-negative numerator / positive denominator -> integer, rounded half up. */
+export function divideHalfUp(numerator: bigint, denominator: bigint): bigint {
+  if (denominator <= 0n || numerator < 0n) throw new Error("UNIT_CONVERSION_ROUNDING_INVALID");
+  return (2n * numerator + denominator) / (2n * denominator);
+}
+
+/**
+ * Like convertScaled4Exact, but a quantity that does not convert exactly is rounded
+ * half up to four decimals. `rounded` tells the caller the result is not exact.
+ */
+export function convertScaled4Rounded(
+  quantityScaled4: number,
+  fromUnit: string,
+  toUnit: string,
+  baseUnit: string,
+  edges: readonly UnitConversionEdge[],
+): { value: number; rounded: boolean } {
+  if (!Number.isSafeInteger(quantityScaled4) || quantityScaled4 < 0) throw new Error("UNIT_CONVERSION_QUANTITY_INVALID");
+  if (fromUnit === toUnit) return { value: quantityScaled4, rounded: false };
+  const ratio = divide(unitFactorToBase(baseUnit, edges, fromUnit), unitFactorToBase(baseUnit, edges, toUnit));
+  const numerator = BigInt(quantityScaled4) * ratio.numerator;
+  const value = Number(divideHalfUp(numerator, ratio.denominator));
+  if (!Number.isSafeInteger(value)) throw new Error("UNIT_CONVERSION_RESULT_OUT_OF_RANGE");
+  return { value, rounded: numerator % ratio.denominator !== 0n };
+}
+
+/**
+ * Quantity of a BOM component consumed for `outputScaled4` units of BOM output, in the
+ * component item's base unit (scaled4). Rounded half up to four decimals.
+ */
+export function bomConsumptionRounded(
+  outputScaled4: number,
+  componentQuantityScaled4: number,
+  componentUnit: string,
+  bomOutputQuantityScaled4: number,
+  baseUnit: string,
+  edges: readonly UnitConversionEdge[],
+): { value: number; rounded: boolean } {
+  const factor = unitFactorToBase(baseUnit, edges, componentUnit);
+  const numerator = BigInt(outputScaled4) * BigInt(componentQuantityScaled4) * factor.numerator;
+  const denominator = BigInt(bomOutputQuantityScaled4) * factor.denominator;
+  const value = Number(divideHalfUp(numerator, denominator));
+  if (!Number.isSafeInteger(value)) throw new Error("UNIT_CONVERSION_RESULT_OUT_OF_RANGE");
+  return { value, rounded: numerator % denominator !== 0n };
+}

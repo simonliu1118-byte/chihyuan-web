@@ -327,27 +327,19 @@ async function state(db: D1Database, url: URL, now: string, canManageCredentials
     botStats[bot.code]={todayCompleted:completions.filter(row=>row.bot_id===bot.id).reduce((sum,row)=>sum+row.n,0),draftCounts:totals};
     if (!selected || selected.id===bot.id) for (const status of BOT_REVIEW_STATUSES) draftCounts[status]+=totals[status];
   }
-  const latestWork = async (type: BotWorkType) => {
-    const row = await one<CompletionRow>(db, `${COMPLETION_SQL} WHERE c.work_type=? AND c.completed_at>=? AND c.completed_at<? ${selected ? "AND c.bot_id=?" : ""} ORDER BY c.completed_at DESC,c.id DESC LIMIT 1`, type, today.start, today.end, ...scopedArgs);
-    return row ? completionView(row) : null;
-  };
   const countWork = (type: BotWorkType) => completions.filter(row => row.work_type===type && (!selected || row.bot_id===selected.id)).reduce((sum,row)=>sum+row.n,0);
   const latestPending = await one<DraftRow>(db, `${DRAFT_SQL} WHERE NOT EXISTS(SELECT 1 FROM bot_drafts newer WHERE newer.previous_draft_id=d.id) AND d.review_status='pending' AND d.externally_completed_at IS NULL ${selected ? "AND d.bot_id=?" : ""} ORDER BY d.id DESC LIMIT 1`, ...scopedArgs);
   // V0.15.0: pending items by kind, patrol daily totals, and today's actually sent drafts per card.
   const scope = "AND NOT EXISTS(SELECT 1 FROM bot_drafts newer WHERE newer.previous_draft_id=d.id)" + (selected ? " AND d.bot_id=?" : "");
-  const itemTotals = await one<{posts:number;patrols:number;sent_today:number;to_send:number}>(db, `SELECT
+  const itemTotals = await one<{posts:number;patrols:number;to_send:number}>(db, `SELECT
     (SELECT count(*) FROM bot_draft_items i JOIN bot_drafts d ON d.id=i.draft_id WHERE i.review_status='pending' AND i.externally_completed_at IS NULL AND d.kind='post' ${scope}) AS posts,
     (SELECT count(*) FROM bot_draft_items i JOIN bot_drafts d ON d.id=i.draft_id WHERE i.review_status='pending' AND i.externally_completed_at IS NULL AND d.kind='patrol' ${scope}) AS patrols,
-    (SELECT count(*) FROM bot_draft_items i JOIN bot_drafts d ON d.id=i.draft_id WHERE d.kind='patrol' AND i.sent_at>=? AND i.sent_at<? ${scope}) AS sent_today,
     (SELECT count(*) FROM bot_draft_items i JOIN bot_drafts d ON d.id=i.draft_id WHERE d.kind='patrol' AND i.review_status IN ('pending','approved') AND i.sent_at IS NULL AND i.externally_completed_at IS NULL ${scope}) AS to_send`,
-    ...scopedArgs, ...scopedArgs, today.start, today.end, ...scopedArgs, ...scopedArgs);
-  const reviewedToday = async (kind: BotDraftKind) => (await many<DraftRow>(db,
-    `${DRAFT_SQL} WHERE d.kind=? AND (d.sent_at>=? AND d.sent_at<? OR EXISTS(SELECT 1 FROM bot_draft_items si WHERE si.draft_id=d.id AND si.sent_at>=? AND si.sent_at<?)) ${scope} ORDER BY d.id DESC LIMIT 50`,
-    kind,today.start,today.end,today.start,today.end,...scopedArgs)).map(draftView);
+    ...scopedArgs, ...scopedArgs, ...scopedArgs);
   const patrolReports=await many<CompletionRow>(db,`${COMPLETION_SQL} WHERE c.work_type='threads_patrol' AND c.completed_at>=? AND c.completed_at<? ${selected?"AND c.bot_id=?":""} ORDER BY c.completed_at DESC,c.id DESC LIMIT ?`,today.start,today.end,...scopedArgs,BOT_PAGE_SIZE);
   const workSummary: BotCenterState["workSummary"] = {
-    articles: { count: await deliveryCount(db,"post",today.start,today.end,selected?.id), latest: await latestWork("article_published"), reviewed: await reviewedToday("post"), published:await sentItemsPage(db,"post",now,null,selected?.id,true) },
-    patrols: { count: countWork("threads_patrol"), latest: patrolReports[0]?completionView(patrolReports[0]):null, sentToday: await deliveryCount(db,"patrol",today.start,today.end,selected?.id), toSend: itemTotals?.to_send ?? 0, reviewed: await reviewedToday("patrol"),reports:patrolReports.map(completionView),sessions:await patrolSummaries(db,today.day,today.start,today.end,selected?.id) },
+    articles: { count: await deliveryCount(db,"post",today.start,today.end,selected?.id), published:await sentItemsPage(db,"post",now,null,selected?.id,true) },
+    patrols: { count: countWork("threads_patrol"), latest: patrolReports[0]?completionView(patrolReports[0]):null, sentToday: await deliveryCount(db,"patrol",today.start,today.end,selected?.id), toSend: itemTotals?.to_send ?? 0,reports:patrolReports.map(completionView),sessions:await patrolSummaries(db,today.day,today.start,today.end,selected?.id) },
     pending: { count: draftCounts.pending, latest: latestPending ? draftView(latestPending) : null, posts: itemTotals?.posts ?? 0, patrols: itemTotals?.patrols ?? 0 },
   };
   const visibleDrafts = draftRows.slice(0, BOT_PAGE_SIZE);
@@ -582,7 +574,20 @@ async function saveDraft(db: D1Database, botId: number, externalRef: string | nu
       ]);
       if(inserted.meta.changes!==1)throw Error('conflict');
       return draftById(db,Number(inserted.meta.last_row_id));
-    }catch{throw new Bad("BOT_REVISION_CONFLICT","原稿已變更，請重新讀取後再送新版",409)}
+    }catch(error){
+      // Only real conflicts are 409: the guarded insert inserted nothing (so its items had no draft),
+      // or a UNIQUE on previous_draft_id / external_ref. Anything else is rethrown so the client retries.
+      const message=String(error);
+      if(!(message.includes("UNIQUE")||message==="Error: conflict"||message.includes("bot_draft_items.draft_id")))throw error;
+      // The same BOT resending identical content under the same externalRef gets the existing draft, like the non-revision path.
+      const same=await one<{id:number;title:string;body:string;kind:string;previous_draft_id:number|null}>(db,"SELECT id,title,body,kind,previous_draft_id FROM bot_drafts WHERE bot_id=? AND external_ref=?",botId,externalRef);
+      if(same){
+        const stored=await many<{ref:string|null;title:string;body:string}>(db,"SELECT ref,title,body FROM bot_draft_items WHERE draft_id=? ORDER BY seq",same.id);
+        if(same.previous_draft_id===previousId&&same.title===title&&same.body===body&&same.kind===kind
+          &&stored.length===items.length&&stored.every((row,i)=>row.ref===items[i].ref&&row.title===items[i].title&&row.body===items[i].body))return draftById(db,same.id);
+      }
+      throw new Bad("BOT_REVISION_CONFLICT","原稿已變更，請重新讀取後再送新版",409);
+    }
   }
   try {
     const inserted = await db.prepare(
@@ -666,6 +671,8 @@ async function ingest(request: Request, env: BotEnv, requestId: string, url: URL
     const kind = body.kind ?? "general";
     if (typeof kind !== "string" || !(BOT_DRAFT_KINDS as readonly string[]).includes(kind)) throw new Bad("BOT_INVALID", "稿件分類不正確");
     const items = itemsOf(body.items);
+    // Same rule as the official client: only a general draft is single; post / patrol drafts need items.
+    if ((kind === "general") !== !items.length) throw new Bad("BOT_INVALID", kind === "general" ? "一般稿不可附多則內容" : "貼文與海巡稿需附多則內容 items", 400);
     return success(draftView(await saveDraft(db, bot.id, externalRef, title, draft, now, kind as BotDraftKind, items, body.previousDraftId as number|undefined)), requestId);
   }
   if (path === "drafts" && request.method === "GET") {

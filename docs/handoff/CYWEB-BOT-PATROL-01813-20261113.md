@@ -44,5 +44,9 @@
 
 ## Claude事後審查（由Claude填寫）
 
-- 結論：待審查。
-- 重點：N與逐則內容一致、台北日期與keyset、不把巡視事件當回覆數、單篇內容不誤帶同批其他篇、權限、按需D1讀取與共用元件、正式財務內容不進Public。
+- 結論（2026-11-18 事後審查）：**通過；首頁摘要的未使用計算已移除，修正於 V0.21.6（待合併部署）。**
+- 發現：低｜`reviewedToday`（全表掃描）、`itemTotals.sent_today`、`latestWork("article_published")` 的結果沒有任何畫面或整合工具讀取；已刪除並同步型別（保留 `patrols.latest`、`sentToday`、`toSend`、`reports`、`sessions`、`published`）。修正於 V0.21.6。
+- 已核對正確：BOT 只能操作自己的稿（跨 BOT 一律 404／403）；改稿版本鏈擋並行與送出後改稿，被取代的稿不能審核、送出或傳圖；IT／FINANCE 身分分離，0068 只清 IT 資料；圖片檔頭、2MB、每則 10 張檢查，只收 HTTPS 連結，不渲染 HTML；備份 schema 與 migration 同步。
+- 已被 V0.21.3 取代的項目：文章數與清單不一致、發布對話框、巡視卡片內容。
+- 無法驗證：正式資料量、R2 刪除佇列實際狀態、Grok 實機流程。
+

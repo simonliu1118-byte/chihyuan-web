@@ -499,7 +499,7 @@ async function runAcceptance(db: D1Database, restoreDb: D1Database, bucket: R2Bu
   assertAcceptance(await stockBalance(db,2001,componentItem.id)===1_000_000,"ACCEPT_OUTSOURCING_ISSUE_BALANCE");
   const firstStock = (await flow.stock(2001)).items.find(x=>x.itemId===componentItem.id);
   assertAcceptance(firstStock?.percentage===100,"ACCEPT_OUTSOURCING_FIRST_BASELINE");
-  await flow.adjustStock({type:"adjust",contractorId:2001,date:"2026-09-28",reason:"盤點差異",
+  await flow.adjustStock({type:"adjust",contractorId:2001,expectedStockRevision:(await flow.stock(2001,true)).stockRevision,date:"2026-09-28",reason:"盤點差異",
     items:[{itemId:componentItem.id,unit:"EA",actualQuantity:"10"}]},flowActor);
   const ten = (await flow.stock(2001)).items.find(x=>x.itemId===componentItem.id);
   assertAcceptance(ten?.percentage===10,"ACCEPT_OUTSOURCING_TEN_PERCENT");
@@ -507,7 +507,7 @@ async function runAcceptance(db: D1Database, restoreDb: D1Database, bucket: R2Bu
     items:[{itemId:componentItem.id,quantity:"100",unit:"EA"}]},flowActor);
   const fresh = (await flow.stock(2001)).items.find(x=>x.itemId===componentItem.id);
   assertAcceptance(fresh?.percentage===100&&fresh?.quantity==="110","ACCEPT_OUTSOURCING_SECOND_BASELINE");
-  await flow.adjustStock({type:"adjust",contractorId:2001,date:"2026-09-29",reason:"盤點差異",
+  await flow.adjustStock({type:"adjust",contractorId:2001,expectedStockRevision:(await flow.stock(2001,true)).stockRevision,date:"2026-09-29",reason:"盤點差異",
     items:[{itemId:componentItem.id,unit:"EA",actualQuantity:"5"}]},flowActor);
   const five = (await flow.stock(2001)).items.find(x=>x.itemId===componentItem.id);
   assertAcceptance(five?.percentage===5,"ACCEPT_OUTSOURCING_FIVE_PERCENT");
