@@ -108,9 +108,9 @@ test('sent reporting and the daily summary per card',async t=>{
  ok(await f.call(`/api/bot-center/drafts/${post.id}/review`,'POST',{decision:'approved'}));
  s=ok(await f.call('/api/bot-center')).workSummary;
  assert.equal(s.pending.posts,0);assert.equal(s.pending.patrols,2);assert.equal(s.patrols.sentToday,2);assert.equal(s.patrols.toSend,2);
- assert.deepEqual(s.patrols.reviewed.map(d=>d.id),[patrol.id]);assert.deepEqual(s.articles.reviewed,[]);
+ assert.equal('reviewed' in s.patrols,false);assert.equal('reviewed' in s.articles,false);assert.equal(s.articles.published.items.length,0);
  ok(await f.ingest(`drafts/${post.id}/sent`,'POST',{items:[1]}));
- assert.deepEqual(ok(await f.call('/api/bot-center')).workSummary.articles.reviewed.map(d=>d.id),[post.id]);
+ assert.equal(ok(await f.call('/api/bot-center')).workSummary.articles.published.items.length>0,true);
  const single=ok(await f.ingest('drafts','POST',{title:'合成單篇',body:'合成本文'}));
  ok(await f.call(`/api/bot-center/drafts/${single.id}/review`,'POST',{decision:'approved'}));
  assert.equal(ok(await f.ingest(`drafts/${single.id}/sent`,'POST',{})).sent,1);

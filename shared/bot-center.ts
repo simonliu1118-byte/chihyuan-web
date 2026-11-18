@@ -146,10 +146,9 @@ export interface BotProgressState {
 
 export interface BotCenterState extends BotProgressState {
   workSummary: {
-    /** `reviewed`: legacy field name: post drafts with actual sent_at today (Taipei), newest first; open to read. */
-    articles: { count: number; latest: BotCompletionView | null; reviewed: BotDraftView[]; published:BotSentItemPage<BotSentItemSummary> };
-    /** count 保留巡視批次 API；主卡用 sentToday 顯示今日實際送出則數，toSend 是尚未退回也尚未送出的海巡則數; `reviewed` is the legacy name for actually sent patrol drafts. */
-    patrols: { count: number; latest: BotCompletionView | null; sentToday: number; toSend: number; reviewed: BotDraftView[]; reports:BotCompletionView[];sessions:BotPatrolSummary[] };
+    articles: { count: number; published:BotSentItemPage<BotSentItemSummary> };
+    /** count 保留巡視批次 API；主卡用 sentToday 顯示今日實際送出則數，toSend 是尚未退回也尚未送出的海巡則數。 */
+    patrols: { count: number; latest: BotCompletionView | null; sentToday: number; toSend: number; reports:BotCompletionView[];sessions:BotPatrolSummary[] };
     /** Pending drafts, plus the undecided items of multi-item drafts by kind. */
     pending: { count: number; latest: BotDraftView | null; posts: number; patrols: number };
   };

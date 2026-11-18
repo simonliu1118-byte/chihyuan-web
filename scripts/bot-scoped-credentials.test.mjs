@@ -105,7 +105,7 @@ test('work cards use complete scoped Taipei-day counts beyond pagination; pendin
   const all=ok(await f.call('/api/bot-center?draftStatus=approved'));
   assert.equal(all.workSummary.articles.count,62);assert.equal(all.workSummary.pending.count,1);assert.equal(all.workSummary.pending.latest.title,'舊日待審');
   const scoped=ok(await f.call('/api/bot-center?botCode=SOCIAL_EDITOR'));
-  assert.equal(scoped.workSummary.articles.count,61);assert.equal(scoped.workSummary.articles.latest.title,'合成文章60');assert.equal(scoped.workSummary.patrols.count,1);
+  assert.equal(scoped.workSummary.articles.count,61);assert.equal('latest' in scoped.workSummary.articles,false);assert.equal(scoped.workSummary.patrols.count,1);
   assert.equal(scoped.timeline.length,50);
   assert.ok(f.sql.prepare("EXPLAIN QUERY PLAN SELECT id FROM bot_completions WHERE work_type='article_published' AND completed_at>=? AND completed_at<? ORDER BY completed_at DESC,id DESC LIMIT 1").all(start,end).some(row=>row.detail.includes('idx_bot_completions_work_day')));
  }finally{f.sql.close()}

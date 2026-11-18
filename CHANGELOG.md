@@ -1,5 +1,17 @@
 # CY Web 版本紀錄
 
+## CY Web V0.21.6 — 委外代工與 BOT 事後審查修正（2026-11-18，Claude）
+
+- 委外交貨：「不扣料」改為明確的 `noConsumption: true`（`bomRecipeId` 省略或 null 仍是沿用成品列的 BOM）；成品列自己綁定的 BOM 之後被停用仍可交貨，另選的 BOM 才須啟用。扣料預覽同一規則。
+- 委外對帳單：交貨量無法整除換算成計價單位（例 7 個→打）不再 500，改四捨五入到小數四位（四捨五入進位），金額沿用到分四捨五入。BOM 用料不能整除時，扣料、發料建議與預覽改四捨五入到小數四位，扣料異動備註與稽核註明「依 BOM 換算四捨五入至小數四位」，不再拒絕交貨。
+- 退料與盤點新增廠商庫存版本（0078 `contractors.stock_revision`）：請求帶開啟表單時讀到的版本，批次第一步比對，過期或重送回 409；發料、取消發料、扣料、取消交貨也會遞增版本。
+- 取消交貨與對帳單：刪除對帳明細限草稿對帳單，批次內閘門確認「持有這批交貨的對帳單恰為讀到的草稿」，草稿對帳單同批遞增版本並寫稽核；期間若被確認，整批回滾 409。
+- 輸入錯誤改 422：對帳單單價、盤點實際數量格式；實際數量不得為負。兩人同時對帳同一交貨回 409；刪除付款版本衝突由 422 改 409。
+- 代工單列表由逐單逐列查詢改為批次查詢（固定筆數）；料件單位換算同樣批次讀取。
+- 刪除無人引用的舊代工程式（outsourcing-service／repository／persistence／validation、stale acceptance）。
+- BOT 中心：移除首頁摘要未使用的 `articles.latest`、`articles.reviewed`、`patrols.reviewed` 與 `sent_today` 等整表掃描查詢。改稿送出只把真正衝突（保護式新增未寫入、previous_draft_id／external_ref 唯一性）回 409，同 BOT 同編號同內容回傳既有稿，其餘錯誤照常 5xx 讓 BOT 重試。單篇稿 kind 為 post／patrol 而無 items（或 general 卻帶 items）回 400，與官方工具規則一致。
+- 事後審查紀錄寫入 WO-0.18.0 §9 與 BOT 兩份 handoff。新增 `scripts/outsourcing-review-fixes.test.mjs`、`scripts/bot-review-fixes.test.mjs`。
+
 ## CY Web V0.21.5 — CYID 直接使用正式名稱（2026-11-18，Claude）
 
 - 部署時查到的 CYID 綁定（正式名稱）直接交給 CYapps 的正式 CYID 核對程式（CYapps #630 起接受正式名稱），移除 V0.21.4 的 `-prod` → `-dev` 暫時轉換；稽核工作不再讀取已刪除的開發版 CYID。Worker 程式、資料庫與綁定不變。

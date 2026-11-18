@@ -1,4 +1,5 @@
 import {useEffect,useState,type FormEvent} from "react";
+import {ApiClientError} from "../../api/client";
 import {RecordSheet,RecordRows,type RowColumn} from "../../ui/forms/RecordSheet";
 import {EntryTable,EntryHeading} from "../../ui/forms/EntryTable";
 import {Field} from "../../ui/forms/Field";
@@ -36,7 +37,9 @@ type ItemDraft={key:number;item:OutsourcingItemOption|null;quantity:string;unit:
 type OrderDraft={contractorId:number|null;orderDate:string;note:string;products:ItemDraft[]};
 type Action="issue"|"receipt"|"return"|"adjust"|"statement-create"|"statement-edit"|"payment"|"close"|"stock-history"|null;
 type MaterialDraft={key:number;item:OutsourcingItemOption|null;quantity:string;unit:string};
-type DeliveryDraft={orderProductId:number;quantity:string;unit:string;bomId:number|null};
+/** Explicit 不扣料 is sent as noConsumption; otherwise the chosen (or the order line's) BOM id. */
+const deliveryBom=(d:{bomId:number|null;noConsumption:boolean})=>d.noConsumption?{bomRecipeId:null,noConsumption:true}:{bomRecipeId:d.bomId};
+type DeliveryDraft={orderProductId:number;quantity:string;unit:string;bomId:number|null;noConsumption:boolean};
 const tabs:readonly {key:Tab;label:string}[]=[
  {key:"orders",label:"代工單"},{key:"statements",label:"對帳付款"},{key:"stock",label:"代工庫存"},
  {key:"contractors",label:"協力廠商／單價"},{key:"boms",label:"BOM"}
@@ -97,6 +100,7 @@ export function OutsourcingOperationalPage(){
  const [stockHistory,setStockHistory]=useState<Record<string,unknown>[]>([]);
  const [preview,setPreview]=useState<Awaited<ReturnType<typeof flowApi.consumptionPreview>>["items"]>([]);
  const [stockContractor,setStockContractor]=useState<number|null>(null);
+ const [stockRevision,setStockRevision]=useState<number|null>(null);
  const [statements,setStatements]=useState<Statement[]>([]);
  const [statement,setStatement]=useState<Statement|null>(null);
  const [statementId,setStatementId]=useState<number|null>(null);
@@ -154,13 +158,24 @@ export function OutsourcingOperationalPage(){
  useEffect(()=>{
    if(action!=="receipt"||!order)return;
    const lines=deliveries.filter(d=>d.quantity&&Number(d.quantity)>0).map(d=>({
-     orderProductId:d.orderProductId,bomRecipeId:d.bomId,quantity:d.quantity,unit:d.unit
+     orderProductId:d.orderProductId,...deliveryBom(d),quantity:d.quantity,unit:d.unit
    }));
    if(!lines.length){setPreview([]);return;}
    let live=true;flowApi.consumptionPreview(order.id,lines).then(result=>{if(live)setPreview(result.items);})
      .catch(e=>{if(live)setError(outsourcingErrorMessage(e));});
    return()=>{live=false;};
  },[action,order?.id,deliveries]);
+ const loadStockRevision=(contractorId:number|null)=>{
+   if(contractorId==null){setStockRevision(null);return()=>{};}
+   let live=true;flowApi.stock(contractorId,true).then(r=>{if(live)setStockRevision(r.stockRevision);})
+     .catch(e=>{if(live)setError(outsourcingErrorMessage(e));});
+   return()=>{live=false;};
+ };
+ // The revision is read when the return / count form opens (or the contractor changes), never at submit time.
+ useEffect(()=>{
+   if(action!=="return"&&action!=="adjust"){setStockRevision(null);return;}
+   return loadStockRevision(stockContractor);
+ },[action,stockContractor]);
  useEffect(()=>{
    if(action!=="stock-history")return;
    let live=true;flowApi.history(stockContractor??undefined).then(r=>{if(live)setStockHistory(r.items);})
@@ -175,10 +190,10 @@ export function OutsourcingOperationalPage(){
    orderPane.close();statementPane.close();
  }
  const reload=()=>refresh(e=>e+1);
- const run=async(task:()=>Promise<unknown>,after?:()=>void)=>{
+ const run=async(task:()=>Promise<unknown>,after?:()=>void,onError?:(e:unknown)=>void)=>{
   if(busy)return;setBusy(true);setError("");
   try{await task();setMessage("已儲存");setAction(null);after?.();reload();}
-  catch(e){setError(outsourcingErrorMessage(e));}finally{setBusy(false);}
+  catch(e){setError(outsourcingErrorMessage(e));onError?.(e);}finally{setBusy(false);}
  };
  function openOrderCreate(){setDraft({contractorId:contractors[0]?.id??null,orderDate:taipeiToday(),note:"",products:[newLine()]});setOrderId(null);setOrder(null);orderPane.open();}
  async function startOrderEdit(){
@@ -223,7 +238,7 @@ export function OutsourcingOperationalPage(){
         item:choices.find(x=>x.id===i.itemId)??null,quantity:i.quantity,unit:i.unit})):[newMaterial()]);
     }).catch(e=>setError(outsourcingErrorMessage(e)));
   }
-  if(actionName==="receipt"&&order)setDeliveries(order.products.map(p=>({orderProductId:p.id,quantity:"",unit:p.unit,bomId:p.bom_recipe_id})));
+  if(actionName==="receipt"&&order)setDeliveries(order.products.map(p=>({orderProductId:p.id,quantity:"",unit:p.unit,bomId:p.bom_recipe_id,noConsumption:false})));
   if(actionName==="statement-create"){const vendor=statementVendor??contractors[0]?.id??null;setStatementVendor(vendor);setStatementMode(contractors.find(c=>c.id===vendor)?.billingMethod==="monthly"?"month":"selection");}
   if(actionName==="statement-edit"&&statement){
    setPriceRows(statement.lines.map(l=>({id:l.id,unitPrice:l.unit_price==null?"":formatScaled4(l.unit_price)})));
@@ -241,11 +256,14 @@ export function OutsourcingOperationalPage(){
   if(action==="issue"&&order)await run(()=>flowApi.issue(order.id,{expectedRevision:order.revision,date:entryDate,note:entryNote,
     items:materials.filter(x=>x.item&&x.quantity).map(x=>({itemId:x.item!.id,quantity:x.quantity,unit:x.unit}))}));
   if(action==="receipt"&&order)await run(()=>flowApi.receive(order.id,{expectedRevision:order.revision,date:entryDate,erpNo,note:entryNote,
-    items:deliveries.filter(x=>x.quantity).map(x=>({orderProductId:x.orderProductId,quantity:x.quantity,unit:x.unit,bomRecipeId:x.bomId}))}));
+    items:deliveries.filter(x=>x.quantity).map(x=>({orderProductId:x.orderProductId,quantity:x.quantity,unit:x.unit,...deliveryBom(x)}))}));
   if((action==="return"||action==="adjust")&&stockContractor)
-   await run(()=>flowApi.stockEvent({contractorId:stockContractor,type:action,date:entryDate,reason:stockReason,note:entryNote,
+   await run(()=>flowApi.stockEvent({contractorId:stockContractor,expectedStockRevision:stockRevision,type:action,date:entryDate,reason:stockReason,note:entryNote,
     items:materials.filter(x=>x.item&&x.quantity).map(x=>({itemId:x.item!.id,unit:x.unit,
-      ...(action==="return"?{quantity:x.quantity}:stockActual?{actualQuantity:x.quantity}:{delta:x.quantity})}))}));
+      ...(action==="return"?{quantity:x.quantity}:stockActual?{actualQuantity:x.quantity}:{delta:x.quantity})}))}),undefined,e=>{
+    // 409: the stock changed (or the form was already submitted). Re-read the revision and drop the stale quantities.
+    if(e instanceof ApiClientError&&e.status===409){loadStockRevision(stockContractor);setMaterials([newMaterial()]);}
+   });
   if(action==="close"&&order)await run(()=>flowApi.close(order.id,order.revision,entryNote));
   if(action==="statement-create"&&statementVendor)await run(async()=>{
    const s=await flowApi.createStatement({contractorId:statementVendor,date:entryDate,month:statementMode==="month"?statementMonth:null,receiptItemIds:selectedUnbilled});
@@ -475,8 +493,10 @@ export function OutsourcingOperationalPage(){
         {(order.products.find(p=>p.id===d.orderProductId)?.allowed_units??[d.unit]).map(unit=><option key={unit} value={unit}>{unit}</option>)}</select>},
        {label:"目前單價",view:d=>{const p=order.products.find(p=>p.id===d.orderProductId);return p?.current_unit_price==null?"待對帳":formatScaled4(p.current_unit_price)+(p.current_pricing_unit?"／"+p.current_pricing_unit:"");},
         edit:d=>{const p=order.products.find(p=>p.id===d.orderProductId);return <span>{p?.current_unit_price==null?"待對帳":formatScaled4(p.current_unit_price)+(p.current_pricing_unit?"／"+p.current_pricing_unit:"")}</span>;}},
-       {label:"BOM",view:d=>boms.find(b=>b.id===d.bomId)?.recipeRef??"—",edit:d=><select className="cy-sheet-input" value={d.bomId??""} onChange={e=>setDeliveries(ds=>ds.map(r=>r.orderProductId===d.orderProductId?{...r,bomId:Number(e.target.value)||null}:r))}>
-        <option value="">不扣料</option>{boms.filter(b=>b.isActive&&b.finishedItemId===order.products.find(p=>p.id===d.orderProductId)?.item_id).map(b=><option key={b.id} value={b.id}>{b.recipeRef}</option>)}</select>}
+       {label:"BOM",view:d=>d.noConsumption?"不扣料":boms.find(b=>b.id===d.bomId)?.recipeRef??"—",edit:d=>{const line=order.products.find(p=>p.id===d.orderProductId);
+        return <select className="cy-sheet-input" value={d.noConsumption||d.bomId==null?"none":String(d.bomId)} onChange={e=>setDeliveries(ds=>ds.map(r=>r.orderProductId===d.orderProductId
+          ?(e.target.value==="none"?{...r,bomId:null,noConsumption:true}:{...r,bomId:Number(e.target.value),noConsumption:false}):r))}>
+        <option value="none">不扣料</option>{boms.filter(b=>b.finishedItemId===line?.item_id&&(b.isActive||b.id===line?.bom_recipe_id)).map(b=><option key={b.id} value={b.id}>{b.recipeRef}</option>)}</select>;}}
       ]}/>:null}
     {action==="stock-history"?<div className="cy-op-subsection">
       <div className="cy-op-toolbar"><Field label="協力廠商">

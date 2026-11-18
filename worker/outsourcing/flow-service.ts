@@ -1,6 +1,6 @@
 import { nextEntityIdSql } from "../persistence/entity-id";
 import { parseScaled4, formatScaled4, formatMoney2, parseMoney2 } from "../../shared/fixed-point";
-import { convertScaled4Exact, allowedUnits } from "../../shared/unit-conversion";
+import { convertScaled4Exact, convertScaled4Rounded, bomConsumptionRounded, allowedUnits } from "../../shared/unit-conversion";
 import { stockGaugeFromMovements, outsourcingLifecycle, outsourcingProgress, roundedLineMoney2, roundedStatementMoney2 } from "../../shared/outsourcing-flow";
 import { AuditService } from "../audit/audit-service";
 import { FieldValidationError } from "../validation/fields";
@@ -12,6 +12,7 @@ export class OutsourcingFlowError extends Error {
 }
 export interface FlowActor { actorMemberId: number; now: string; requestId?: string | null }
 type Row = Record<string, any>;
+const ROUNDED_NOTE="依 BOM 換算四捨五入至小數四位";
 
 function object(value: unknown): Row {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new FieldValidationError({ _request: "請提供資料物件" });
@@ -38,6 +39,12 @@ function qty(value: unknown, name: string, positive = true): number {
   if (!positive && n === 0) throw new FieldValidationError({[name]:"不得為零"});
   return n;
 }
+/** A counted quantity: zero is a valid count, negative is not. */
+function countQty(value: unknown, name: string): number {
+  let n: number; try { n = parseScaled4(String(value)); } catch { throw new FieldValidationError({[name]:"請輸入最多四位小數的數量"}); }
+  if (n < 0) throw new FieldValidationError({[name]:"實際數量不得為負"});
+  return n;
+}
 function rows(value: unknown, name: string): Row[] {
   if (!Array.isArray(value) || value.length === 0) throw new FieldValidationError({[name]:"至少需要一筆"});
   return value.map(object);
@@ -53,6 +60,8 @@ export class OutsourcingFlowService {
   private async commit(stmts:D1PreparedStatement[]){
     try{await this.db.batch(stmts);}catch(e){if(String(e).includes("malformed JSON"))throw new OutsourcingFlowError();throw e;}
   }
+  /** Contractor-held stock changed: invalidate every open return / count form for this contractor. */
+  private bumpStock(contractorId:number){return this.db.prepare("UPDATE contractors SET stock_revision=stock_revision+1 WHERE id=?").bind(contractorId);}
   private event(action:string,entityType:string,key:string,actor:FlowActor,metadata:Row = {}) {
     return this.audit.prepareRecord({entityType,entityKey:key,action,actorEmployeeId:actor.actorMemberId,occurredAt:actor.now,requestId:actor.requestId,metadata});
   }
@@ -69,16 +78,43 @@ export class OutsourcingFlowService {
   private async itemRefs(itemIds: number[]):Promise<Map<number,Row>> {
     const ids=uniqueIDs(itemIds);const map=new Map<number,Row>();
     if(!ids.length)return map;
-    const res=await this.db.prepare(`SELECT id,item_no,name,base_unit FROM items WHERE id IN (${ids.map(()=>"?").join(",")})`).bind(...ids).all<Row>();
+    const json=JSON.stringify(ids);
+    const [res,conversions]=await Promise.all([
+      this.db.prepare("SELECT id,item_no,name,base_unit FROM items WHERE id IN (SELECT value FROM json_each(?))").bind(json).all<Row>(),
+      this.db.prepare("SELECT item_id,from_unit,to_unit,quantity FROM item_unit_conversions WHERE item_id IN (SELECT value FROM json_each(?))").bind(json).all<Row>()
+    ]);
     for(const r of res.results??[]) {
-      const conversions=await this.db.prepare("SELECT from_unit,to_unit,quantity FROM item_unit_conversions WHERE item_id=?").bind(r.id).all<Row>();
-      map.set(r.id,{...r,conversions:(conversions.results??[]).map(c=>({fromUnit:c.from_unit,toUnit:c.to_unit,quantityScaled4:c.quantity}))});
+      map.set(r.id,{...r,conversions:(conversions.results??[]).filter(c=>c.item_id===r.id).map(c=>({fromUnit:c.from_unit,toUnit:c.to_unit,quantityScaled4:c.quantity}))});
     }
     return map;
   }
   private toBase(quantity:number,unit:string,item:Row):number {
     try{return convertScaled4Exact(quantity,unit,item.base_unit,item.base_unit,item.conversions);}
     catch{throw new FieldValidationError({unit:"料件單位無法換算到基準單位"});}
+  }
+  /** BOM consumption of one component in its base unit, rounded half up to four decimals. */
+  private bomUse(output:number,c:Row,bom:Row,material:Row):{value:number;rounded:boolean}{
+    try{return bomConsumptionRounded(output,c.quantity,c.unit,bom.output_quantity,material.base_unit,material.conversions);}
+    catch{throw new FieldValidationError({unit:"料件單位無法換算到基準單位"});}
+  }
+  /**
+   * Which BOM a delivery / preview line uses. `bomRecipeId` absent or null follows the order line's BOM;
+   * `noConsumption:true` (with no bomRecipeId) explicitly consumes nothing; an id picks that BOM.
+   * The line's own bound BOM stays usable after deactivation; any other BOM must be active.
+   */
+  private async resolveBom(x:Row,p:Row,finishedItemId:number):Promise<{bom:Row;components:Row[]}|null>{
+    if(x.noConsumption!=null&&typeof x.noConsumption!=="boolean")throw new FieldValidationError({noConsumption:"必須是布林值"});
+    if(x.noConsumption===true){
+      if(x.bomRecipeId!=null)throw new FieldValidationError({bomRecipeId:"不扣料時不可指定 BOM"});
+      return null;
+    }
+    const bomId=x.bomRecipeId==null?p.bom_recipe_id:id(x.bomRecipeId,"bomRecipeId");
+    if(bomId==null)return null;
+    const bound=bomId===p.bom_recipe_id;
+    const bom=await this.db.prepare(`SELECT * FROM bom_recipes WHERE id=? AND finished_item_id=?${bound?"":" AND is_active=1"}`).bind(bomId,finishedItemId).first<Row>();
+    if(!bom)throw new FieldValidationError({bomRecipeId:"無效的 BOM"});
+    const components=await this.db.prepare("SELECT component_item_id,quantity,unit FROM bom_components WHERE bom_recipe_id=?").bind(bomId).all<Row>();
+    return {bom,components:components.results??[]};
   }
   async listOrders(query:{q?:string;contractorId?:number}={}) {
     const terms=["1=1"],values:(string|number)[]=[];
@@ -88,35 +124,47 @@ export class OutsourcingFlowService {
       (SELECT COUNT(*) FROM outsourcing_issues i WHERE i.outsourcing_order_id=o.id AND i.cancelled_at IS NULL) AS issue_count
       FROM outsourcing_orders o JOIN contractors c ON c.id=o.contractor_id WHERE ${terms.join(" AND ")}
       ORDER BY o.order_date DESC,o.id DESC LIMIT 100`).bind(...values).all<Row>();
-    const items=[];
-    for(const row of result.results??[]){const p=await this.productProgress(row.id);items.push({...row,statusCode:outsourcingLifecycle(row.closed_at,row.issue_count,p.map(x=>({planned:x.planned_quantity,delivered:x.delivered_quantity})))});}
+    const orders=result.results??[];
+    const progress=await this.productProgressMany(orders.map(o=>o.id));
+    const items=orders.map(row=>({...row,statusCode:outsourcingLifecycle(row.closed_at,row.issue_count,(progress.get(row.id)??[]).map(x=>({planned:x.planned_quantity,delivered:x.delivered_quantity})))}));
     return {items,nextCursor:null};
   }
   private async productProgress(orderId:number):Promise<Row[]> {
-    const r=await this.db.prepare(`SELECT p.*,i.item_no,i.name AS item_name,b.recipe_ref,
-      cp.pricing_unit AS current_pricing_unit,cp.unit_price AS current_unit_price
-      FROM outsourcing_order_products p
-      JOIN items i ON i.id=p.item_id
-      JOIN outsourcing_orders o ON o.id=p.outsourcing_order_id
-      LEFT JOIN bom_recipes b ON b.id=p.bom_recipe_id
-      LEFT JOIN contractor_pricing cp ON cp.contractor_id=o.contractor_id AND cp.item_id=p.item_id
-      WHERE p.outsourcing_order_id=? ORDER BY p.sort_order,p.id`).bind(orderId).all<Row>();
+    return (await this.productProgressMany([orderId])).get(orderId)??[];
+  }
+  /** Product progress for many orders in a fixed number of queries (no per-order / per-line lookups). */
+  private async productProgressMany(orderIds:number[]):Promise<Map<number,Row[]>> {
+    const byOrder=new Map<number,Row[]>();
+    if(!orderIds.length)return byOrder;
+    const json=JSON.stringify(orderIds);
+    const [r,receipts]=await Promise.all([
+      this.db.prepare(`SELECT p.*,i.item_no,i.name AS item_name,b.recipe_ref,
+        cp.pricing_unit AS current_pricing_unit,cp.unit_price AS current_unit_price
+        FROM outsourcing_order_products p
+        JOIN items i ON i.id=p.item_id
+        JOIN outsourcing_orders o ON o.id=p.outsourcing_order_id
+        LEFT JOIN bom_recipes b ON b.id=p.bom_recipe_id
+        LEFT JOIN contractor_pricing cp ON cp.contractor_id=o.contractor_id AND cp.item_id=p.item_id
+        WHERE p.outsourcing_order_id IN (SELECT value FROM json_each(?)) ORDER BY p.outsourcing_order_id,p.sort_order,p.id`).bind(json).all<Row>(),
+      this.db.prepare(`SELECT ri.order_product_id,ri.quantity,ri.unit
+        FROM outsourcing_receipt_items ri JOIN outsourcing_receipts r ON r.id=ri.receipt_id
+        WHERE r.outsourcing_order_id IN (SELECT value FROM json_each(?)) AND r.cancelled_at IS NULL`).bind(json).all<Row>()
+    ]);
     const refs=await this.itemRefs((r.results??[]).map(p=>p.item_id));
-    const progress=[];
+    const receiptsByProduct=new Map<number,Row[]>();
+    for(const ri of receipts.results??[])receiptsByProduct.set(ri.order_product_id,[...(receiptsByProduct.get(ri.order_product_id)??[]),ri]);
     for(const p of r.results??[]){
       const finished=refs.get(p.item_id)!;
-      const receipts=await this.db.prepare(`SELECT ri.quantity,ri.unit
-        FROM outsourcing_receipt_items ri JOIN outsourcing_receipts r ON r.id=ri.receipt_id
-        WHERE ri.order_product_id=? AND r.cancelled_at IS NULL`).bind(p.id).all<{quantity:number;unit:string}>();
       let delivered=0;
-      for(const ri of receipts.results??[]){
+      for(const ri of receiptsByProduct.get(p.id)??[]){
         delivered+=convertScaled4Exact(ri.quantity,ri.unit,p.unit,finished.base_unit,finished.conversions);
       }
-      progress.push({...p,delivered_quantity:delivered,
+      const row={...p,delivered_quantity:delivered,
         allowed_units:[...allowedUnits(finished.base_unit,finished.conversions)],
-        progress:outsourcingProgress(p.planned_quantity,delivered)});
+        progress:outsourcingProgress(p.planned_quantity,delivered)};
+      byOrder.set(p.outsourcing_order_id,[...(byOrder.get(p.outsourcing_order_id)??[]),row]);
     }
-    return progress;
+    return byOrder;
   }
   async detail(orderId:number):Promise<Row> {
     const order=await this.order(orderId);
@@ -242,6 +290,7 @@ export class OutsourcingFlowService {
         VALUES(?,?,'issue',?, ?, (SELECT MAX(id) FROM outsourcing_issues),?,?)`).bind(o.contractor_id,p.itemId,p.delta,d,actor.now,actor.actorMemberId));
     }
     stmts.unshift(this.db.prepare("UPDATE outsourcing_orders SET revision=revision+1,updated_at=?,updated_by=? WHERE id=? AND revision=?").bind(actor.now,actor.actorMemberId,orderId,o.revision),this.gate());
+    stmts.push(this.bumpStock(o.contractor_id));
     stmts.push(this.event("outsourcing.issued","outsourcing_order",o.outsourcing_ref,actor,{itemCount:data.length}));
     await this.commit(stmts);return this.detail(orderId);
   }
@@ -256,6 +305,7 @@ export class OutsourcingFlowService {
       VALUES(?,?,'reversal',?,?,?,?,?,?)`).bind(m.contractor_id,m.item_id,-m.quantity_delta,actor.now,issueId,m.id,actor.now,actor.actorMemberId));
     stmts.push(this.db.prepare("UPDATE outsourcing_issues SET cancelled_at=? WHERE id=? AND cancelled_at IS NULL").bind(actor.now,issueId));
     stmts.unshift(this.db.prepare("UPDATE outsourcing_orders SET revision=revision+1,updated_at=?,updated_by=? WHERE id=? AND revision=?").bind(actor.now,actor.actorMemberId,orderId,o.revision),this.gate());
+    stmts.push(this.bumpStock(o.contractor_id));
     stmts.push(this.event("outsourcing.issue_cancelled","outsourcing_order",o.outsourcing_ref,actor,{issueId}));
     await this.commit(stmts);return this.detail(orderId);
   }
@@ -274,7 +324,8 @@ export class OutsourcingFlowService {
       const row=group[0];items.push({contractorId:row.contractor_id,contractorName:row.contractor_name,billingMethod:row.billing_method,itemId:row.item_id,itemNo:row.item_no,itemName:row.item_name,unit:row.base_unit,
         quantity:formatScaled4(g.balance),baseline:formatScaled4(g.baseline),percentage:g.percentage,tone:g.tone});
     }
-    return {items};
+    const rev=contractorId?await this.db.prepare("SELECT stock_revision FROM contractors WHERE id=?").bind(contractorId).first<{stock_revision:number}>():null;
+    return {items,stockRevision:rev?.stock_revision??null};
   }
   async adjustStock(raw:unknown,actor:FlowActor) {
     const b=object(raw),contractorId=id(b.contractorId,"contractorId"),eventType=text(b.type,"type");
@@ -282,7 +333,10 @@ export class OutsourcingFlowService {
     const reason=eventType==="adjust"?text(b.reason,"reason"):text(b.reason,"reason",false);
     if(eventType==="adjust"&&!["損耗","盤點差異","其他"].includes(reason))throw new FieldValidationError({reason:"請選擇盤點調整原因"});
     if(reason==="其他"&&!text(b.note,"note",false))throw new FieldValidationError({note:"請說明原因"});
-    const dateValue=date(b.date,"date"),lines=rows(b.items,"items"),stock=(await this.stock(contractorId,true)).items;
+    const expectedStockRevision=id(b.expectedStockRevision,"expectedStockRevision");
+    const dateValue=date(b.date,"date"),lines=rows(b.items,"items"),stockNow=await this.stock(contractorId,true),stock=stockNow.items;
+    if(stockNow.stockRevision==null)throw new FieldValidationError({contractorId:"協力廠商無效"});
+    if(stockNow.stockRevision!==expectedStockRevision)throw new OutsourcingFlowError("代工庫存已異動，請重新整理後重試");
     const refs=await this.itemRefs(lines.map(x=>id(x.itemId,"itemId")));
     const data=[];
     for(const p of lines) {
@@ -293,12 +347,16 @@ export class OutsourcingFlowService {
       const unit=text(p.unit,"unit"),before=parseScaled4(stock.find(x=>x.itemId===itemId)?.quantity??"0");
       let delta=eventType==="return"?-this.toBase(qty(p.quantity,"quantity"),unit,item):0;
       if(eventType==="adjust")delta=p.actualQuantity!=null
-        ? this.toBase(parseScaled4(String(p.actualQuantity)),unit,item)-before
+        ? this.toBase(countQty(p.actualQuantity,"actualQuantity"),unit,item)-before
         : this.toBase(qty(p.delta,"delta",false),unit,item);
       if(delta===0)continue;
       data.push({itemId,unit,delta});
     }
-    const stmts:D1PreparedStatement[]=[this.db.prepare("INSERT INTO contractor_stock_events(contractor_id,event_type,event_date,reason,note,created_at,created_by) VALUES(?,?,?,?,?,?,?)").bind(contractorId,eventType,dateValue,reason||null,text(b.note,"note",false)||null,actor.now,actor.actorMemberId)];
+    const stmts:D1PreparedStatement[]=[
+      // Compare-and-set on the contractor's stock revision first: a stale count or a resubmit aborts the whole batch.
+      this.db.prepare("UPDATE contractors SET stock_revision=stock_revision+1 WHERE id=? AND stock_revision=?").bind(contractorId,expectedStockRevision),
+      this.gate(),
+      this.db.prepare("INSERT INTO contractor_stock_events(contractor_id,event_type,event_date,reason,note,created_at,created_by) VALUES(?,?,?,?,?,?,?)").bind(contractorId,eventType,dateValue,reason||null,text(b.note,"note",false)||null,actor.now,actor.actorMemberId)];
     for(const p of data){
       stmts.push(this.db.prepare("INSERT INTO contractor_stock_event_items(event_id,item_id,quantity_delta,unit) VALUES((SELECT MAX(id) FROM contractor_stock_events),?,?,?)").bind(p.itemId,p.delta,p.unit));
       stmts.push(this.db.prepare(`INSERT INTO contractor_stock_movements(contractor_id,item_id,movement_type,quantity_delta,occurred_at,stock_event_id,reason,created_at,operator_employee_id)
@@ -320,7 +378,7 @@ export class OutsourcingFlowService {
       WHERE p.outsourcing_order_id=? AND p.id IN (${productIds.map(()=>"?").join(",")})`).bind(orderId,...productIds).all<Row>();
     const productMap=new Map((products.results??[]).map(p=>[p.id,p]));
     const refs=await this.itemRefs((products.results??[]).map(p=>p.item_id));
-    const received=[],movements:{itemId:number;finishedId:number;quantity:number}[]=[];
+    const received=[],movements:{itemId:number;finishedId:number;quantity:number;rounded:boolean}[]=[];
     for(const [index,x] of lines.entries()) {
       const productId=id(x.orderProductId,"orderProductId"),p=productMap.get(productId);
       if(!p)throw new FieldValidationError({orderProductId:"成品不屬於此代工單"});
@@ -328,22 +386,19 @@ export class OutsourcingFlowService {
       try{convertScaled4Exact(quantity,unit,p.unit,finished.base_unit,finished.conversions);}
       catch{throw new FieldValidationError({unit:"交貨單位無法換算到工單單位"});}
 
-      const bomId=x.bomRecipeId == null ? p.bom_recipe_id : id(x.bomRecipeId,"bomRecipeId");
+      const resolved=await this.resolveBom(x,p,p.item_id),bomId:number|null=resolved?.bom.id??null;
       const currentPrice=await this.db.prepare("SELECT pricing_unit,unit_price FROM contractor_pricing WHERE contractor_id=? AND item_id=?").bind(o.contractor_id,p.item_id).first<Row>();
       let pricedUnit=currentPrice?.pricing_unit??null,unitPrice=currentPrice?.unit_price??null;
-      if(bomId != null) {
-        const bom=await this.db.prepare("SELECT * FROM bom_recipes WHERE id=? AND finished_item_id=? AND is_active=1").bind(bomId,p.item_id).first<Row>();
-        if(!bom)throw new FieldValidationError({bomRecipeId:"無效的 BOM"});
+      if(resolved) {
+        const {bom,components}=resolved;
         let units:number;
         try{units=convertScaled4Exact(quantity,unit,bom.output_unit,finished.base_unit,finished.conversions);}
         catch{throw new FieldValidationError({unit:"成品數量無法依 BOM 換算"});}
-        const bomComponents=await this.db.prepare("SELECT component_item_id,quantity,unit FROM bom_components WHERE bom_recipe_id=?").bind(bomId).all<Row>();
-        const componentRefs=await this.itemRefs((bomComponents.results??[]).map(c=>c.component_item_id));
-        for(const c of bomComponents.results??[]){
-          const numerator=BigInt(units)*BigInt(c.quantity),divisor=BigInt(bom.output_quantity);
-          if(numerator%divisor!==0n)throw new FieldValidationError({quantity:"BOM 用料數量超出四位小數精度"});
-          const exact=Number(numerator/divisor),material=componentRefs.get(c.component_item_id)!;
-          movements.push({itemId:c.component_item_id,finishedId:p.item_id,quantity:-this.toBase(exact,c.unit,material)});
+        const componentRefs=await this.itemRefs(components.map(c=>c.component_item_id));
+        for(const c of components){
+          const use=this.bomUse(units,c,bom,componentRefs.get(c.component_item_id)!);
+          if(use.value===0)continue;
+          movements.push({itemId:c.component_item_id,finishedId:p.item_id,quantity:-use.value,rounded:use.rounded});
         }
       }
       if(pricedUnit&&!allowedUnits(finished.base_unit,finished.conversions).has(pricedUnit)) {
@@ -358,11 +413,13 @@ export class OutsourcingFlowService {
       (receipt_id,order_product_id,item_id,bom_recipe_id,quantity,unit,pricing_unit,unit_price,sort_order)
       VALUES((SELECT MAX(id) FROM outsourcing_receipts),?,?,?,?,?,?,?,?)`).bind(p.productId,p.itemId,p.bomId,p.quantity,p.unit,p.pricedUnit,p.unitPrice,p.index));
     for(const m of movements)stmt.push(this.db.prepare(`INSERT INTO contractor_stock_movements
-      (contractor_id,item_id,related_finished_item_id,movement_type,quantity_delta,occurred_at,receipt_id,created_at,operator_employee_id)
-      VALUES(?,?,?,'consumption',?, ?, (SELECT MAX(id) FROM outsourcing_receipts),?,?)`)
-      .bind(o.contractor_id,m.itemId,m.finishedId,m.quantity,dateValue,actor.now,actor.actorMemberId));
+      (contractor_id,item_id,related_finished_item_id,movement_type,quantity_delta,occurred_at,receipt_id,reason,created_at,operator_employee_id)
+      VALUES(?,?,?,'consumption',?, ?, (SELECT MAX(id) FROM outsourcing_receipts),?,?,?)`)
+      .bind(o.contractor_id,m.itemId,m.finishedId,m.quantity,dateValue,m.rounded?ROUNDED_NOTE:null,actor.now,actor.actorMemberId));
+    if(movements.length)stmt.push(this.bumpStock(o.contractor_id));
     stmt.unshift(this.db.prepare("UPDATE outsourcing_orders SET revision=revision+1,updated_at=?,updated_by=? WHERE id=? AND revision=?").bind(actor.now,actor.actorMemberId,orderId,o.revision),this.gate());
-    stmt.push(this.event("outsourcing.received","outsourcing_order",o.outsourcing_ref,actor,{itemCount:received.length,erpNo:text(b.erpNo,"erpNo",false)}));
+    stmt.push(this.event("outsourcing.received","outsourcing_order",o.outsourcing_ref,actor,{itemCount:received.length,erpNo:text(b.erpNo,"erpNo",false),
+      ...(movements.some(m=>m.rounded)?{consumptionRounded:ROUNDED_NOTE}:{})}));
     await this.commit(stmt);return this.detail(orderId);
   }
 
@@ -374,15 +431,30 @@ export class OutsourcingFlowService {
       JOIN outsourcing_receipt_items ri ON ri.id=sl.receipt_item_id WHERE ri.receipt_id=? AND s.status_code='confirmed' LIMIT 1`).bind(receiptId).first();
     if(confirmed)throw new FieldValidationError({receiptId:"此交貨已進入已確認對帳單"});
     const movements=await this.db.prepare("SELECT * FROM contractor_stock_movements WHERE receipt_id=? AND movement_type='consumption'").bind(receiptId).all<Row>();
-    const stmt:D1PreparedStatement[]=[];
-    // Draft lines no longer represent valid delivery and must be released.
+    const drafts=await this.db.prepare(`SELECT DISTINCT s.id,s.revision FROM outsourcing_statement_lines sl JOIN outsourcing_statements s ON s.id=sl.statement_id
+      JOIN outsourcing_receipt_items ri ON ri.id=sl.receipt_item_id WHERE ri.receipt_id=? AND s.status_code='draft'`).bind(receiptId).all<Row>();
+    const draftIds=(drafts.results??[]).map(d=>d.id as number);
+    const stmt:D1PreparedStatement[]=[
+      this.db.prepare("UPDATE outsourcing_orders SET revision=revision+1,updated_at=?,updated_by=? WHERE id=? AND revision=?").bind(actor.now,actor.actorMemberId,orderId,o.revision),
+      this.gate(),
+      // The statements holding this delivery must be exactly the drafts read above: a statement confirmed
+      // (or created) meanwhile aborts the whole batch, so a confirmed statement is never touched.
+      this.db.prepare(`SELECT CASE WHEN NOT EXISTS(SELECT 1 FROM outsourcing_statement_lines sl JOIN outsourcing_statements s ON s.id=sl.statement_id
+        JOIN outsourcing_receipt_items ri ON ri.id=sl.receipt_item_id WHERE ri.receipt_id=? AND s.status_code<>'draft')
+        AND (SELECT COUNT(DISTINCT sl.statement_id) FROM outsourcing_statement_lines sl JOIN outsourcing_receipt_items ri ON ri.id=sl.receipt_item_id WHERE ri.receipt_id=?)=?
+        THEN 1 ELSE json('') END`).bind(receiptId,receiptId,draftIds.length)
+    ];
+    // Draft lines no longer represent valid delivery and must be released; each draft statement is revised and audited.
+    for(const d of drafts.results??[])stmt.push(
+      this.db.prepare("UPDATE outsourcing_statements SET revision=revision+1,updated_at=?,updated_by=? WHERE id=? AND status_code='draft'").bind(actor.now,actor.actorMemberId,d.id),
+      this.event("outsourcing.statement_line_released","statement",String(d.id),actor,{receiptId}));
     stmt.push(this.db.prepare(`DELETE FROM outsourcing_statement_lines WHERE receipt_item_id IN
       (SELECT id FROM outsourcing_receipt_items WHERE receipt_id=?)`).bind(receiptId));
     for(const m of movements.results??[])stmt.push(this.db.prepare(`INSERT INTO contractor_stock_movements
       (contractor_id,item_id,related_finished_item_id,movement_type,quantity_delta,occurred_at,receipt_id,reversal_of_movement_id,created_at,operator_employee_id)
       VALUES(?,?,?,'reversal',?,?,?,?,?,?)`).bind(m.contractor_id,m.item_id,m.related_finished_item_id,-m.quantity_delta,actor.now,receiptId,m.id,actor.now,actor.actorMemberId));
+    if(movements.results?.length)stmt.push(this.bumpStock(o.contractor_id));
     stmt.push(this.db.prepare("UPDATE outsourcing_receipts SET cancelled_at=? WHERE id=?").bind(actor.now,receiptId));
-    stmt.unshift(this.db.prepare("UPDATE outsourcing_orders SET revision=revision+1,updated_at=?,updated_by=? WHERE id=? AND revision=?").bind(actor.now,actor.actorMemberId,orderId,o.revision),this.gate());
     stmt.push(this.event("outsourcing.receipt_cancelled","outsourcing_order",o.outsourcing_ref,actor,{receiptId}));
     await this.commit(stmt);return this.detail(orderId);
   }
@@ -429,10 +501,7 @@ export class OutsourcingFlowService {
       const components=await this.db.prepare("SELECT component_item_id,quantity,unit FROM bom_components WHERE bom_recipe_id=?").bind(bom.id).all<Row>();
       const materials=await this.itemRefs((components.results??[]).map(c=>c.component_item_id));
       for(const c of components.results??[]){
-        const material=materials.get(c.component_item_id)!;
-        const fraction=BigInt(output)*BigInt(c.quantity);
-        if(fraction%BigInt(bom.output_quantity)!==0n)throw new FieldValidationError({quantity:"建議發料量超出四位小數"});
-        const needed=this.toBase(Number(fraction/BigInt(bom.output_quantity)),c.unit,material);
+        const needed=this.bomUse(output,c,bom,materials.get(c.component_item_id)!).value;
         requirements.set(c.component_item_id,(requirements.get(c.component_item_id)??0)+needed);
       }
     }
@@ -451,19 +520,17 @@ export class OutsourcingFlowService {
     for(const itemRow of entries){
       const p=byProduct.get(id(itemRow.orderProductId,"orderProductId"));
       if(!p)throw new FieldValidationError({orderProductId:"成品不屬於此工單"});
-      const bomId=itemRow.bomRecipeId==null?p.bom_recipe_id:id(itemRow.bomRecipeId,"bomRecipeId");
-      if(!bomId)continue;
-      const bom=await this.db.prepare("SELECT * FROM bom_recipes WHERE id=? AND finished_item_id=?").bind(bomId,p.item_id).first<Row>();
-      if(!bom)throw new FieldValidationError({bomRecipeId:"BOM 不屬於成品"});
+      const resolved=await this.resolveBom(itemRow,p,p.item_id);
+      if(!resolved)continue;
+      const {bom,components}=resolved;
       const finished=(await this.itemRefs([p.item_id])).get(p.item_id)!;
-      const output=convertScaled4Exact(qty(itemRow.quantity,"quantity"),text(itemRow.unit,"unit"),bom.output_unit,finished.base_unit,finished.conversions);
-      const components=await this.db.prepare("SELECT component_item_id,quantity,unit FROM bom_components WHERE bom_recipe_id=?").bind(bomId).all<Row>();
-      const refs=await this.itemRefs((components.results??[]).map(c=>c.component_item_id));
-      for(const c of components.results??[]){
-        const used=BigInt(output)*BigInt(c.quantity);
-        if(used%BigInt(bom.output_quantity)!==0n)throw new FieldValidationError({quantity:"BOM 用料數量超出四位小數"});
-        const delta=-this.toBase(Number(used/BigInt(bom.output_quantity)),c.unit,refs.get(c.component_item_id)!);
-        materials.set(c.component_item_id,(materials.get(c.component_item_id)??0)+delta);
+      let output:number;
+      try{output=convertScaled4Exact(qty(itemRow.quantity,"quantity"),text(itemRow.unit,"unit"),bom.output_unit,finished.base_unit,finished.conversions);}
+      catch(e){if(e instanceof FieldValidationError)throw e;throw new FieldValidationError({unit:"成品數量無法依 BOM 換算"});}
+      const refs=await this.itemRefs(components.map(c=>c.component_item_id));
+      for(const c of components){
+        const delta=-this.bomUse(output,c,bom,refs.get(c.component_item_id)!).value;
+        if(delta!==0)materials.set(c.component_item_id,(materials.get(c.component_item_id)??0)+delta);
       }
     }
     const refs=await this.itemRefs([...materials.keys()]);
@@ -602,14 +669,23 @@ export class OutsourcingFlowService {
     for(const key of selected){
       const r=candidateMap.get(key)!;const pricingUnit=r.pricing_unit??r.unit;
       const refs=await this.itemRefs([r.item_id]),item=refs.get(r.item_id)!;
-      const converted=convertScaled4Exact(r.quantity,r.unit,pricingUnit,item.base_unit,item.conversions);
+      let converted:number;
+      // A delivery that does not convert exactly into the pricing unit (e.g. 7 個 -> 打) is rounded half up to four decimals.
+      try{converted=convertScaled4Rounded(r.quantity,r.unit,pricingUnit,item.base_unit,item.conversions).value;}
+      catch{throw new FieldValidationError({receiptItemIds:"交貨數量無法換算到計價單位："+r.item_no});}
+      if(converted<=0)throw new FieldValidationError({receiptItemIds:"交貨數量換算到計價單位後為零："+r.item_no});
       const amount=r.unit_price==null?null:roundedLineMoney2(converted,r.unit_price);
       stmt.push(this.db.prepare(`INSERT INTO outsourcing_statement_lines
         (statement_id,receipt_item_id,pricing_unit,quantity,unit_price,amount)
         VALUES((SELECT MAX(id) FROM outsourcing_statements),?,?,?,?,?)`).bind(key,pricingUnit,converted,r.unit_price,amount));
     }
     stmt.push(this.event("outsourcing.statement_created","contractor",String(contractorId),actor,{lineCount:selected.length,month}));
-    await this.commit(stmt);
+    try{await this.commit(stmt);}
+    catch(e){
+      // Two users statementing the same delivery: the loser's batch rolls back on the UNIQUE receipt_item_id.
+      if(String(e).includes("UNIQUE constraint failed"))throw new OutsourcingFlowError("交貨明細已被其他對帳單使用，請重新整理後重試");
+      throw e;
+    }
     const latest=await this.db.prepare("SELECT MAX(id) AS id FROM outsourcing_statements WHERE contractor_id=?").bind(contractorId).first<{id:number}>();
     return this.statementDetail(latest!.id);
   }
@@ -621,7 +697,9 @@ export class OutsourcingFlowService {
     const stmts:D1PreparedStatement[]=[];
     for(const l of lines) {
       const lineId=id(l.id,"lineId");if(!known.has(lineId))throw new FieldValidationError({lineId:"明細不屬於本對帳單"});
-      const price=l.unitPrice==null||l.unitPrice===""?null:parseScaled4(String(l.unitPrice));
+      let price:number|null;
+      try{price=l.unitPrice==null||l.unitPrice===""?null:parseScaled4(String(l.unitPrice));}
+      catch{throw new FieldValidationError({unitPrice:"單價請輸入最多四位小數的數字"});}
       if(price!==null&&price<0)throw new FieldValidationError({unitPrice:"單價不能小於零"});
       const row=await this.db.prepare("SELECT quantity FROM outsourcing_statement_lines WHERE id=?").bind(lineId).first<{quantity:number}>();
       stmts.push(this.db.prepare("UPDATE outsourcing_statement_lines SET unit_price=?,amount=? WHERE id=? AND statement_id=?")
@@ -694,7 +772,7 @@ export class OutsourcingFlowService {
   }
   async deletePayment(statementId:number,paymentId:number,raw:unknown,actor:FlowActor) {
     const b=object(raw),s=await this.statementDetail(statementId);
-    if(s.revision!==id(b.expectedRevision,"expectedRevision"))throw new FieldValidationError({expectedRevision:"對帳單已異動"});
+    if(s.revision!==id(b.expectedRevision,"expectedRevision"))throw new OutsourcingFlowError("對帳單已異動，請重新整理後重試");
     const payment=s.payments.find((p:Row)=>p.id===paymentId);
     if(!payment)throw new FieldValidationError({paymentId:"付款紀錄不存在"});
     await this.commit([

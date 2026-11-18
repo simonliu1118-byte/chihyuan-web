@@ -3,6 +3,11 @@
 > 本檔是 CY Web 唯一的現況與待辦清單，不是永久規則來源。各版本完成內容與驗證見 `CHANGELOG.md`；規格見 `docs/architecture/README.md`。
 > 2026-11-03、2026-11-09 整理：已完成且已記入 CHANGELOG 的版本段落移除；已結案的交接與工作單移到 Git 固定快照（見 `docs/handoff/README.md`）。
 
+## V0.21.6 委外代工與 BOT 事後審查修正（已提交，待合併部署）
+
+- [x] Claude 事後審查 WO-0.18.0、V0.18.12、V0.18.13 完成（2026-11-18），發現的問題全部修正於 V0.21.6（分支 `cyweb/v0.21.6-review-fixes`，含 migration 0078）。
+- [ ] 使用者核准後合併並部署；部署後確認 0078 套用、委外交貨（含不扣料）、退料／盤點與對帳單於正式站可用。
+
 ## V0.21.4 部署紀錄不再印出部署識別值（已部署 2026-11-17）
 
 - [x] 部署與 CYID 稽核工作不再從 GitHub variables 讀 Worker／D1／CYID／R2 等識別值（runner 會在遮蔽前把 env 明碼印進公開 log）；改由 `scripts/resolve-deploy-runtime.mjs` 從正式網域查 Cloudflare 現行 Worker 綁定，先遮蔽再使用（使用者 2026-11-17 定案：方案 2，以網域查詢）。
@@ -25,27 +30,27 @@
 - [x] 使用者在 BOT 管理中心確認正常；小編已更新工具／技能（2026-11-18）。
 - [x] WEB部署0077後，小編已更新工具／技能；補登缺少全文與場次的實際成果由小編依原則進行（不補審、不重發社群內容）。
 
-## V0.18.13 BOT 巡視摘要／發布點閱（已部署，待Claude事後審查）
+## V0.18.13 BOT 巡視摘要／發布點閱（已部署；Claude 事後審查完成，修正於 V0.21.6，待部署）
 
 - [x] Threads實際送出則數可點閱、巡視名稱／狀態／摘要依BOT回報；新文章逐篇點閱、總篇數不作按鈕；待核准N紅字。
 - [x] 財務正式唯讀查核：當日progress摘要已收到、狀態完成；沒有改動財務資料或憑證。
 - [x] PR511檢查全部成功（831項完整Node測試通過）；[受控發布 #43356893401](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/43356893401) 成功，正式版本／來源／D1／HTTPS驗證通過。
-- [ ] Claude事後審查；[handoff](docs/handoff/CYWEB-BOT-PATROL-01813-20261113.md)留Claude事後審查。
+- [x] Claude事後審查（2026-11-18）完成；結論見 [handoff](docs/handoff/CYWEB-BOT-PATROL-01813-20261113.md)，修正於 V0.21.6，待部署。
 - [x] 已準備隨本輪交付社群小編的巡視命名／摘要與逐篇發布回報文字及更新技能；原憑證、收據、routine保留。
 - [ ] 小編實際更新技能並驗收新格式、巡視N與單篇發布內容；不要將本機合成驗證當作Grok實機成功。
 
-## V0.18.12 BOT 版面／改稿（已部署，待Claude事後審查）
+## V0.18.12 BOT 版面／改稿（已部署；Claude 事後審查完成，修正於 V0.21.6，待部署）
 
 - [x] 卡片溢出修正、改稿版本鏈與唯讀歷史、10 張圖片、實際送出明細、IT 清除／FINANCE 獨立身分、取消動態新增 BOT；工具與共用技能同步。
 - [x] TypeScript、建置、來源契約、69項BOT相關測試通過；完整回歸既有Windows問題與D1清理限制已記錄。
-- [ ] Claude 審查 [PR #509](https://github.com/simonliu1118-byte/chihyuan-web/pull/509)；見 [handoff](docs/handoff/CYWEB-BOT-REVISIONS-01812-20261112.md)。使用者2026-11-12已明確授權先合併部署，待Claude事後填結論。
+- [x] Claude 事後審查 [PR #509](https://github.com/simonliu1118-byte/chihyuan-web/pull/509) 完成（2026-11-18）；見 [handoff](docs/handoff/CYWEB-BOT-REVISIONS-01812-20261112.md)，修正於 V0.21.6，待部署。
 - [x] [PR509發布 #43248383242](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/43248383242) 成功：V0.18.12／0068、來源與D1健康、HTTPS／排程／portal均通過；IT已清除，小編整合設定保留，圖片待清理佇列為0。
 - [ ] 更新 Grok 的程式／技能；沿用原憑證、原收據與原 routine，實機測試改稿、10 圖、送出與完成兩類回報。IT 圖片的技術刪除佇列由排程完成。
 
-## WO-0.18.0 委外代工改版（工程完成，待 Claude 複審；未合併／未部署）
+## WO-0.18.0 委外代工改版（已上線 V0.18.0；Claude 事後審查 2026-11-18 完成，修正於 V0.21.6，待部署）
 
 - [x] PR #494：分批發料／交貨、BOM 扣料、廠商庫存與電池條、退料盤點、對帳與分次付款、五頁籤表格式主檔已完成工程實作；2026-11-10 全部 Runtime／Source／TypeScript／Build／本地 D1／Node CI 成功，桌機 1440 與手機 390 隔離 fixture 各六張截圖通過。細節見 [工單 §8](docs/development/work-orders/WO-0.18.0.md)。
-- [ ] Claude 依工單 §9 複審 PR #494（含 migration、庫存與付款語意及 mobile UI）；不因工程 CI 成功而自動合併或部署。
+- [x] Claude 事後審查（2026-11-18）完成，結論見工單 §9；發現的問題修正於 V0.21.6，待部署。
 - [ ] 正式站實際登入、實際 D1 備份與復原準備、手機裝置流程走查；這些需在**使用者另行核准部署**之後實作，不得把隔離 fixture 截圖當作正式站驗收。
 - [ ] **代工 ERP 連動（後續另案）**：ERP 自動建立發料／入庫單與實際庫存連動未實作。現在 ERP 單號僅人工填寫（2026-11-10 使用者指示暫不做）。
 
