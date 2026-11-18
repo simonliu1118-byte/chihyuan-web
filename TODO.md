@@ -193,7 +193,7 @@
   - 把 CYWEB `CF_CYINVOICE_RECOVERY_SERVICE` 接到正確入口，依具體授權受控部署；
   - 驗收真 Email、雙 Windows、DR-01～13；
   - 確認撤銷裝置的在途 Work Item fencing、跨 repo 契約，以及變更密碼／移交後的查回。
-- [ ] 舊的開發版 CYID 服務已從 Cloudflare 刪除，請使用者登入一次 CYInvoice，確認它已改接正式 CYID。
+- [x] 舊的開發版 CYID 已刪除；CYInvoice 已改接正式 CYID（2026-11-18 唯讀預檢通過，使用者登入確認正常）。
 
 ## 維運與基礎設施
 
