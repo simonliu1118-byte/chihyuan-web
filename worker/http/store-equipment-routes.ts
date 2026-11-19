@@ -115,7 +115,7 @@ export async function handleStoreEquipmentRoute(req:Request,env:IdentityRuntimeE
    const candidates=await all<{customer_code:string;customer_name:string;active:number;equipment_json:string}>(c.db,`WITH candidates AS (
     SELECT customer_code FROM store_equipment_records WHERE maintenance=1
     UNION SELECT v.customer_code FROM store_maintenance_visits v WHERE ${relevant} AND v.planned_month BETWEEN ? AND ?
-    UNION SELECT v.customer_code FROM store_maintenance_visits v WHERE v.completed=1 AND v.completion_date BETWEEN ? AND ?
+    UNION SELECT v.customer_code FROM store_equipment_plans p JOIN store_maintenance_visits v ON v.id=p.visit_id WHERE p.completed=1 AND p.completion_date BETWEEN ? AND ?
    ),named AS (SELECT customer_code,COALESCE((SELECT customer_name FROM store_equipment_records r WHERE r.customer_code=candidates.customer_code ORDER BY updated_at DESC,id DESC LIMIT 1),(SELECT customer_name FROM store_maintenance_visits v WHERE v.customer_code=candidates.customer_code ORDER BY updated_at DESC,id DESC LIMIT 1),'') customer_name FROM candidates)
    SELECT n.*,EXISTS(SELECT 1 FROM store_equipment_records r WHERE r.customer_code=n.customer_code AND r.maintenance=1) active,
     (SELECT json_group_array(json_object('id',r.id,'sequence',r.list_sequence,'brand',r.brand,'model',r.model,'quantity',r.quantity,'saleDate',r.sale_date)) FROM store_equipment_records r WHERE r.customer_code=n.customer_code AND r.maintenance=1) equipment_json
@@ -124,13 +124,28 @@ export async function handleStoreEquipmentRoute(req:Request,env:IdentityRuntimeE
    ORDER BY n.customer_code LIMIT 51`,window.from,window.to,window.from+'-01',window.to+'-31',before,q,like,like,open?1:0,window.from,window.to);
    const selected=candidates.slice(0,50),codes=JSON.stringify(selected.map(r=>r.customer_code));
    // Two index ranges (planned and actual), rather than a full visit scan or one request per cell.
-   const visits=await all<VisitRow>(c.db,`SELECT v.*,'[]' equipment_json FROM store_maintenance_visits v WHERE v.id IN(
+   const visits=await all<VisitRow>(c.db,`SELECT v.*,${visitCountersSql},'[]' equipment_json FROM store_maintenance_visits v WHERE v.id IN(
     SELECT v.id FROM store_maintenance_visits v WHERE v.customer_code IN(SELECT value FROM json_each(?)) AND ${relevant} AND v.planned_month BETWEEN ? AND ?
-    UNION SELECT v.id FROM store_maintenance_visits v WHERE v.customer_code IN(SELECT value FROM json_each(?)) AND v.completed=1 AND v.completion_date BETWEEN ? AND ?
+    UNION SELECT v.id FROM store_equipment_plans p JOIN store_maintenance_visits v ON v.id=p.visit_id WHERE v.customer_code IN(SELECT value FROM json_each(?)) AND p.completed=1 AND p.completion_date BETWEEN ? AND ?
    ) ORDER BY v.planned_month,v.id`,codes,window.from,window.to,codes,window.from+'-01',window.to+'-31');
-   // Read retained source summaries once per customer page, not once per monthly cell.
-   const retained=await all<{customer_code:string;snapshot_json:string}>(c.db,`SELECT DISTINCT v.customer_code,p.snapshot_json FROM store_equipment_plans p JOIN store_maintenance_visits v ON v.id=p.visit_id WHERE v.id IN(SELECT value FROM json_each(?)) AND p.retained=1`,JSON.stringify(visits.filter(v=>v.completed).map(v=>v.id)));
-   const rows:MaintenanceMatrixCustomer[]=selected.map(r=>({customerCode:r.customer_code,customerName:r.customer_name,activeMaintenance:!!r.active,equipment:[...new Map([...retained.filter(p=>p.customer_code===r.customer_code).map(p=>JSON.parse(p.snapshot_json)),...JSON.parse(r.equipment_json)].map(e=>[e.id,e])).values()],visits:visits.filter(v=>v.customer_code===r.customer_code).map(visitJson)}));
+   // One bulk membership read for the bounded customer page; source snapshots
+   // include per-machine actual dates so two visits in one month remain distinct.
+   const members=await all<{customer_code:string;visit_id:number;snapshot_json:string;completed:number;completion_date:string|null;note:string;active:number}>(c.db,
+    `SELECT v.customer_code,p.visit_id,p.snapshot_json,p.completed,p.completion_date,p.note,p.active
+      FROM store_equipment_plans p JOIN store_maintenance_visits v ON v.id=p.visit_id
+      WHERE p.visit_id IN (SELECT value FROM json_each(?)) AND (p.active=1 OR p.completed=1)
+      ORDER BY p.visit_id,p.equipment_id`,JSON.stringify(visits.map(v=>v.id)));
+   const membership=new Map<number,MaintenanceVisit["equipment"]>();
+   for(const p of members){
+     const equipment={...JSON.parse(p.snapshot_json),completed:!!p.completed,completionDate:p.completion_date,note:p.note,active:!!p.active};
+     membership.set(p.visit_id,[...(membership.get(p.visit_id)??[]),equipment]);
+   }
+   const rows:MaintenanceMatrixCustomer[]=selected.map(r=>({
+     customerCode:r.customer_code,customerName:r.customer_name,activeMaintenance:!!r.active,
+     equipment:[...new Map([...members.filter(p=>p.customer_code===r.customer_code&&p.completed===1).map(p=>JSON.parse(p.snapshot_json)),
+       ...JSON.parse(r.equipment_json)].map(e=>[e.id,e])).values()],
+     visits:visits.filter(v=>v.customer_code===r.customer_code).map(v=>visitJson({...v,equipment_json:JSON.stringify(membership.get(v.id)??[])}))
+   }));
    return success({rows,nextBefore:candidates.length>50?selected[49].customer_code:null,centerYear:year},requestId);
   }
   const customerHistory=/^\/customers\/([^/]+)\/history$/.exec(path);
