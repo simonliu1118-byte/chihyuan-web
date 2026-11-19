@@ -118,7 +118,7 @@ const fields:Record<string,string> = {
   shortName:"簡稱",fullName:"完整名稱",displayName:"姓名",code:"代碼",customerNo:"客戶編號",
   itemNo:"品號",workOrderRef:"工單編號",outsourcingRef:"代工單號",customerNameSnapshot:"客戶名稱",itemNameSnapshot:"商品名稱",
   taxId:"統一編號",paymentTerms:"付款條件",invoiceType:"發票開立",light:"燈號",isImportant:"重要",pin:"固定位置",ids:"順序",phone:"電話",mobile:"手機",fax:"傳真",address:"地址",
-  equipment:"維護機器",equipmentId:"出機紀錄",completionDate:"維護日期",manufacturedMonth:"製造日期",note:"備註",description:"說明",content:"內容",reason:"原因",quantity:"數量",
+  equipment:"維護機器",equipmentId:"出機紀錄",note:"備註",description:"說明",content:"內容",reason:"原因",quantity:"數量",
   unit:"單位",unitPrice:"單價",totalAmount:"總金額",amount:"金額",scoreValue:"分數",
   categoryId:"分類",customerCategoryId:"客戶分類",customerStatusId:"客戶狀態",regionId:"地區",ownerDepartmentId:"負責部門",
   departmentId:"部門",ownerEmployeeId:"負責人",operatorEmployeeId:"作業人員",itemCategoryId:"商品分類",itemId:"商品",
