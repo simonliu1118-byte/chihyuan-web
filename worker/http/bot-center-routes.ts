@@ -227,9 +227,11 @@ async function deliveryCount(db:D1Database,kind:string,start:string,end:string,o
 }
 /**
  * 場次狀態（V0.22.0）：連結的稿件有待審的則 → 待審核；否則有已通過但還沒有送出成果的則、且場次未被 BOT 明確結束 → 已審核；
- * 其餘 → 已完成。沒有連結稿件的舊場次：有送出成果才算已完成（沒有成果也沒有明確結束的空場次不列）。
+ * 其餘 → 已完成。V0.22.1：沒有連結稿件的場次（小編在 CY Web 外審稿）只有 BOT 明確結束才算已完成，否則為進行中；
+ * 當日所有場次都列出（含尚未送出者），備註照 BOT 原文顯示。
  */
-function patrolStatus(pending:number,awaiting:number,completed:boolean):BotPatrolStatus{
+function patrolStatus(linked:boolean,pending:number,awaiting:number,completed:boolean):BotPatrolStatus{
+ if(!linked)return completed?"done":"open";
  return pending>0?"pending":awaiting>0&&!completed?"approved":"done";
 }
 async function patrolSummaries(db:D1Database,day:string,start:string,end:string,owner?:number):Promise<BotPatrolSummary[]>{
@@ -244,8 +246,7 @@ async function patrolSummaries(db:D1Database,day:string,start:string,end:string,
  const rows:BotPatrolSummary[]=[];
  for(const s of sessions){
   const mine=linked.filter(x=>x.session_id===s.id),pending=mine.reduce((n,x)=>n+x.pending,0),awaiting=mine.reduce((n,x)=>n+x.awaiting,0);
-  if(!mine.length&&!s.sent&&!s.completed_at)continue;
-  rows.push({id:s.id,label:s.label,note:s.note,sent:s.sent,status:patrolStatus(pending,awaiting,!!s.completed_at),pendingItems:pending,awaitingItems:awaiting,draftIds:mine.map(x=>x.draft_id)});
+  rows.push({id:s.id,label:s.label,note:s.note,sent:s.sent,status:patrolStatus(mine.length>0,pending,awaiting,!!s.completed_at),pendingItems:pending,awaitingItems:awaiting,draftIds:mine.map(x=>x.draft_id)});
  }
  const unassigned=await one<{n:number}>(db,`SELECT count(*) n FROM bot_deliveries WHERE kind='patrol' AND session_id IS NULL AND sent_at>=? AND sent_at<? ${owner===undefined?"":"AND bot_id=?"}`,start,end,...(owner===undefined?[]:[owner]));
  if(unassigned?.n)rows.push({id:0,label:"",note:"",sent:unassigned.n,status:"done",pendingItems:0,awaitingItems:0,draftIds:[]});

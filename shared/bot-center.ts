@@ -153,8 +153,8 @@ export interface BotSentItemSummary {id:number;draftId:number|null;seq:number|nu
 export interface BotSentItemView extends BotSentItemSummary {body:string;draftTitle:string;botCode:string;botLabel:string;platform:string;url:string;approvalSource:"cyweb"|"chat"|"line"|"other";approvalNote:string;sessionLabel:string}
 export interface BotDeliveryDetail {item:BotSentItemView;images:(BotReviewImageView & {deliveryImage?:boolean})[]}
 /** 場次狀態（V0.22.0）：pending 待審核、approved 已審核（待 BOT 留言）、done 已完成。 */
-export type BotPatrolStatus = "pending" | "approved" | "done";
-export const BOT_PATROL_STATUS_LABELS: Record<BotPatrolStatus, string> = { pending: "待審核", approved: "已審核", done: "已完成" };
+export type BotPatrolStatus = "pending" | "open" | "approved" | "done";
+export const BOT_PATROL_STATUS_LABELS: Record<BotPatrolStatus, string> = { pending: "待審核", open: "進行中", approved: "已審核", done: "已完成" };
 export interface BotPatrolSummary {id:number;label:string;note:string;sent:number;status:BotPatrolStatus;pendingItems:number;awaitingItems:number;draftIds:number[]}
 export interface BotPatrolSessionItem {id:number;draftId:number;seq:number;title:string;body:string;status:BotReviewStatus}
 export interface BotSentItemPage<T=BotSentItemView> {day:string;items:T[];more:boolean;nextBefore:string|null}
