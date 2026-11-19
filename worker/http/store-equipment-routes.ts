@@ -106,6 +106,17 @@ export async function handleStoreEquipmentRoute(req:Request,env:IdentityRuntimeE
    const list=await all<RecordRow>(c.db,recordListSelect+" WHERE r.list_sequence<? AND (?='' OR r.customer_code LIKE ? ESCAPE '\\' OR r.customer_name LIKE ? ESCAPE '\\' OR r.brand LIKE ? ESCAPE '\\' OR r.category_other LIKE ? ESCAPE '\\' OR r.model LIKE ? ESCAPE '\\' OR EXISTS(SELECT 1 FROM json_each(r.machines_json) m WHERE json_extract(m.value,'$.serialNo') LIKE ? ESCAPE '\\')) ORDER BY r.list_sequence DESC LIMIT 101",Number(before),q,like,like,like,like,like,like);
    return success({rows:list.slice(0,100).map(recordJson),nextBefore:list.length>100?list[99].list_sequence:null},requestId);
   }
+  if(method==='GET'&&path==='/month-status'){
+    const code=equipmentCustomerCode(u.searchParams.get('customerCode')??'');
+    const except=Number(u.searchParams.get('equipmentId')??0);
+    if(!code||[...code].length>L.customerCode||!Number.isSafeInteger(except)||except<0)throw new Invalid('客戶編號不正確');
+    const months=await all<{month:string}>(c.db,
+      `SELECT DISTINCT v.planned_month month FROM store_equipment_plans p
+       JOIN store_maintenance_visits v ON v.id=p.visit_id
+       WHERE v.customer_code=? AND p.completed=1 AND p.equipment_id<>?
+       ORDER BY v.planned_month`,code,except);
+    return success({completedMonths:months.map(r=>r.month)},requestId);
+  }
   if(method==='GET'&&path==='/matrix'){
    const rawYear=u.searchParams.get('year')??today(at).slice(0,4),year=Number(rawYear);
    if(!/^\d{4}$/.test(rawYear)||year<2||year>9998)throw new Invalid('維護年度不正確');
