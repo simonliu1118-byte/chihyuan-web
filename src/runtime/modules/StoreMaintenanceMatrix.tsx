@@ -71,22 +71,53 @@ export function StoreMaintenanceMatrix({initialCustomer='',onEquipment}:{initial
    finally{lock.current=false;setBusy(false)}
  }
  function renderEntry(row:MaintenanceMatrixCustomer,month:string,entry:MaintenanceMatrixEntry,index:number){
-  const schedule=entry.visits.map(v=>display(v.month)).join('、'),action=()=>show(row.customerCode,month,entry),selected=panel?.code===row.customerCode&&panel.month===month&&panel.entry.kind===entry.kind&&panel.entry.day===entry.day;
+  const schedule=entry.visits.map(v=>display(v.month)).join('、'),action=()=>show(row.customerCode,month,entry),
+    selected=panel?.code===row.customerCode&&panel.month===month&&panel.entry.kind===entry.kind&&panel.entry.day===entry.day;
   if(entry.kind==='date')return <StoreMilestoneButton key={entry.kind+entry.day} day={entry.day!} baseYear={month} disabled={busy} label={row.customerName+' '+display(entry.day!)+' 維護資料'} title={'實際：'+display(entry.day!)+'；預計：'+schedule} onClick={action}/>;
-  if(entry.kind==='pending'||entry.kind==='overdue')return <span key={entry.kind+index} className={entry.kind==='overdue'?'cy-matrix-overdue':undefined}><IconButton variant="table" icon={entry.kind==='pending'?Icons.circle:Icons.warning} label={row.customerName+' 預計 '+schedule+(entry.kind==='overdue'?'，逾期尚未前往':'，填寫實際日期')} expanded={selected} disabled={busy} onClick={action}/></span>;
-  return <button key={entry.kind+index} type="button" className={"cy-store-date-link cy-matrix-reference"+(entry.kind==='moved'?' cy-matrix-moved':'')} disabled={busy} aria-expanded={selected} title={entry.kind==='missing'?'舊維護紀錄未填日期，請補填實際日期':'預計：'+schedule+'；實際：'+display(entry.visits[0].completionDate!)} onClick={action}>{entry.kind==='missing'?'補日':<><span>→</span><span>{Number(entry.targetMonth!.slice(5))}月</span></>}</button>;
+  if(entry.kind==='partial')return <button key={'partial'+index} type="button" className="cy-matrix-partial" disabled={busy} aria-expanded={selected}
+    aria-label={row.customerName+' 預計 '+schedule+' 部分完成 '+entry.completedCount+'/'+entry.totalCount}
+    title={'部分完成：'+entry.completedCount+'/'+entry.totalCount} onClick={action}>{entry.completedCount}/{entry.totalCount}</button>;
+  if(entry.kind==='pending'||entry.kind==='overdue')return <span key={entry.kind+index} className={entry.kind==='overdue'?'cy-matrix-overdue':undefined}>
+    <IconButton variant="table" icon={entry.kind==='pending'?Icons.circle:Icons.warning} label={row.customerName+' 預計 '+schedule+(entry.kind==='overdue'?'，逾期尚未前往':'，填寫實際日期')} expanded={selected} disabled={busy} onClick={action}/></span>;
+  return <button key={entry.kind+index} type="button" className={"cy-store-date-link cy-matrix-reference"+(entry.kind==='moved'?' cy-matrix-moved':'')}
+    disabled={busy} aria-expanded={selected} title={entry.kind==='missing'?'舊維護紀錄未填日期，請補填實際日期':'預計：'+schedule+'；實際月份：'+display(entry.targetMonth!)}
+    onClick={action}>{entry.kind==='missing'?'補日':<><span>→</span><span>{Number(entry.targetMonth!.slice(5))}月</span></>}</button>;
  }
  function renderPopover(row:MaintenanceMatrixCustomer,month:string,index:number){
   if(panel?.code!==row.customerCode||panel.month!==month)return null;
-  return <div className="cy-store-date-popover cy-matrix-popover" data-align={index>25?'end':undefined} role="dialog" aria-label={row.customerName+' 維護日期與備註'}>
-   <div>{row.customerCode} {row.customerName}</div>
-   {panel.entry.visits.length>1?<EntryTable label="同日維護資料"><thead><tr><th>預計年月</th><th>實際日期</th><th>備註</th><th>操作</th></tr></thead><tbody>{panel.entry.visits.map(v=><tr key={v.id}><td>{display(v.month)}</td><td>{v.completionDate?display(v.completionDate):''}</td><td>{v.note}</td><td><IconButton variant="table" icon={Icons.edit} label={'修改預計 '+display(v.month)+' 維護'} disabled={busy} onClick={()=>begin(v)}/></td></tr>)}</tbody></EntryTable>:null}
-   {work?<form onKeyDown={enterAdvancesThenSubmits} onSubmit={e=>{e.preventDefault();void save()}}>
-    <div>預計 {display(work.visit.month)}</div>
-    <StoreMilestoneDateFields label="維護" min="0001-01-01" max={today} value={work.value} withoutDate={false} allowWithoutDate={false} disabled={busy} onChange={p=>setWork(w=>w?{...w,value:p.value??w.value}:w)}/>
-    <Field label="備註" size="l"><input className="cy-op-input cy-equipment-visit-note" aria-label="維護備註" maxLength={EQUIPMENT_LIMITS.note} value={work.note} disabled={busy} onChange={e=>setWork(w=>w?{...w,note:e.target.value}:w)}/></Field>
-    <div className="cy-store-date-actions">{work.visit.completed?<button type="button" className="cy-op-button compact danger" disabled={busy} onClick={()=>void(async()=>{if(await confirm({title:'取消維護登記？',confirmLabel:'取消登記',cancelLabel:'返回'}))await save(false)})()}>取消登記</button>:null}<button type="button" className="cy-op-button compact" disabled={busy} onClick={close}>取消</button><button type="submit" className="cy-op-button compact primary" disabled={busy}>儲存</button></div>
-   </form>:<button type="button" className="cy-op-button compact" onClick={close}>收合</button>}
+  const active=work?.visit??(panel.entry.visits.length===1?panel.entry.visits[0]:null);
+  const candidates=active?.equipment??[];
+  const unchecked=candidates.filter(e=>e.active&&!e.completed);
+  return <div className="cy-store-date-popover cy-matrix-popover cy-matrix-machine-popover" data-align={index>25?'end':undefined}
+    role="dialog" aria-label={row.customerName+' 逐台維護登記'}>
+   <div className="cy-matrix-visit-heading">{row.customerCode} {row.customerName} · 預計 {display(active?.month??month)}</div>
+   {panel.entry.visits.length>1?<EntryTable label="同日維護安排"><thead><tr><th>預計年月</th><th>已完成／總台數</th><th>操作</th></tr></thead>
+    <tbody>{panel.entry.visits.map(v=><tr key={v.id}><td>{display(v.month)}</td><td>{v.completedCount}/{v.totalCount}</td>
+      <td><button type="button" className="cy-op-button compact" onClick={()=>begin(v)}>查看／登記</button></td></tr>)}</tbody></EntryTable>:null}
+   {active?<form onKeyDown={enterAdvancesFields} onSubmit={e=>{e.preventDefault();void save('complete')}}>
+    <EntryTable label="維護機器" className="cy-maintenance-machines"><thead><tr><th>項次</th><th>品牌／機型</th><th>數量</th><th>狀態</th><th>備註</th><th>操作</th></tr></thead>
+     <tbody>{candidates.map((e,i)=><tr key={e.id}><td>{i+1}</td><td>{[e.brand,e.model].filter(Boolean).join('／')||'—'}</td><td>{e.quantity}</td>
+      <td>{!e.completed&&e.active?<Field label={'登記第 '+(i+1)+' 台'} presentation="cell"><input type="checkbox" checked={work?.selectedIds.includes(e.id)??false} disabled={busy}
+        onChange={event=>setWork(w=>w?{...w,selectedIds:event.target.checked?[...w.selectedIds,e.id]:w.selectedIds.filter(id=>id!==e.id),mode:'complete',value:today,note:''}:w)}/></Field>
+      :e.completed?'已完成 '+(e.completionDate?display(e.completionDate):'未填日期'):'已取消排程'}</td>
+      <td>{e.completed?e.note:'—'}</td>
+      <td>{e.completed?<div className="cy-store-row-actions"><button type="button" className="cy-op-button compact" disabled={busy} onClick={()=>begin(active,e.id)}>修改</button>
+       <button type="button" className="cy-op-button compact danger" disabled={busy} onClick={()=>void(async()=>{
+        if(await confirm({title:'取消這台機器的維護登記？',description:[e.brand,e.model,e.completionDate??''].filter(Boolean).join('／'),confirmLabel:'取消登記',cancelLabel:'返回'}))
+         await save('undo',{visit:active,equipmentIds:[e.id]});
+       })()}>取消登記</button></div>:null}</td></tr>)}</tbody>
+    </EntryTable>
+    {work&&work.selectedIds.length>0?<div className="cy-matrix-machine-fields">
+      <StoreMilestoneDateFields label="實際日期" min="0001-01-01" max={today} value={work.value} withoutDate={false} allowWithoutDate={false} disabled={busy}
+        onChange={p=>setWork(w=>w?{...w,value:p.value??w.value}:w)}/>
+      <Field label="備註" size="l"><input className="cy-op-input cy-equipment-visit-note" aria-label="維護備註" maxLength={EQUIPMENT_LIMITS.note} value={work.note}
+        disabled={busy} onChange={e=>setWork(w=>w?{...w,note:e.target.value}:w)}/></Field>
+    </div>:null}
+    <div className="cy-store-date-actions">
+     <button type="button" className="cy-op-button compact" onClick={close}>關閉</button>
+     {work&&work.selectedIds.length>0?<button type="submit" className="cy-op-button compact primary" disabled={busy}>{work.mode==='modify'?'儲存修改':'登記勾選的機器'}</button>:null}
+    </div>
+   </form>:<div className="cy-store-date-actions"><button type="button" className="cy-op-button compact" onClick={close}>關閉</button></div>}
   </div>;
  }
  if(!list.loaded)return <Loading/>;
