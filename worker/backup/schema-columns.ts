@@ -1051,7 +1051,10 @@ export const BACKUP_COLUMNS: Record<string, string[]> = {
   ],
   "store_equipment_plans": [
     "active",
+    "completed",
+    "completion_date",
     "equipment_id",
+    "note",
     "retained",
     "snapshot_json",
     "visit_id"

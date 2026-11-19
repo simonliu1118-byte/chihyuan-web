@@ -5,7 +5,7 @@ import {readdirSync,readFileSync} from 'node:fs';
 import {build} from 'esbuild';
 async function compiled(path){const b=await build({entryPoints:[path],bundle:true,write:false,platform:'node',format:'esm'});return import('data:text/javascript;base64,'+Buffer.from(b.outputFiles[0].text).toString('base64'))}
 const {handleStoreEquipmentRoute}=await compiled('worker/http/store-equipment-routes.ts');
-const {halfYearMonths,equipmentWarrantyEnd,equipmentWarrantyMonths,shiftEquipmentMonth}=await compiled('shared/store-equipment.ts');
+const {halfYearMonths,equipmentWarrantyEnd,equipmentWarrantyMonths,shiftEquipmentMonth,validManufacturedDate}=await compiled('shared/store-equipment.ts');
 const backup=await compiled('worker/backup/portable-backup.ts');
 const now='2027-07-06T03:00:00.000Z',key=()=>crypto.randomUUID();
 function fixture({grant=true,seed=true}={}){
@@ -22,7 +22,8 @@ const ok=r=>{assert.equal(r.status,200,JSON.stringify(r.body));return r.body.dat
 const create=(f,more={})=>f.call('','POST',{...base,...more,requestKey:key()});
 const update=(f,r,more={})=>f.call('/'+r.id,'PUT',{...r,...more,expectedVersion:r.version,requestKey:key()});
 const visits=async(f,query='')=>ok(await f.call('/visits'+query)).rows;
-const complete=(f,v,more={})=>f.call('/visits/'+v.id,'PUT',{expectedVersion:v.version,requestKey:key(),completed:true,completionDate:'2027-07-06',note:'已前往例行維護',...more});
+const complete=(f,v,more={})=>f.call('/visits/'+v.id,'PUT',{expectedVersion:v.version,requestKey:key(),action:'complete',equipmentIds:v.equipment.map(e=>e.id),completionDate:'2027-07-06',note:'已前往例行維護',...more});
+const undo=(f,v,ids=v.equipment.filter(e=>e.completed).map(e=>e.id))=>f.call('/visits/'+v.id,'PUT',{expectedVersion:v.version,requestKey:key(),action:'undo',equipmentIds:ids});
 const count=(f,t)=>f.sql.prepare('SELECT COUNT(*) n FROM '+t).get().n;
 
 
@@ -54,7 +55,13 @@ test('calendar suggestions and inclusive warranty month arithmetic',()=>{
  assert.equal(equipmentWarrantyMonths('2026-07-01','2028-06-30'),'24');
  assert.equal(equipmentWarrantyEnd('2024-05-15',3),'2024-08-14');
  assert.equal(equipmentWarrantyMonths('2024-05-15','2024-08-14'),'3');
- assert.equal(equipmentWarrantyMonths('2024-05-15','2024-08-15'),'4');
+ assert.equal(equipmentWarrantyMonths('2024-05-15','2024-08-15'),'3');
+ assert.equal(equipmentWarrantyMonths('2024-05-15','2024-08-16'),'4');
+ assert.equal(equipmentWarrantyMonths('2023-09-27','2024-09-26'),'12');
+ assert.equal(equipmentWarrantyMonths('2023-09-27','2024-09-27'),'12');
+ assert.equal(equipmentWarrantyMonths('2023-09-27','2024-09-28'),'13');
+ assert.equal(equipmentWarrantyMonths('2024-01-31','2024-02-29'),'1');
+ assert.equal(equipmentWarrantyMonths('2024-01-31','2024-03-01'),'1');
  assert.equal(equipmentWarrantyMonths('2024-05-15','2024-08-13'),'3');
  assert.equal(equipmentWarrantyEnd('2024-01-31',1),'2024-02-29');
  assert.equal(equipmentWarrantyMonths('2024-08-15','2024-05-15'),'');
@@ -76,10 +83,10 @@ test('list omits serial arrays, while detail and serial search still use the aut
  const f=fixture();try{const r=ok(await create(f));const page=ok(await f.call('?q=SN-001'));assert.equal(page.rows.length,1);assert.deepEqual(page.rows[0].machines,[]);assert.equal(ok(await f.call('/'+r.id)).machines.length,2)}finally{f.sql.close()}
 });
 test('one visit completion covers the group, dates and a single-line note are editable without moving plans',async()=>{
- const f=fixture();try{const r=ok(await create(f));let v=(await visits(f))[0];v=ok(await complete(f,v));assert.equal(v.completed,true);assert.equal(v.equipment.length,1);assert.equal(v.completionDate,'2027-07-06');assert.equal((await complete(f,v,{completionDate:null})).status,422);v=ok(await complete(f,v,{completionDate:'2027-06-30',note:'更正到訪'}));assert.equal(v.completionDate,'2027-06-30');assert.equal(v.note,'更正到訪');assert.deepEqual(ok(await f.call('/'+r.id)).months,base.months);assert.equal((await complete(f,v,{note:'第一行\n第二行'})).status,422);v=ok(await complete(f,v,{completed:false,completionDate:null}));assert.equal(v.completed,false);const h=ok(await f.call('/visits/'+v.id+'/history'));assert.deepEqual(h.rows.map(x=>x.kind),['取消維護登記','修改維護','登記維護']);assert.equal(h.rows[1].after.note,'更正到訪')}finally{f.sql.close()}
+ const f=fixture();try{const r=ok(await create(f));let v=(await visits(f))[0];v=ok(await complete(f,v));assert.equal(v.completed,true);assert.equal(v.equipment.length,1);assert.equal(v.completionDate,'2027-07-06');assert.equal((await complete(f,v,{completionDate:null})).status,422);v=ok(await complete(f,v,{completionDate:'2027-06-30',note:'更正到訪'}));assert.equal(v.completionDate,'2027-06-30');assert.equal(v.note,'更正到訪');assert.deepEqual(ok(await f.call('/'+r.id)).months,base.months);assert.equal((await complete(f,v,{note:'第一行\n第二行'})).status,422);v=ok(await undo(f,v));assert.equal(v.completed,false);const h=ok(await f.call('/visits/'+v.id+'/history'));assert.deepEqual(h.rows.map(x=>x.kind),['取消維護登記','修改維護','登記維護']);assert.equal(h.rows[1].after.equipment[0].note,'更正到訪')}finally{f.sql.close()}
 });
 test('idempotent replay does not add records or events and changed payload cannot reuse the same key',async()=>{
- const f=fixture();try{const data={...base,requestKey:key()},r=ok(await f.call('','POST',data));assert.equal(ok(await f.call('','POST',data)).id,r.id);assert.equal(count(f,'store_equipment_records'),1);assert.equal(count(f,'store_equipment_events'),1);assert.equal((await f.call('','POST',{...data,model:'OTHER'})).status,409);const v=(await visits(f))[0],d={requestKey:key(),expectedVersion:v.version,completed:true,completionDate:'2027-07-06',note:'到訪'};ok(await f.call('/visits/'+v.id,'PUT',d));ok(await f.call('/visits/'+v.id,'PUT',d));assert.equal(count(f,'store_equipment_events'),2)}finally{f.sql.close()}
+ const f=fixture();try{const data={...base,requestKey:key()},r=ok(await f.call('','POST',data));assert.equal(ok(await f.call('','POST',data)).id,r.id);assert.equal(count(f,'store_equipment_records'),1);assert.equal(count(f,'store_equipment_events'),1);assert.equal((await f.call('','POST',{...data,model:'OTHER'})).status,409);const v=(await visits(f))[0],d={requestKey:key(),expectedVersion:v.version,action:'complete',equipmentIds:v.equipment.map(e=>e.id),completionDate:'2027-07-06',note:'到訪'};ok(await f.call('/visits/'+v.id,'PUT',d));ok(await f.call('/visits/'+v.id,'PUT',d));assert.equal(count(f,'store_equipment_events'),2)}finally{f.sql.close()}
 });
 test('stale record and visit versions reject edits without writing audit or history',async()=>{
  const f=fixture();try{const r=ok(await create(f));ok(await update(f,r,{model:'NEW'}));const n=count(f,'store_equipment_events');assert.equal((await update(f,r,{model:'STALE'})).status,409);assert.equal(count(f,'store_equipment_events'),n);const v=(await visits(f))[0];ok(await complete(f,v));const audits=count(f,'audit_events');assert.equal((await complete(f,v)).status,409);assert.equal(count(f,'audit_events'),audits)}finally{f.sql.close()}
@@ -93,8 +100,23 @@ test('a conflict during a batch rolls back the record, memberships, history and 
 test('completed visits freeze included equipment and survive removing the schedule or customer code',async()=>{
  const f=fixture();try{let r=ok(await create(f));let v=(await visits(f))[0];v=ok(await complete(f,v));r=ok(await update(f,r,{quantity:1,machines:[base.machines[0]],model:'changed'}));v=ok(await f.call('/visits/'+v.id));assert.equal(v.equipment[0].quantity,2);assert.equal(v.equipment[0].model,base.model);r=ok(await update(f,r,{customerCode:'',maintenance:false,months:[]}));const left=await visits(f);assert.equal(left.length,1);assert.equal(left[0].completed,true);assert.equal(left[0].customerCode,'DE0001');assert.equal(left[0].note,'已前往例行維護')}finally{f.sql.close()}
 });
-test('new dispatch cannot inherit an already completed visit; the whole creation rolls back',async()=>{
- const f=fixture();try{ok(await create(f));ok(await complete(f,(await visits(f))[0]));const before=count(f,'store_equipment_events');assert.equal((await create(f,{model:'not visited'})).status,409);assert.equal(count(f,'store_equipment_records'),1);assert.equal(count(f,'store_equipment_events'),before);let v=(await visits(f))[0];ok(await complete(f,v,{completed:false,completionDate:null}));ok(await create(f,{model:'not visited'}));assert.equal((await visits(f))[0].equipment.length,2)}finally{f.sql.close()}
+test('B can join completed A month; the visit becomes partially complete until B is registered',async()=>{
+ const f=fixture();try{
+   const a=ok(await create(f)),original=(await visits(f))[0];
+   const completed=ok(await complete(f,original));
+   assert.equal(completed.completed,true);
+   const b=ok(await create(f,{model:'B new dispatch'}));
+   const current=ok(await f.call('/visits/'+completed.id));
+   assert.equal(current.completed,false);
+   assert.equal(current.completedCount,1);assert.equal(current.totalCount,2);
+   assert.equal(current.equipment.find(e=>e.id===a.id).completed,true);
+   assert.equal(current.equipment.find(e=>e.id===b.id).completed,false);
+   assert.equal(ok(await f.call('/month-status?customerCode=DE0001&equipmentId='+b.id)).completedMonths.includes(current.month),true);
+   const done=ok(await complete(f,current,{equipmentIds:[b.id],completionDate:'2027-07-05',note:'B done'}));
+   assert.equal(done.completed,true);
+   assert.equal(done.equipment.find(e=>e.id===a.id).note,'已前往例行維護');
+   assert.equal(done.equipment.find(e=>e.id===b.id).note,'B done');
+ }finally{f.sql.close()}
 });
 test('a dispatch removed before the visit is completed is not included in its historical coverage',async()=>{
  const f=fixture();try{const a=ok(await create(f));const b=ok(await create(f,{model:'remaining'}));ok(await update(f,a,{maintenance:false,months:[]}));const v=ok(await complete(f,(await visits(f))[0]));assert.deepEqual(v.equipment.map(e=>e.id),[b.id]);ok(await update(f,b,{maintenance:false,months:[]}));const preserved=ok(await f.call('/visits/'+v.id));assert.deepEqual(preserved.equipment.map(e=>e.id),[b.id])}finally{f.sql.close()}
@@ -133,7 +155,7 @@ test('matrix reads all months per customer, retains out-of-window sources and do
  const f=fixture();try{
   const r=ok(await create(f,{saleDate:'2024-01-01',warrantyStart:'2024-01-01',warrantyEnd:'2028-12-31',months:['2024-12','2026-07','2026-08','2027-12']}));
   let all=await visits(f);for(const [m,d] of [['2024-12','2025-01-02'],['2026-07','2026-08-15'],['2026-08','2026-08-15']])ok(await complete(f,all.find(v=>v.month===m),{completionDate:d}));
-  const page=ok(await f.call('/matrix?year=2026'));assert.equal(page.rows.length,1);assert.equal(page.rows[0].visits.length,4);assert.equal(page.rows[0].equipment.length,1);assert.deepEqual(page.rows[0].visits[0].equipment,[]);
+  const page=ok(await f.call('/matrix?year=2026'));assert.equal(page.rows.length,1);assert.equal(page.rows[0].visits.length,4);assert.equal(page.rows[0].equipment.length,1);assert.equal(page.rows[0].visits[0].equipment.length,1);
   assert.equal(ok(await f.call('/matrix?year=2026&open=1')).rows.length,1);assert.equal(ok(await f.call('/matrix?year=2026&q=missing')).rows.length,0);
   ok(await update(f,r,{customerCode:'',maintenance:false,months:[]}));const retained=ok(await f.call('/matrix?year=2026'));assert.equal(retained.rows[0].visits.length,3);assert.equal(retained.rows[0].equipment[0].model,base.model);assert.equal(retained.rows[0].activeMaintenance,false);assert.equal(ok(await f.call('/matrix?year=2026&open=1')).rows.length,0);
   const h=ok(await f.call('/customers/DE0001/history'));assert.equal(h.rows.length,3);assert.equal(h.rows[0].after.plannedMonth,'2026-08');
@@ -151,9 +173,141 @@ test('matrix customer pagination never truncates monthly cells and history pagin
 });
 test('legacy undated completion can be read and corrected but new undated writes leave no audit',async()=>{
  const f=fixture();try{
-  ok(await create(f));let v=(await visits(f))[0];f.sql.prepare('UPDATE store_maintenance_visits SET completed=1,completion_date=NULL WHERE id=?').run(v.id);
+  ok(await create(f));let v=(await visits(f))[0];f.sql.prepare('UPDATE store_equipment_plans SET completed=1,completion_date=NULL WHERE visit_id=?').run(v.id);
+   f.sql.prepare('UPDATE store_maintenance_visits SET completed=1,completion_date=NULL WHERE id=?').run(v.id);
   v=ok(await f.call('/matrix?year=2026')).rows[0].visits.find(x=>x.id===v.id);assert.equal(v.completed,true);assert.equal(v.completionDate,null);const n=count(f,'store_equipment_events');
   assert.equal((await complete(f,v,{completionDate:null})).status,422);assert.equal(count(f,'store_equipment_events'),n);assert.equal(count(f,'audit_events'),n);
   v=ok(await complete(f,v,{completionDate:'2026-08-15'}));assert.equal(v.completionDate,'2026-08-15');
  }finally{f.sql.close()}
+});
+
+
+test('separate actual dates and notes for one customer/month remain independent; matrix has both dates',async()=>{
+ const f=fixture();try{
+  const a=ok(await create(f)),b=ok(await create(f,{model:'second machine'}));
+  const visit=(await visits(f))[0],dayA='2027-07-05',dayB='2027-07-06';
+  const first=ok(await complete(f,visit,{equipmentIds:[a.id],completionDate:dayA,note:'first trip'}));
+  assert.equal(first.completedCount,1);assert.equal(first.totalCount,2);assert.equal(first.completed,false);
+  const pending=ok(await f.call('/matrix?year=2027&open=1')).rows[0].visits.find(x=>x.id===visit.id);
+  assert.ok(pending);assert.equal(pending.completedCount,1);
+  const second=ok(await complete(f,first,{equipmentIds:[b.id],completionDate:dayB,note:'second trip'}));
+  assert.equal(second.completedCount,2);assert.equal(second.totalCount,2);assert.equal(second.completed,true);
+  assert.equal(second.completionDate,dayB);
+  assert.deepEqual(second.equipment.map(x=>x.note).sort(),['first trip','second trip']);
+  const matrixPage=ok(await f.call('/matrix?year=2027'));
+  const cells=matrix.maintenanceMatrixCells(matrixPage.rows[0].visits,matrix.maintenanceWindow(2027).months,'2027-07-06');
+  assert.deepEqual(cells.get('2027-07').filter(x=>x.kind==='date').map(x=>x.day),[dayA,dayB]);
+  const h=ok(await f.call('/visits/'+visit.id+'/history'));
+  assert.equal(h.rows.length,2);
+  assert.equal(h.rows[0].after.equipment.length,1);
+  assert.equal(h.rows[0].after.equipment[0].model,b.model);
+ }finally{f.sql.close()}
+});
+test('a single completion action checks two records, writes only one visit event and audit',async()=>{
+ const f=fixture();try{
+  const a=ok(await create(f)),b=ok(await create(f,{model:'B'})),v=(await visits(f))[0];
+  const events=count(f,'store_equipment_events'),audits=count(f,'audit_events');
+  const next=ok(await complete(f,v,{equipmentIds:[a.id,b.id],completionDate:'2027-07-06',note:'同日到訪'}));
+  assert.equal(next.completed,true);assert.equal(next.completedCount,2);
+  assert.deepEqual(next.equipment.map(x=>x.note),['同日到訪','同日到訪']);
+  assert.equal(count(f,'store_equipment_events'),events+1);
+  assert.equal(count(f,'audit_events'),audits+1);
+ }finally{f.sql.close()}
+});
+test('undo one completed machine leaves the other intact and restores partial status',async()=>{
+ const f=fixture();try{
+  const a=ok(await create(f)),b=ok(await create(f,{model:'B'})),v=(await visits(f))[0];
+  const done=ok(await complete(f,v)),part=ok(await undo(f,done,[a.id]));
+  assert.equal(part.completed,false);assert.equal(part.completedCount,1);assert.equal(part.totalCount,2);
+  assert.equal(part.equipment.find(x=>x.id===a.id).completed,false);
+  assert.equal(part.equipment.find(x=>x.id===b.id).completed,true);
+  assert.equal((await undo(f,part,[a.id])).status,422);
+ }finally{f.sql.close()}
+});
+test('removed incomplete plans disappear but completed inactive plans stay in history',async()=>{
+ const f=fixture();try{
+  const a=ok(await create(f)),b=ok(await create(f,{model:'B'})),v=(await visits(f))[0];
+  ok(await complete(f,v,{equipmentIds:[a.id]}));
+  ok(await update(f,a,{maintenance:false,months:[]}));
+  ok(await update(f,b,{maintenance:false,months:[]}));
+  const old=ok(await f.call('/visits/'+v.id));
+  assert.deepEqual(old.equipment.map(x=>x.id),[a.id]);
+  assert.equal(old.completedCount,1);assert.equal(old.totalCount,1);assert.equal(old.equipment[0].active,false);
+  assert.equal((await visits(f)).some(x=>x.id===v.id),true);
+  const cleared=ok(await undo(f,old,[a.id]));
+  assert.equal(cleared.equipment.length,0);assert.equal(cleared.completed,false);
+ }finally{f.sql.close()}
+});
+test('invalid selections, dates and repeated keys return 4xx with no side effects',async()=>{
+ const f=fixture();try{
+  const a=ok(await create(f)),b=ok(await create(f,{model:'B'})),v=(await visits(f))[0];
+  const before=count(f,'store_equipment_events'),audits=count(f,'audit_events');
+  const bad=[
+   {action:'complete',equipmentIds:[a.id],completionDate:null,note:''},
+   {action:'complete',equipmentIds:[a.id],completionDate:'2028-01-01',note:''},
+   {action:'complete',equipmentIds:[a.id],completionDate:'2027-07-06',note:'line1\nline2'},
+   {action:'complete',equipmentIds:[a.id,a.id],completionDate:'2027-07-06',note:''},
+   {action:'complete',equipmentIds:[999],completionDate:'2027-07-06',note:''},
+   {action:'undo',equipmentIds:[a.id]},
+   {action:'complete',equipmentIds:[],completionDate:'2027-07-06',note:''},
+  ];
+  for(const payload of bad)assert.equal((await f.call('/visits/'+v.id,'PUT',{expectedVersion:v.version,requestKey:key(),...payload})).status,422,JSON.stringify(payload));
+  assert.equal(count(f,'store_equipment_events'),before);assert.equal(count(f,'audit_events'),audits);
+  const requestKey=key(),data={expectedVersion:v.version,requestKey,action:'complete',equipmentIds:[a.id,b.id],completionDate:'2027-07-06',note:'one trip'};
+  ok(await f.call('/visits/'+v.id,'PUT',data));ok(await f.call('/visits/'+v.id,'PUT',data));
+  assert.equal((await f.call('/visits/'+v.id,'PUT',{...data,note:'changed content'})).status,409);
+  assert.equal(count(f,'store_equipment_events'),before+1);
+ }finally{f.sql.close()}
+});
+test('manufactured date permits year-month or year-month-day, rejects invalid and future values',async()=>{
+ for(const date of ['2024-07','2024-07-15'])assert.equal(validManufacturedDate(date),true);
+ for(const date of ['2024-13','2024-02-30','2024/7/1','2024-7-1','2024-07-150',''])assert.equal(validManufacturedDate(date),false);
+ const f=fixture();try{
+  for(const manufacturedMonth of ['2024-07','2024-07-15']){
+   const d=ok(await create(f,{customerCode:'',maintenance:false,months:[],machines:[{serialNo:'A',manufacturedMonth,assetNumber:''},{serialNo:'B',manufacturedMonth,assetNumber:''}]}));
+   assert.equal(ok(await f.call('/'+d.id)).machines[0].manufacturedMonth,manufacturedMonth);
+  }
+  for(const manufacturedMonth of ['2024-13','2024-02-30','2024/7/1','2028-01','2028-01-01']){
+   assert.equal((await create(f,{machines:[{serialNo:'A',manufacturedMonth,assetNumber:''},base.machines[1]]})).status,422,manufacturedMonth);
+  }
+ }finally{f.sql.close()}
+});
+test('database checks prevent invalid completion and dangling completion dates',()=>{
+ const f=fixture();try{
+  const record=ok;void record;
+  assert.equal(f.sql.prepare("SELECT COUNT(*) n FROM store_equipment_plans").get().n,0);
+  assert.throws(()=>f.sql.prepare("INSERT INTO store_equipment_plans(equipment_id,visit_id,active,snapshot_json,completed) VALUES(1,1,1,'{}',2)").run());
+  assert.throws(()=>f.sql.prepare("INSERT INTO store_equipment_plans(equipment_id,visit_id,active,snapshot_json,completed,completion_date) VALUES(1,1,1,'{}',0,'2026-01-01')").run());
+ }finally{f.sql.close()}
+});
+
+
+test('0080 backfills completed visits into each associated machine and leaves pending visits unchanged',()=>{
+ const db=new DatabaseSync(':memory:');
+ try{
+   db.exec('PRAGMA foreign_keys=ON');
+   const files=readdirSync('migrations').filter(f=>f.endsWith('.sql')).sort();
+   for(const name of files.filter(name=>!name.startsWith('0080_')))db.exec(readFileSync('migrations/'+name,'utf8'));
+   db.prepare("INSERT INTO app_members(id,identity_employee_id,employee_no,display_name,is_active,created_at,updated_at) VALUES(1,'migration-equipment','9998','合成驗收',1,?,?)").run(now,now);
+   for(const id of [101,102]){
+     db.prepare(`INSERT INTO store_equipment_records(id,list_sequence,customer_code,customer_name,brand,model,sale_date,quantity,warranty_start,warranty_end,machines_json,maintenance,version,created_at,created_by,updated_at,updated_by)
+       VALUES(?,?,'DE0001','合成醫院','品牌','機型','2026-05-01',1,'2026-05-01','2028-04-30','[]',1,1,?,1,?,1)`).run(id,id,now,now);
+   }
+   for(const [id,month,completed,date,note] of [[11,'2026-11',1,'2026-11-05','第一趟'],[12,'2027-05',0,null,'']]){
+     db.prepare(`INSERT INTO store_maintenance_visits(id,customer_code,customer_name,planned_month,completed,completion_date,note,version,created_at,created_by,updated_at,updated_by)
+       VALUES(?,'DE0001','合成醫院',?,?,?,?,1,?,1,?,1)`).run(id,month,completed,date,note,now,now);
+     for(const equipment of [101,102])db.prepare("INSERT INTO store_equipment_plans(equipment_id,visit_id,active,retained,snapshot_json) VALUES(?,?,1,1,?)").run(equipment,id,JSON.stringify({id:equipment,brand:'品牌',model:'機型'}));
+   }
+   const migration=readFileSync('migrations/0080_store_maintenance_per_machine.sql','utf8');
+   db.exec(migration);
+   assert.deepEqual(db.prepare("SELECT completed,completion_date,note FROM store_equipment_plans WHERE visit_id=11 ORDER BY equipment_id").all().map(row=>({...row})),
+     [{completed:1,completion_date:'2026-11-05',note:'第一趟'},{completed:1,completion_date:'2026-11-05',note:'第一趟'}]);
+   assert.deepEqual(db.prepare("SELECT completed,completion_date FROM store_equipment_plans WHERE visit_id=12 ORDER BY equipment_id").all().map(row=>({...row})),
+     [{completed:0,completion_date:null},{completed:0,completion_date:null}]);
+   const before=db.prepare("SELECT * FROM store_maintenance_visits ORDER BY id").all();
+   const updateStatements=migration.slice(migration.indexOf('UPDATE store_equipment_plans'),migration.indexOf('-- Partial index'));
+   db.exec(updateStatements);
+   assert.deepEqual(db.prepare("SELECT * FROM store_maintenance_visits ORDER BY id").all(),before);
+   assert.deepEqual(db.prepare("PRAGMA foreign_key_check").all(),[]);
+ }finally{db.close();}
 });
