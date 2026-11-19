@@ -3,8 +3,8 @@ import {BOT_PATROL_STATUS_LABELS,type BotCenterState,type BotPatrolStatus} from 
 import {StatusChip} from "../../ui/primitives/StatusChip";
 import {clockText,deadlineText,deadlineUrgent,platformClass} from "./bot-decision";
 
-const PATROL_TONE:Record<BotPatrolStatus,"warning"|"info"|"success">={pending:"warning",approved:"info",done:"success"};
-const PATROL_ORDER:Record<BotPatrolStatus,number>={pending:0,approved:1,done:2};
+const PATROL_TONE:Record<BotPatrolStatus,"warning"|"info"|"success"|"neutral">={pending:"warning",open:"neutral",approved:"info",done:"success"};
+const PATROL_ORDER:Record<BotPatrolStatus,number>={pending:0,open:1,approved:2,done:3};
 const MAX_ROWS=3;
 
 /** 巡視場次右側文字（V0.22.0）。 */
@@ -41,7 +41,8 @@ export function BotWorkCards({summary,nowMs,busy,onAllPosts,onPost,onAllPatrol,o
    {sessions.length?sessions.map(session=><button key={session.id} type="button" className="cy-bot-work-row" disabled={busy} onClick={()=>onSession(session)}>
     <span className="cy-bot-work-row-label">{session.label||"其他"}</span>
     <StatusChip tone={PATROL_TONE[session.status]}>{BOT_PATROL_STATUS_LABELS[session.status]}</StatusChip>
-    <span className="cy-bot-work-row-right">{patrolRightText(session)}</span></button>):undefined}
+    <span className="cy-bot-work-row-right">{patrolRightText(session)}</span>
+    {session.note?<span className="cy-bot-work-row-note" title={session.note}>{session.note}</span>:null}</button>):undefined}
   </WorkCard>
   <WorkCard label="待核准" title="待核准" link="前往" onLink={onReviewTable} count={pending.count} unit="件・待審稿件" alert empty="目前沒有待審稿件">
    {pending.count?<>

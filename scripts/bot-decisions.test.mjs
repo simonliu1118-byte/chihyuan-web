@@ -176,18 +176,21 @@ test('the BOT can close a session explicitly; reviewing in CY Web only changes t
  const eve=(await sessions(f)).find(x=>x.id===other.id);assert.equal(eve.status,'pending');
  assert.equal(f.sql.prepare('SELECT count(*) n FROM bot_deliveries').get().n,0,'nothing was sent or re-reported by reviewing');
 });
-test('a session with every item rejected is complete; legacy sessions are complete only when they have deliveries; empty ones are not listed',async t=>{
+test('a session with every item rejected is complete; sessions without CY Web drafts stay open until the BOT closes them and are always listed',async t=>{
  const f=await setup(t);ok(await noon(f));
  const d=await patrolDraft(f,'rej',2,'noon');ok(await f.call(`/api/bot-center/drafts/${d.id}/review`,'POST',{decision:'rejected',reason:'全不要'}));
  assert.deepEqual((await sessions(f)).map(x=>[x.label,x.status,x.sent]),[['午巡','done',0]]);
- ok(await f.call('/api/bot-ingest/patrol-sessions','POST',{sessionRef:'old',label:'早巡'},f.auth));
- assert.deepEqual((await sessions(f)).map(x=>x.label),['午巡'],'a session with no drafts and no deliveries is not shown yet');
+ ok(await f.call('/api/bot-ingest/patrol-sessions','POST',{sessionRef:'old',label:'早巡',note:'0則送出、10則待審核'},f.auth));
+ const fresh=(await sessions(f)).find(x=>x.label==='早巡');
+ assert.deepEqual([fresh.status,fresh.sent,fresh.note],['open',0,'0則送出、10則待審核'],'a session with nothing yet is listed as open with its note');
  const legacy=ok(await f.ingest('drafts','POST',{externalRef:'legacy',title:'舊巡視',body:'x',kind:'patrol',items:[{title:'回覆',body:'全文'}]}));
  ok(await f.call(`/api/bot-center/drafts/${legacy.id}/review`,'POST',{decision:'approved'}));
  ok(await f.ingest(`drafts/${legacy.id}/sent`,'POST',{items:[1]}));
  ok(await f.ingest('deliveries','POST',{eventRef:'legacy-link',kind:'patrol',approvalSource:'cyweb',draftId:legacy.id,itemSeq:1,sessionRef:'old'}));
  const rows=await sessions(f);assert.deepEqual(rows.find(x=>x.label==='早巡'),{...rows.find(x=>x.label==='早巡')},'listed');
- assert.deepEqual([rows.find(x=>x.label==='早巡').status,rows.find(x=>x.label==='早巡').sent,rows.find(x=>x.label==='早巡').draftIds],['done',1,[]]);
+ assert.deepEqual([rows.find(x=>x.label==='早巡').status,rows.find(x=>x.label==='早巡').sent,rows.find(x=>x.label==='早巡').draftIds],['open',1,[]],'deliveries alone do not complete a session');
+ ok(await f.call('/api/bot-ingest/patrol-sessions','POST',{sessionRef:'old',label:'早巡',completed:true},f.auth));
+ assert.equal((await sessions(f)).find(x=>x.label==='早巡').status,'done','the BOT closing it completes it');
 });
 test('a revision keeps the session link and only the latest version counts',async t=>{
  const f=await setup(t);ok(await noon(f));
