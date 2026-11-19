@@ -63,7 +63,8 @@ try{
     if(cell){const host=el.getBoundingClientRect(),box=cell.getBoundingClientRect();
       el.scrollLeft+=box.left-host.left-host.width/2;}
   });
-  await page.locator(".cy-matrix-partial").click();
+  await page.locator(".cy-matrix-partial").focus();
+  await page.locator(".cy-matrix-partial").press("Enter");
   await page.getByRole("dialog",{name:/逐台維護登記/}).waitFor();
   await page.getByText("第一趟保養").first().waitFor();
   await page.screenshot({path:output+"/"+v.label+"-02-per-machine-dialog.png",fullPage:true,animations:"disabled"});
