@@ -226,7 +226,7 @@ export async function handleStoreEquipmentRoute(req:Request,env:IdentityRuntimeE
      completed:done,completionDate:day,note:remark,active:e.active
    });
    const before={equipment:selected.map(e=>description(e,e.completed,e.completionDate,e.note))};
-   const after={equipment:selected.map(e=>description(e,completing,date,note))};
+   const after={equipment:selected.map(e=>description(e,completing,date as string|null,note))};
    if(JSON.stringify(before)===JSON.stringify(after))return success(old,requestId);
    const kind=!completing?'取消維護登記':selected.every(e=>e.completed)?'修改維護':'登記維護';
    const change=changedFields(before,after),members=JSON.stringify(ids);
