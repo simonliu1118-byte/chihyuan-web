@@ -194,17 +194,42 @@ export async function handleStoreEquipmentRoute(req:Request,env:IdentityRuntimeE
    return success(await getRecord(c,id),requestId);
   }
   if(match?.[1]){
-   const id=Number(match[2]),old=await getVisit(c,id);if(old.version!==expected(v))throw new Invalid('維護資料已變更，請重新整理',409,'EQUIPMENT_CONFLICT');
-   if(!old.completed&&!old.equipment.length)throw new Invalid('排程已取消，請重新整理',409);
-   if(typeof v.completed!=='boolean')throw new Invalid('維護狀態不正確');
-   const date=v.completionDate;if(date!==null&&(typeof date!=='string'||!validEquipmentDate(date)||date>today(at)))throw new Invalid('維護日期不正確或晚於今天');
-   if(!v.completed&&date!==null)throw new Invalid('取消完成不能保留日期');
-   if(v.completed&&date===null)throw new Invalid('請填寫實際維護日期，不支援無日期');
-   const note=text(v.note,'備註',L.note);if(/[\r\n]/.test(note))throw new Invalid('備註請填寫單行');
-   const before={completed:old.completed,completionDate:old.completionDate,note:old.note},after={completed:v.completed,completionDate:date,note};
+   const id=Number(match[2]),old=await getVisit(c,id);
+   if(old.version!==expected(v))throw new Invalid('資料已更新，請重新整理後再操作',409,'EQUIPMENT_CONFLICT');
+   const action=v.action;
+   if(action!=='complete'&&action!=='undo')throw new Invalid('維護操作不正確');
+   if(!Array.isArray(v.equipmentIds)||!v.equipmentIds.length
+     ||v.equipmentIds.some(e=>!Number.isSafeInteger(e)||e<1)
+     ||new Set(v.equipmentIds).size!==v.equipmentIds.length)throw new Invalid('請勾選有效且不重複的機器');
+   const ids=v.equipmentIds as number[],byId=new Map(old.equipment.map(e=>[e.id,e]));
+   const selected=ids.map(e=>{const found=byId.get(e);if(!found)throw new Invalid('所選機器不屬於本次維護');return found});
+   const completing=action==='complete';
+   if(completing&&selected.some(e=>!e.active&&!e.completed))throw new Invalid('無法登記已取消維護的機器');
+   if(!completing&&selected.some(e=>!e.completed))throw new Invalid('只能取消已完成的機器');
+   const date=completing?v.completionDate:null;
+   if(completing&&(typeof date!=='string'||!validEquipmentDate(date)||date>today(at)))throw new Invalid('維護日期不正確或晚於今天');
+   const note=completing?text(v.note,'備註',L.note):'';
+   if(/[\r\n]/.test(note))throw new Invalid('備註請填寫單行');
+   const description=(e:typeof selected[number],done:boolean,day:string|null,remark:string)=>({
+     equipmentId:e.id,sequence:e.sequence,brand:e.brand,model:e.model,quantity:e.quantity,
+     completed:done,completionDate:day,note:remark,active:e.active
+   });
+   const before={equipment:selected.map(e=>description(e,e.completed,e.completionDate,e.note))};
+   const after={equipment:selected.map(e=>description(e,completing,date,note))};
    if(JSON.stringify(before)===JSON.stringify(after))return success(old,requestId);
-   const change=changedFields(before,after);
-   await c.db.batch([...guards(c,rev),c.db.prepare("SELECT CASE WHEN EXISTS(SELECT 1 FROM store_maintenance_visits WHERE id=? AND version=?) THEN 1 ELSE json('') END").bind(id,old.version),...(!old.completed||!v.completed?[c.db.prepare('UPDATE store_equipment_plans SET retained=?*active WHERE visit_id=?').bind(v.completed?1:0,id)]:[]),c.db.prepare('UPDATE store_maintenance_visits SET completed=?,completion_date=?,note=?,version=version+1,updated_at=?,updated_by=? WHERE id=?').bind(v.completed?1:0,date,note,at,c.actor,id),event(c,'visit',id,k,digest,!v.completed?'取消維護登記':old.completed?'修改維護':'登記維護',change.before,change.after),audit(c,'visit',id,'updated',change.before,change.after)]);
+   const kind=!completing?'取消維護登記':selected.every(e=>e.completed)?'修改維護':'登記維護';
+   const change=changedFields(before,after),members=JSON.stringify(ids);
+   await c.db.batch([
+     ...guards(c,rev),
+     c.db.prepare("SELECT CASE WHEN EXISTS(SELECT 1 FROM store_maintenance_visits WHERE id=? AND version=?) THEN 1 ELSE json('') END").bind(id,old.version),
+     c.db.prepare(`UPDATE store_equipment_plans
+        SET completed=?,completion_date=?,note=?
+        WHERE visit_id=? AND equipment_id IN (SELECT value FROM json_each(?))`).bind(completing?1:0,date,note,id,members),
+     c.db.prepare('UPDATE store_maintenance_visits SET version=version+1,updated_at=?,updated_by=? WHERE id=?').bind(at,c.actor,id),
+     recalcVisits(c,JSON.stringify([id])),
+     event(c,'visit',id,k,digest,kind,change.before,change.after),
+     audit(c,'visit',id,'updated',change.before,change.after)
+   ]);
    return success(await getVisit(c,id),requestId);
   }
   const f=fields(v,at),old=match?await getRecord(c,Number(match[2])):null;
@@ -223,5 +248,5 @@ export async function handleStoreEquipmentRoute(req:Request,env:IdentityRuntimeE
   await c.db.batch(batch);
   // Equipment IDs, rather than display sequence, link every visit snapshot back to its dispatch.
   return success(await getRecord(c,id),requestId);
- }catch(e){if(e instanceof Invalid)return failure({code:e.code,message:e.message},requestId,e.status);if(/malformed JSON|UNIQUE constraint/.test(String(e)))return failure({code:'EQUIPMENT_CONFLICT',message:'資料已更新，或該月份已登記維護；請重新整理後再操作'},requestId,409);console.error(JSON.stringify({event:'store_equipment.failed',requestId}));return failure({code:'EQUIPMENT_UNAVAILABLE',message:'出機與維護操作失敗'},requestId,500)}
+ }catch(e){if(e instanceof Invalid)return failure({code:e.code,message:e.message},requestId,e.status);if(/malformed JSON|UNIQUE constraint/.test(String(e)))return failure({code:'EQUIPMENT_CONFLICT',message:'資料已更新，請重新整理後再操作'},requestId,409);console.error(JSON.stringify({event:'store_equipment.failed',requestId}));return failure({code:'EQUIPMENT_UNAVAILABLE',message:'出機與維護操作失敗'},requestId,500)}
 }
