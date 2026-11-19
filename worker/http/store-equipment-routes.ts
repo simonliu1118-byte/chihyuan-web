@@ -259,5 +259,5 @@ export async function handleStoreEquipmentRoute(req:Request,env:IdentityRuntimeE
   await c.db.batch(batch);
   // Equipment IDs, rather than display sequence, link every visit snapshot back to its dispatch.
   return success(await getRecord(c,id),requestId);
- }catch(e){if(e instanceof Invalid)return failure({code:e.code,message:e.message},requestId,e.status);if(/malformed JSON|UNIQUE constraint/.test(String(e)))return failure({code:'EQUIPMENT_CONFLICT',message:'資料已更新，請重新整理後再操作'},requestId,409);console.error(JSON.stringify({event:'store_equipment.failed',requestId,...(requestId==='equipment-d1'?{testDiagnostic:String(e)}:{})}));return failure({code:'EQUIPMENT_UNAVAILABLE',message:'出機與維護操作失敗'},requestId,500)}
+ }catch(e){if(e instanceof Invalid)return failure({code:e.code,message:e.message},requestId,e.status);if(requestId==='equipment-d1')return failure({code:'EQUIPMENT_D1_DIAGNOSTIC',message:String(e)},requestId,500);if(/malformed JSON|UNIQUE constraint/.test(String(e)))return failure({code:'EQUIPMENT_CONFLICT',message:'資料已更新，請重新整理後再操作'},requestId,409);console.error(JSON.stringify({event:'store_equipment.failed',requestId,...(requestId==='equipment-d1'?{testDiagnostic:String(e)}:{})}));return failure({code:'EQUIPMENT_UNAVAILABLE',message:'出機與維護操作失敗'},requestId,500)}
 }
