@@ -11,7 +11,7 @@ import {FeedbackBanner} from '../../ui/feedback/FeedbackProvider';
 import {Loading} from '../../ui/feedback/Loading';
 import {useConfirmation} from '../../ui/overlays/useConfirmation';
 import {useUnsavedChangesGuard} from '../../ui/foundation/useUnsavedChangesGuard';
-import {enterAdvancesThenSubmits} from '../../ui/foundation/enter-advance';
+import {enterAdvancesFields} from '../../ui/foundation/enter-advance';
 import {StoreMilestoneButton,StoreMilestoneDateFields} from './store-workflow/StoreMilestoneFields';
 import {useStorePagedList} from './store-workflow/useStorePagedList';
 import {StoreOperationHistory} from './StoreOperationHistory';
@@ -23,7 +23,7 @@ import './store-equipment.css';
 const ROOT='/api/business/store/equipment',keyOf=(row:MaintenanceMatrixCustomer)=>row.customerCode;
 const display=(v:string)=>v.replaceAll('-','/');
 type Panel={code:string;month:string;entry:MaintenanceMatrixEntry};
-type Work={visit:MaintenanceVisit;value:string;note:string;requestKey:string};
+type Work={visit:MaintenanceVisit;selectedIds:number[];mode:'complete'|'modify';value:string;note:string;requestKey:string};
 /** One row per customer. Monthly cells are a projection of existing schedules, never new records. */
 export function StoreMaintenanceMatrix({initialCustomer='',onEquipment}:{initialCustomer?:string;onEquipment:(id:number)=>void}){
  const [today,setToday]=useState(taipeiToday),[focusYear,setFocusYear]=useState<number|null>(null),[q,setQ]=useState(initialCustomer),[openOnly,setOpenOnly]=useState(false);
@@ -35,15 +35,40 @@ export function StoreMaintenanceMatrix({initialCustomer='',onEquipment}:{initial
  // Catch month/year rollover locally, including a sleeping browser, without API polling.
  useEffect(()=>{const sync=()=>setToday(taipeiToday()),next=Date.parse(today+'T00:00:00+08:00')+86400000,timer=globalThis.window.setTimeout(sync,Math.max(1000,next-Date.now()));globalThis.window.addEventListener('focus',sync);return()=>{clearTimeout(timer);globalThis.window.removeEventListener('focus',sync)}},[today]);
  function close(){setPanel(null);setWork(null)}
- function begin(v:MaintenanceVisit){setWork({visit:v,value:v.completionDate??(v.completed?'':today),note:v.note,requestKey:crypto.randomUUID()})}
- function show(code:string,month:string,entry:MaintenanceMatrixEntry){if(busy)return;if(panel?.code===code&&panel.month===month&&panel.entry.kind===entry.kind&&panel.entry.day===entry.day){close();return}setPanel({code,month,entry});if(entry.visits.length===1)begin(entry.visits[0]);else setWork(null)}
+ function begin(v:MaintenanceVisit,equipmentId?:number){
+   const selected=equipmentId?v.equipment.filter(e=>e.id===equipmentId):v.equipment.filter(e=>e.active&&!e.completed);
+   const modifying=selected.length===1&&selected[0].completed;
+   setWork({visit:v,mode:modifying?'modify':'complete',selectedIds:selected.map(e=>e.id),
+     value:modifying?selected[0].completionDate??today:today,note:modifying?selected[0].note:'',
+     requestKey:crypto.randomUUID()});
+ }
+ function show(code:string,month:string,entry:MaintenanceMatrixEntry){
+   if(busy)return;
+   if(panel?.code===code&&panel.month===month&&panel.entry.kind===entry.kind&&panel.entry.day===entry.day){close();return}
+   setPanel({code,month,entry});if(entry.visits.length===1)begin(entry.visits[0]);else setWork(null);
+ }
  function range(next:number|null){close();setExpanded(null);setHistory(null);setFocusYear(next)}
- async function save(completed=true){
-  if(!work||lock.current)return;const w=work;lock.current=true;setBusy(true);
-  try{const result=await apiRequest<MaintenanceVisit>(ROOT+'/visits/'+w.visit.id,{method:'PUT',json:{expectedVersion:w.visit.version,requestKey:w.requestKey,completed,completionDate:completed?w.value:null,note:w.note}});
-   list.setRows(old=>old.flatMap(row=>{if(row.customerCode!==result.customerCode)return [row];const visits=row.visits.map(v=>v.id===result.id?{...result,equipment:[]}:v).filter(v=>maintenanceVisitVisible(v,window.from,window.to));if(openOnly&&!visits.some(v=>!v.completed)||!row.activeMaintenance&&!visits.length)return [];return [{...row,visits}]}));
-   cache.current.delete('/equipment/customers/'+encodeURIComponent(result.customerCode)+'/history');setRevision(x=>x+1);close();list.setMessage(completed?'維護紀錄已儲存':'已取消維護登記');
-  }catch(e){list.reportError(e instanceof Error?e.message:'儲存失敗')}finally{lock.current=false;setBusy(false)}
+ async function save(action:'complete'|'undo'='complete',override?:{visit:MaintenanceVisit;equipmentIds:number[]}){
+   const current=override?.visit??work?.visit,ids=override?.equipmentIds??work?.selectedIds;
+   if(!current||!ids?.length||lock.current)return;
+   const selectedDate=action==='complete'?(work?.value??today):null,note=action==='complete'?(work?.note??''):'';
+   const requestKey=override?crypto.randomUUID():work!.requestKey;
+   lock.current=true;setBusy(true);
+   try{
+     const result=await apiRequest<MaintenanceVisit>(ROOT+'/visits/'+current.id,{method:'PUT',json:{
+       expectedVersion:current.version,requestKey,action,equipmentIds:ids,
+       ...(action==='complete'?{completionDate:selectedDate,note}:{})
+     }});
+     list.setRows(old=>old.flatMap(row=>{
+       if(row.customerCode!==result.customerCode)return [row];
+       const visits=row.visits.map(v=>v.id===result.id?result:v).filter(v=>maintenanceVisitVisible(v,window.from,window.to));
+       if(openOnly&&!visits.some(v=>v.equipment.some(e=>e.active&&!e.completed))||!row.activeMaintenance&&!visits.length)return [];
+       return [{...row,visits}];
+     }));
+     cache.current.delete('/equipment/customers/'+encodeURIComponent(result.customerCode)+'/history');
+     setRevision(x=>x+1);close();list.setMessage(action==='complete'?'維護紀錄已儲存':'已取消維護登記');
+   }catch(e){list.reportError(e instanceof Error?e.message:'儲存失敗')}
+   finally{lock.current=false;setBusy(false)}
  }
  function renderEntry(row:MaintenanceMatrixCustomer,month:string,entry:MaintenanceMatrixEntry,index:number){
   const schedule=entry.visits.map(v=>display(v.month)).join('、'),action=()=>show(row.customerCode,month,entry),selected=panel?.code===row.customerCode&&panel.month===month&&panel.entry.kind===entry.kind&&panel.entry.day===entry.day;
