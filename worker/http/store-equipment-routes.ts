@@ -6,7 +6,7 @@ import {validStoreRequestKey} from '../store/workflow-service';
 import {changedFields} from '../../shared/store-history';
 import {STORE_REPAIR_PRODUCTS} from '../../shared/store-repairs';
 import {maintenanceWindow,type MaintenanceMatrixCustomer} from '../../shared/maintenance-matrix';
-import {EQUIPMENT_LIMITS as L,equipmentCustomerCode,equipmentSnapshot,validEquipmentDate,validEquipmentMonth,type EquipmentFields,type EquipmentRecord,type MaintenanceVisit} from '../../shared/store-equipment';
+import {EQUIPMENT_LIMITS as L,equipmentCustomerCode,equipmentSnapshot,validEquipmentDate,validEquipmentMonth,validManufacturedDate,type EquipmentFields,type EquipmentRecord,type MaintenanceVisit} from '../../shared/store-equipment';
 const ROOT='/api/business/store/equipment';
 class Invalid extends Error{constructor(message:string,public status=422,public code='EQUIPMENT_INVALID'){super(message)}}
 type Context={db:D1Database;actor:number;at:string;requestId:string};
@@ -31,7 +31,7 @@ function fields(v:Record<string,unknown>,at:string):EquipmentFields{
  if(warrantyStart&&(Number(warrantyEnd.slice(0,4))-Number(warrantyStart.slice(0,4)))*12+Number(warrantyEnd.slice(5,7))-Number(warrantyStart.slice(5,7))>L.months)throw new Invalid('保固期間最多50年');
  if(!Number.isSafeInteger(v.quantity)||Number(v.quantity)<1||Number(v.quantity)>L.quantity)throw new Invalid('數量不正確');const quantity=Number(v.quantity);
  if(!Array.isArray(v.machines)||v.machines.length!==quantity)throw new Invalid('機身資料筆數必須與數量相同');
- const serials=new Set<string>(),machines=v.machines.map(raw=>{const m=object(raw),serialNo=text(m.serialNo,'機身序號',L.serialNo),manufacturedMonth=text(m.manufacturedMonth,'製造年月',7),assetNumber=text(m.assetNumber,'財產編號',L.assetNumber);if(manufacturedMonth&&(!validEquipmentMonth(manufacturedMonth)||manufacturedMonth>today(at).slice(0,7)))throw new Invalid('製造年月不正確');if(serialNo&&serials.has(serialNo.toUpperCase()))throw new Invalid('同筆出機的機身序號不可重複');if(serialNo)serials.add(serialNo.toUpperCase());return {serialNo,manufacturedMonth,assetNumber}});
+ const serials=new Set<string>(),machines=v.machines.map(raw=>{const m=object(raw),serialNo=text(m.serialNo,'機身序號',L.serialNo),manufacturedMonth=text(m.manufacturedMonth,'製造日期',10),assetNumber=text(m.assetNumber,'財產編號',L.assetNumber);if(manufacturedMonth&&(!validManufacturedDate(manufacturedMonth)||manufacturedMonth>(manufacturedMonth.length===7?today(at).slice(0,7):today(at))))throw new Invalid('製造日期不正確');if(serialNo&&serials.has(serialNo.toUpperCase()))throw new Invalid('同筆出機的機身序號不可重複');if(serialNo)serials.add(serialNo.toUpperCase());return {serialNo,manufacturedMonth,assetNumber}});
  if(typeof v.maintenance!=='boolean')throw new Invalid('定期維護設定不正確');
  if(v.maintenance&&!customerCode)throw new Invalid('請先填寫客戶編號，才能啟用定期維護');
  if(!Array.isArray(v.months)||v.months.length>L.months||v.months.some(m=>typeof m!=='string'||!validEquipmentMonth(m))||new Set(v.months).size!==v.months.length)throw new Invalid('預計維護年月不正確');
