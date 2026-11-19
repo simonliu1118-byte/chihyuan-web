@@ -22,7 +22,7 @@ EXPECTED_TABLES = {
     "personal_todos", "hub_notices", "hub_notice_recipients", "hub_notice_reads",
     "stocktake_records", "stocktake_record_items", "stocktake_record_participants", "stocktake_record_differences",
     "store_equipment_state", "store_equipment_records", "store_maintenance_visits", "store_equipment_plans", "store_equipment_events",
-    "bot_profiles", "bot_drafts", "bot_reports", "bot_completions", "bot_ingest_credentials",
+    "bot_profiles", "bot_drafts", "bot_draft_decisions", "bot_reports", "bot_completions", "bot_ingest_credentials",
     "bot_deliveries", "bot_patrol_sessions", "bot_delivery_images", "bot_review_image_deletions", "bot_review_push_settings", "bot_review_push_outbox", "bot_draft_items", "bot_review_images",
     "store_monthly_settings", "store_monthly_rows", "store_monthly_cells", "store_monthly_events",
     "store_repairs", "store_repair_events", "store_repair_photos", "store_repair_print_settings",

@@ -39,7 +39,7 @@ test("BOT phone actions and review/credentials stay on original handlers",()=>{
  assert.match(bot,/cy-op-table cy-rt cy-mobile-wrap-table cy-bot-credential-table/);
  assert.match(bot,/data-label="事項" data-priority="title"/);
  assert.match(bot,/data-label="操作" data-priority="wide"/);
- assert.match(bot,/setReviewing\(\{ids:state\.drafts\.map\(row=>row\.id\),id:draft\.id\}\)/);
+ assert.match(bot,/setReviewing\(\{ids:contentIds,id:draft\.id\}\)/);assert.match(bot,/contentIds=state\.drafts\.filter\(row=>!row\.decision\)\.map\(row=>row\.id\)/);
  assert.match(bot,/<BotReviewDialog /);
  assert.match(bot,/retryPush\(draft.id\)/);
 });

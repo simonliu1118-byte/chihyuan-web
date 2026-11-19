@@ -12,6 +12,7 @@ import { MyProfilePage } from "./runtime/modules/MyProfilePage";
 import { effectiveModules, CYWEB_MODULES, moduleCodesForRoute, type CyWebModuleCode } from "../shared/modules";
 import { verifiedProgramCatalog } from "../shared/program-catalog";
 import type { NavigationGroup } from "./ui/foundation/navigation";
+import { programIcons } from "./runtime/modules/program-icons";
 import { AppShell } from "./ui/shell/AppShell";
 import { ThemeSwitch, ThemeToggle } from "./ui/foundation/ThemeToggle";
 import { AccountMenu } from "./ui/shell/AccountMenu";
@@ -109,7 +110,7 @@ const programsNavigation: NavigationGroup = {
   key: "tools", label: "工具", items: [
     { key:"programs",label:"CY 程式",href:"#programs" },
     ...verifiedProgramCatalog.programs.filter(program => program.platform === "web" && !!program.websiteUrl)
-      .map(program => ({ key:"web-"+program.id,label:program.navLabel ?? program.name,href:program.websiteUrl!,external:true })),
+      .map(program => ({ key:"web-"+program.id,label:program.navLabel ?? program.name,href:program.websiteUrl!,external:true,iconSrc:program.icon ? programIcons[program.icon] : undefined })),
   ],
 };
 

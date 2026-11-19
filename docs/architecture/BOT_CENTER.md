@@ -1,5 +1,52 @@
 # BOT 管理中心
 
+## V0.22.0 改版（工程實作，未部署，與 V0.21.6 一起部署）
+
+以下為現行契約，優先於下方歷史沿革（0079）。
+
+- **版面**：頁首 BOT 狀態列（只列受阻、或進行中且最後回報超過 6 小時的 BOT，點開看最新摘要；其餘顯示「其餘 N 個 BOT 正常」，由既有 `/progress` 資料計算，無新輪詢）→ 四張同結構摘要卡（新文章通知、Threads 巡視回報、待核准、拍板結案，各最多 3 列）→ 今日完成時間軸 → 待審核表。「BOT 當日摘要」區與進行中／受阻／待命計數已移除。
+- **待審核表**：第一欄「項次」連續編號（載入更多續號）、「期限」欄只有拍板事項有值；手機 ListRow 同。待審檢視中拍板事項固定排最前（期限近到遠，無期限在後，只在第一頁），其後內容稿照 id 倒序游標分頁。
+- **拍板事項**：`bot_draft_decisions(draft_id PK, category 1–20 字, amount 分≥0, deadline_at UTC, options_json 2–5 個≤80 字, chosen_option)`，稿件為 kind=general 無 items，與稿件共用審核、版本鏈、推播與稽核。`decision` 物件驗證錯誤回 400；同 externalRef 回原紀錄；改稿須再帶 decision（缺少 400、普通稿改拍板 409）。讀回含 `decision:{category,amount,deadline,options,chosenOption,expired}`。人員審核 `POST /api/bot-center/drafts/:id/review` 加 `choice`（選項序號，從 0 起）：有選項而同意時必填；不同意須備註（reason）；期限已過且仍待決定回 409 `BOT_DECISION_EXPIRED`。介面文字：同意／不同意。
+- **workSummary**：`pending` 改為只計內容稿的 `{count,posts,patrolDrafts,patrolItems,other}`（件；patrolItems 為待審則數）；新增 `decisions:{count,items[≤3]{id,title,deadline}}`，只計尚未逾期者（逾期仍在審核表顯示「已逾期」）。查詢走 `idx_bot_drafts_status`（待審範圍）與 `bot_draft_decisions` 主鍵，不新增全表掃描。
+- **平台**：delivery `platform` 新寫入只收 FB／IG／Threads（不分大小寫、存標準寫法），其他回 400，可省略；舊自由文字照原樣顯示。
+- **巡視場次狀態**：海巡稿可帶 `sessionRef`（同 BOT、同台北日已登錄的場次，否則 400）存於 `bot_drafts.session_id`（改稿沿用）。場次狀態由伺服器推算（只看最新版稿件）：有待審的則＝待審核；否則有通過但尚無 delivery 的則、且場次未結束＝已審核；其餘＝已完成。BOT 可由 `patrol-sessions` 帶 `completed:true` 記下 `completed_at`（只記第一次，不會重新開啟）。沒有連結稿件的舊場次有送出成果即已完成；沒有稿件、成果、結束時間的空場次不列。人員在 CY Web 審核只改變推算結果，BOT 不需重報。
+- **人員 API 新增**：`GET /api/bot-center/sent-items?...&sessionId=`（0＝未歸場次）、`GET /api/bot-center/patrol-sessions/:id/items`（待審或已通過未送出的則）。
+- **備份／migration**：0079 新增 `bot_draft_decisions`、`bot_drafts.session_id`（索引）、`bot_patrol_sessions.completed_at`，為業務資料，納入可攜備份，`CURRENT_MIGRATION=0079`。
+- 不做：拍板到期提醒推播（使用者決定不做）。
+
+## API 現況（V0.22.0）
+
+人（CYWEB session＋BOT_CENTER 權限）：
+
+| 方法 | 路徑 | 作用 |
+| --- | --- | --- |
+| GET | `/api/bot-center` | 工作總覽、審稿清單、時間軸、憑證狀態（botCode、draftStatus、三種游標） |
+| GET | `/api/bot-center/progress` | bots、憑證、推播狀態，不回歷史 |
+| GET | `/api/bot-center/sent-items` | kind=post／patrol、summary=1、before、botCode、sessionId；每頁 50 |
+| GET | `/api/bot-center/patrol-sessions/:id/items` | 場次待處理的則 |
+| GET | `/api/bot-center/deliveries/:id`、`/delivery-images/:id`、`/images/:id` | 成果全文、圖片 |
+| GET | `/api/bot-center/drafts/:id` | `{draft,items,images}`，draft 含 decision |
+| POST | `/api/bot-center/drafts/:id/review` | `{decision,reason?,choice?}` |
+| POST | `/api/bot-center/drafts/:id/items/:seq/review` | 逐則審核 |
+| POST | `/api/bot-center/drafts/:id/push/retry` | SUPER_ADMIN 重送失敗推播 |
+| PUT | `/api/bot-center/bots/:code/push` | SUPER_ADMIN 逐 BOT 推播設定 |
+| GET／POST／DELETE | `/api/bot-center/bots/:code/credential` | 憑證狀態／產生輪換／撤銷（寫入僅 SUPER_ADMIN） |
+
+（`POST /api/bot-center/bots` 已移除，BOT 由程式碼 `INITIAL_BOTS` 定義。）
+
+機器（各 BOT 自己的 Bearer）：
+
+| 方法 | 路徑 | 作用 |
+| --- | --- | --- |
+| GET | `/api/bot-ingest/identity` | 憑證所屬 botCode／botLabel |
+| POST | `/api/bot-ingest/progress`、`/reports`、`/completions` | 進度、回報、完成事件 |
+| POST | `/api/bot-ingest/drafts` | `{title,body,externalRef?,kind?,items?,previousDraftId?,decision?,sessionRef?}` |
+| GET | `/api/bot-ingest/drafts/:id`、`?externalRef=` | 讀自己的審核結果（含 decision） |
+| POST | `/api/bot-ingest/drafts/:id/images?item=`、`/sent` | 審核圖片、舊版已送出回報 |
+| POST／GET | `/api/bot-ingest/deliveries`（GET 用 eventRef） | 實際成果回報（platform 限 FB／IG／Threads） |
+| POST | `/api/bot-ingest/deliveries/:id/images?uploadRef=` | 成果圖片 |
+| POST | `/api/bot-ingest/patrol-sessions` | `{sessionRef,label,day?,note?,completed?}` |
+
 ## V0.21.3 成果與手機審稿（工程實作，未部署）
 
 以下為本版現行契約，優先於下方歷史沿革。
@@ -66,7 +113,7 @@
 - 30 秒可見頁面仍只讀 `/progress` 的 BOT 主檔與憑證狀態，不掃歷史／分類統計；跨台灣午夜下一次檢查完整刷新。沒有每次 API 呼叫寫 last_used，沒有增加固定輪詢；推播的重試僅用既有五分鐘排程。
 - 可攜備份納入完成事件的新欄位、CURRENT_MIGRATION=0058，舊備份缺欄位取 general／null 預設；憑證仍排除，還原後各 BOT 由超管重新產生。空白目標不因 migration 預先建立 BOT 而阻擋還原。
 
-## API
+## API（歷史沿革；現況以上方「API 現況（V0.22.0）」為準）
 
 人（既有 CYWEB session＋BOT_CENTER 權限）：
 
@@ -76,7 +123,6 @@
 | GET | `/api/bot-center/progress` | bots、credentials、canManageCredentials、pushReady、pushSettings，不回歷史／統計 |
 | PUT | `/api/bot-center/bots/:code/push` | SUPER_ADMIN 設定逐 BOT webhook；網址／key 留白保留，不回傳原值 |
 | POST | `/api/bot-center/drafts/:id/push/retry` | SUPER_ADMIN 重送 failed 推播；不重做審核，同 eventId |
-| POST | `/api/bot-center/bots` | `{code,label}` 新增身份 |
 | POST | `/api/bot-center/drafts/:id/review` | `{decision:"approved"\|"rejected",reason?}`；退回必填，通過忽略理由 |
 | GET／POST／DELETE | `/api/bot-center/bots/:code/credential` | 讀該 BOT 狀態／產生或輪換／撤銷；寫入僅 SUPER_ADMIN |
 | GET | `/api/bot-center/drafts/:id` | 審閱用完整內容：`{draft,items,images}` |

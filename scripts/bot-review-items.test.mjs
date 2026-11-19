@@ -98,7 +98,7 @@ test('sent reporting and the daily summary per card',async t=>{
  const patrol=ok(await f.multi('patrol',3)),post=ok(await f.multi('post',2));
  ok(await f.multi('patrol',2));
  let s=ok(await f.call('/api/bot-center')).workSummary;
- assert.equal(s.pending.posts,2);assert.equal(s.pending.patrols,5);assert.equal(s.patrols.toSend,5);assert.equal(s.patrols.sentToday,0);
+ assert.equal(s.pending.posts,1);assert.equal(s.pending.patrolDrafts,2);assert.equal(s.pending.patrolItems,5);assert.equal(s.pending.count,3);assert.equal(s.patrols.toSend,5);assert.equal(s.patrols.sentToday,0);
  assert.equal((await f.ingest(`drafts/${patrol.id}/sent`,'POST',{items:[1]})).status,409);
  ok(await f.call(`/api/bot-center/drafts/${patrol.id}/items/3/review`,'POST',{decision:'rejected',reason:'合成'}));
  ok(await f.call(`/api/bot-center/drafts/${patrol.id}/review`,'POST',{decision:'approved'}));
@@ -107,7 +107,7 @@ test('sent reporting and the daily summary per card',async t=>{
  assert.equal(ok(await f.ingest(`drafts/${patrol.id}/sent`,'POST',{items:[1]})).sent,0);
  ok(await f.call(`/api/bot-center/drafts/${post.id}/review`,'POST',{decision:'approved'}));
  s=ok(await f.call('/api/bot-center')).workSummary;
- assert.equal(s.pending.posts,0);assert.equal(s.pending.patrols,2);assert.equal(s.patrols.sentToday,2);assert.equal(s.patrols.toSend,2);
+ assert.equal(s.pending.posts,0);assert.equal(s.pending.patrolDrafts,1);assert.equal(s.pending.patrolItems,2);assert.equal(s.patrols.sentToday,2);assert.equal(s.patrols.toSend,2);
  assert.equal('reviewed' in s.patrols,false);assert.equal('reviewed' in s.articles,false);assert.equal(s.articles.published.items.length,0);
  ok(await f.ingest(`drafts/${post.id}/sent`,'POST',{items:[1]}));
  assert.equal(ok(await f.call('/api/bot-center')).workSummary.articles.published.items.length>0,true);

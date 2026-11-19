@@ -82,8 +82,11 @@ function createReporter(config, { fetchImpl = fetch, timeoutMs = 15e3 } = {}) {
   }
   // Single drafts keep the original shape; multi-item drafts (posts / patrols) add kind and each item's result.
   const itemView = (item) => ({ seq: item.seq, ref: item.ref ?? null, title: item.title, status: item.status, reason: item.reason ?? null, sentAt: item.sentAt ?? null });
+  // 拍板事項（V0.22.0）：金額在線路上是「分」，工具一律以新台幣「元」呈現與輸入。
+  const decisionView = (decision) => ({ category: decision.category, amount: decision.amount == null ? null : decision.amount / 100, deadline: decision.deadline ?? null, options: decision.options ?? null,
+    chosenOption: decision.chosenOption ?? null, chosenOptionText: decision.chosenOption == null ? null : decision.options?.[decision.chosenOption] ?? null, expired: decision.expired === true });
   const reviewView = (data) => ({ revisionNumber:data.revisionNumber, supersededById:data.supersededById, id: data.id, externalRef: data.externalRef, status: data.status, reason: data.reason ?? null, reviewedAt: data.reviewedAt ?? null,
-    ...data.itemCounts ? { kind: data.kind, items: (data.items ?? []).map(itemView) } : {} });
+    ...data.itemCounts ? { kind: data.kind, items: (data.items ?? []).map(itemView) } : {}, ...data.decision ? { decision: decisionView(data.decision) } : {} });
   const withItems = async (data) => data.itemCounts && !data.items ? checkRecord(await request("/api/bot-ingest/drafts/" + data.id)) : data;
   async function reviewNotification(input) {
     // Notifications are untrusted wakeups, never approval evidence or publishing instructions.
@@ -115,14 +118,23 @@ function createReporter(config, { fetchImpl = fetch, timeoutMs = 15e3 } = {}) {
       return { ...ref ? { ref } : {}, title: string(item.title, `第 ${i + 1} 則標題`, 120), body: string(item.body, `第 ${i + 1} 則內容`, 4e3) };
     });
   };
+  const PLATFORMS = ["FB", "IG", "Threads"];
+  const platformOf = (value) => {
+    const found = PLATFORMS.find((name) => name.toLowerCase() === string(value, "平台", 40).toLowerCase());
+    if (!found) bad("INPUT_INVALID", "平台須為 FB、IG 或 Threads");
+    return found;
+  };
   async function submit(input) {
-    fields(input, ["externalRef", "title", "body", "kind", "items", "previousDraftId"]);
+    fields(input, ["externalRef", "title", "body", "kind", "items", "previousDraftId", "sessionRef"]);
     const externalRef = string(input.externalRef, "送審固定編號", 80), title = string(input.title, "標題", 120), body = string(input.body, "內容", 4e3);
     const kind = input.kind ?? (input.items ? "post" : "general");
     if (!["general", "post", "patrol"].includes(kind)) bad("INPUT_INVALID", "稿件分類須為 general、post 或 patrol");
     if(input.previousDraftId!==undefined&&(!Number.isSafeInteger(input.previousDraftId)||input.previousDraftId<1))bad("INPUT_INVALID","previousDraftId 須為原稿編號");
     const items = itemsOf(input.items);
     if ((kind === "general") !== !items) bad("INPUT_INVALID", "貼文／海巡請用 items 逐則送審；一般單篇不帶 items");
+    // 海巡稿可帶 sessionRef 連結到同日已登錄的巡視場次（patrol-session），之後場次狀態由審核與送出自動推算。
+    const sessionRef = input.sessionRef === void 0 ? void 0 : string(input.sessionRef, "巡視固定編號", 120);
+    if (sessionRef !== void 0 && kind !== "patrol") bad("INPUT_INVALID", "只有海巡稿（kind=patrol）可以帶 sessionRef");
     if (JSON.stringify([externalRef, title, body, items ?? []]).includes(token)) bad("INPUT_CONTAINS_SECRET", "回報內容不可包含連線憑證");
     let existing;
     try {
@@ -130,9 +142,41 @@ function createReporter(config, { fetchImpl = fetch, timeoutMs = 15e3 } = {}) {
     } catch (error) {
       if (error.code !== "BOT_NOT_FOUND") throw error;
     }
-    const data = await withItems(existing ?? checkRecord(await request("/api/bot-ingest/drafts", { botCode, externalRef, title, body, ...(input.previousDraftId===undefined?{}:{previousDraftId:input.previousDraftId}), ...items ? { kind, items } : {} })));
+    const data = await withItems(existing ?? checkRecord(await request("/api/bot-ingest/drafts", { botCode, externalRef, title, body, ...(input.previousDraftId===undefined?{}:{previousDraftId:input.previousDraftId}), ...(sessionRef===void 0?{}:{sessionRef}), ...items ? { kind, items } : {} })));
+    if (sessionRef !== void 0 && !(data.sessionId > 0)) bad("DRAFT_REVISION_REQUIRED", "這個送審編號已建立，但沒有連結到此巡視場次；請使用新的送審編號");
     const sameItems = !items ? !data.itemCounts : (data.kind === kind && data.items?.length === items.length && items.every((item, i) => data.items[i].title === item.title && data.items[i].body === item.body && (data.items[i].ref ?? void 0) === item.ref));
     if (data.externalRef !== externalRef || data.title !== title || data.body !== body || !sameItems || (input.previousDraftId!==undefined&&data.previousDraftId!==input.previousDraftId)) bad("DRAFT_REVISION_REQUIRED", "這個送審編號已有不同內容；改稿請使用新的版本編號");
+    return reviewView(data);
+  }
+  const moneyOf = (value) => {
+    if (typeof value !== "number" || !Number.isFinite(value) || value < 0 || Math.abs(value * 100 - Math.round(value * 100)) > 1e-6 || value > 1e9) bad("INPUT_INVALID", "金額須為不小於 0 的新台幣元（最多兩位小數）");
+    return Math.round(value * 100);
+  };
+  const deadlineOf = (value) => {
+    const at = string(value, "期限", 40);
+    if (!/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(\.\d{1,3})?(Z|[+-]\d\d:\d\d)$/.test(at) || !Number.isFinite(Date.parse(at))) bad("INPUT_INVALID", "期限須為含時區的 ISO 時間，例如 2026-11-19T18:00:00+08:00");
+    return new Date(at).toISOString();
+  };
+  // 拍板事項（V0.22.0）：送人決定的事項，與稿件共用審核、版本與推播；只有人決定「同意／不同意」（有選項時同意要選一個）。
+  async function decision(input) {
+    fields(input, ["externalRef", "title", "body", "category", "amount", "deadline", "options", "previousDraftId"]);
+    const externalRef = string(input.externalRef, "送審固定編號", 80), title = string(input.title, "標題", 120), body = string(input.body, "內容", 4e3);
+    const category = string(input.category, "類別", 20);
+    const wire = { category, ...(input.amount === void 0 ? {} : { amount: moneyOf(input.amount) }), ...(input.deadline === void 0 ? {} : { deadline: deadlineOf(input.deadline) }) };
+    if (input.options !== void 0) {
+      if (!Array.isArray(input.options) || input.options.length < 2 || input.options.length > 5) bad("INPUT_INVALID", "選項需 2 至 5 個；不需要選項時請省略");
+      wire.options = input.options.map((option, i) => string(option, `第 ${i + 1} 個選項`, 80));
+      if (new Set(wire.options).size !== wire.options.length) bad("INPUT_INVALID", "選項不可重複");
+    }
+    if (input.previousDraftId !== void 0 && (!Number.isSafeInteger(input.previousDraftId) || input.previousDraftId < 1)) bad("INPUT_INVALID", "previousDraftId 須為原稿編號");
+    if (JSON.stringify([externalRef, title, body, wire]).includes(token)) bad("INPUT_CONTAINS_SECRET", "回報內容不可包含連線憑證");
+    let existing;
+    try { existing = await rawReview(externalRef); } catch (error) { if (error.code !== "BOT_NOT_FOUND") throw error; }
+    const data = existing ?? checkRecord(await request("/api/bot-ingest/drafts", { botCode, externalRef, title, body, ...(input.previousDraftId === void 0 ? {} : { previousDraftId: input.previousDraftId }), decision: wire }));
+    const stored = data.decision;
+    const same = stored && stored.category === wire.category && (stored.amount ?? null) === (wire.amount ?? null) && (stored.deadline ?? null) === (wire.deadline ?? null)
+      && JSON.stringify(stored.options ?? null) === JSON.stringify(wire.options ?? null);
+    if (data.externalRef !== externalRef || data.title !== title || data.body !== body || !same || (input.previousDraftId !== void 0 && data.previousDraftId !== input.previousDraftId)) bad("DRAFT_REVISION_REQUIRED", "這個送審編號已有不同內容；改稿請使用新的版本編號並帶 previousDraftId");
     return reviewView(data);
   }
   const imageType = (bytes) => bytes[0] === 255 && bytes[1] === 216 && bytes[2] === 255 ? "image/jpeg"
@@ -252,7 +296,8 @@ function createReporter(config, { fetchImpl = fetch, timeoutMs = 15e3 } = {}) {
     const eventRef=string(input.eventId,"成果固定編號",120),source=input.approvalSource;
     if(!["post","patrol"].includes(input.kind)||!["cyweb","chat","line","other"].includes(source))bad("INPUT_INVALID","請填成果分類與真實核准來源");
     const payload={botCode,eventRef,kind:input.kind,approvalSource:source};
-    for(const [key,max]of [["title",120],["body",4000],["platform",40],["url",2048],["approvalNote",200],["sessionRef",120],["sentAt",30]])if(input[key]!==undefined)payload[key]=string(input[key],key,max,false)??"";
+    for(const [key,max]of [["title",120],["body",4000],["url",2048],["approvalNote",200],["sessionRef",120],["sentAt",30]])if(input[key]!==undefined)payload[key]=string(input[key],key,max,false)??"";
+    if(input.platform!==undefined)payload.platform=platformOf(input.platform);
     if(source!=="cyweb"&&(!payload.title||!payload.body||!payload.approvalNote))bad("INPUT_INVALID","外部核准成果須填完整標題、內容與核准來源說明");
     if(input.externalRef!==undefined){
       const draft=await rawReview(string(input.externalRef,"送審固定編號",80));payload.draftId=draft.id;
@@ -279,7 +324,13 @@ function createReporter(config, { fetchImpl = fetch, timeoutMs = 15e3 } = {}) {
     if(command==="delivery")return delivery(input);
     if(command==="delivery-status")return deliveryStatus(input);
     if(command==="delivery-image")return deliveryImage(input);
-    if(command==="patrol-session"){fields(input,["sessionRef","day","label","note"]);return checkRecord(await request("/api/bot-ingest/patrol-sessions",{...input,botCode}));}
+    if(command==="patrol-session"){
+      fields(input,["sessionRef","day","label","note","completed"]);
+      // completed:true 表示這個場次已結束（全部通過的則都送完之前也可以先結束）；不帶或 false 不會重新開啟。
+      if(input.completed!==undefined&&typeof input.completed!=="boolean")bad("INPUT_INVALID","completed 須為 true 或 false");
+      return checkRecord(await request("/api/bot-ingest/patrol-sessions",{...input,botCode}));
+    }
+    if(command==="decision")return decision(input);
     if (command === "review-notification") return reviewNotification(input);
     if (command === "progress") return progress(input);
     if (command === "submit") return submit(input);

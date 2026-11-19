@@ -5,7 +5,7 @@ description: 回報 CYWEB BOT 工作進度、待審稿、實際發布貼文、�
 
 # CYWEB 共用工作回報
 
-先讀 [操作契約](references/wire-contract.md)；首次設定或更新既有 routine 時讀 [Grok 設定](references/grok-setup.md)。本版要求 WEB V0.21.3／0077 先部署，部署前沿用舊工具，不試新寫入。
+先讀 [操作契約](references/wire-contract.md)；首次設定或更新既有 routine 時讀 [Grok 設定](references/grok-setup.md)。本版要求 WEB V0.22.0／0079 先部署，部署前沿用舊工具，不試新寫入。
 
 ## 身分與安全
 
@@ -20,7 +20,14 @@ description: 回報 CYWEB BOT 工作進度、待審稿、實際發布貼文、�
 - **確實需要 CYWEB 審核**才 `submit`。貼文用 kind=post、海巡用 kind=patrol，每篇／每則獨立放 items，即使只有一篇亦同。全文不能只放摘要；每則最多10張審核圖、每張2MB。一般工作可用單篇 general。
 - 改稿用新 externalRef＋previousDraftId 指向原稿，目前最新版才可接續。版本自動初稿→2修→3修；新版不繼承核准、圖片。已實際送出或外部已處理的稿不能覆蓋。
 - `review` 讀回結果，逐則只處理 approved 的內容；退回先處理理由。不能把等待當核准，也不能把舊版核准套到新版。外部發布仍依使用者授權與平台規則。
-- 退回／待審不靠 `delivery` 假裝 CYWEB 通過。只有**已在其他管道獲得明確核准、且實際發出**的成果，才以真實外部來源回報。
+- 退回／待審不靠 `delivery` 假裝 CYWEB 通過。
+只有**已在其他管道獲得明確核准、且實際發出**的成果，才以真實外部來源回報。
+
+## 拍板：需要人決定的事項
+
+- 請使用者「拍板」（同意／不同意）的事項用 `decision`，不要用 `submit` 假裝稿件。欄位：externalRef、title、body（背景與建議）、**category**（類別，自由填寫，最多 20 字，例如「廣告預算」）；選填 **amount**（新台幣元，最多兩位小數，工具轉成分）、**deadline**（含時區的 ISO 時間，過了期限就不能再決定）、**options**（2 至 5 個選項，每個最多 80 字，人同意時必須選一個）。
+- 一樣用固定 externalRef，重送同內容回原紀錄；改內容用新 externalRef＋previousDraftId，**新版也要再帶完整的拍板欄位**。需要附圖用 `image`。
+- `review` 回 status（approved＝同意、rejected＝不同意、備註在 reason）與 `decision.chosenOptionText`。**期限過了仍待決定時 `decision.expired=true`，人已不能決定**：請改以新 externalRef 重新送審，不要等待。只依人的決定行動；同意也不代表授權超過該事項本身。
 
 ## 實際發布與送出：統一用 delivery
 
@@ -28,7 +35,7 @@ description: 回報 CYWEB BOT 工作進度、待審稿、實際發布貼文、�
 
 - 每篇已發布文章／每則已送出留言，各用一個穩定唯一 eventId 呼叫 `delivery`。kind=post／patrol；不要再為同一成果另呼叫 sent 或 complete.article_published。delivery 同時建立可點閱全文、計數與完成紀錄。
 - CYWEB 核准：approvalSource=cyweb、externalRef、item（多則稿必填）。預設使用已核准的原稿全文，不可變更內容。已通過的個別則可回報，不必等同批其他則審完。
-- 外部核准：approvalSource=chat／line／other，必填 title、body 完整實際內容、approvalNote 真實核准來源說明。可填 platform、url（實際發布／回覆連結）、sentAt（真實 UTC ISO 時間）。不把目標貼文網址冒充自己回覆的發布網址。
+- 外部核准：approvalSource=chat／line／other，必填 title、body 完整實際內容、approvalNote 真實核准來源說明。可填 platform（只能是 **FB、IG、Threads**，不分大小寫）、url（實際發布／回覆連結）、sentAt（真實 UTC ISO 時間）。其他平台名稱會被拒絕；不確定就不填。不把目標貼文網址冒充自己回覆的發布網址。
 - 若已存在對應補登稿，可帶 externalRef／item 連結原稿；系統僅將對應待審項目標成「外部已處理」，不改原審核決定、不虛構通過、不處理同批其他待審項目。
 - 發布圖片用 `delivery-image`，eventId＋本機絕對 file 路徑。沿用JPEG／PNG／WebP、每篇10張、每張2MB；內容雜湊去重。圖片隔日清理，CYWEB不是長期社群圖片庫。
 - N篇／N則與點開內容使用同一份實際成果。complete 的文字回報本身不再增加文章篇數。
@@ -36,6 +43,8 @@ description: 回報 CYWEB BOT 工作進度、待審稿、實際發布貼文、�
 ## 巡視摘要
 
 - 每場先 `patrol-session`，sessionRef 固定、label 只填「早巡／午巡／晚巡」等實際名稱，可指定 day=YYYY-MM-DD。名稱由你回報，不由 CYWEB 猜測。
+- 該場要送審的海巡稿，`submit` 時帶同一個 `sessionRef`（kind=patrol；場次須是你自己、今天已登錄的）。CYWEB 依連結的稿件自動顯示場次狀態：有待審的則＝待審核；都審完、有通過但還沒送出＝已審核（待你留言）；通過的則都已送出，或你明確結束＝已完成。**人在 CYWEB 審核只改變這個狀態，你不必為此另外回報。**
+- 一場全部送完後，若還有不打算送的通過項目，用 `patrol-session` 帶 `completed:true` 明確結束該場；不帶不會重新開啟，已結束的不會被改回。
 - 每則實際送出的 patrol delivery 帶同一 sessionRef。分批送出仍同一場，不重建摘要。系統顯示「午巡｜已送出N則」，N來自真正的逐則成果。
 - note 一般留空；只有需要使用者處理的例外才填一句，最多40字。**不要列帳號、網址、則號、核准人、稿號、逐則清單、重複的待審統計。**這些細節放在逐則成果內容，點 N 即可看。
 - 同一 sessionRef 可更新 note／label，不增加另一行；day 不可改。巡視完成可另用既有 complete.threads_patrol 留時間軸，但 detail 也保持簡短，不為每批重複建立完成事件。

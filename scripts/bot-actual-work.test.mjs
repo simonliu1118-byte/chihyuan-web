@@ -57,7 +57,7 @@ test('outside approvals resolve only linked pending work, preserve original revi
  ok(await f.call('/api/bot-ingest/patrol-sessions','POST',{sessionRef:'noon',label:'午巡'},f.auth));
  const first=receipt('reply-a',{kind:'patrol',draftId:draft.id,itemSeq:1,sessionRef:'noon',approvalSource:'line'});
  ok(await f.call('/api/bot-ingest/deliveries','POST',first,f.auth));
- let state=ok(await f.call('/api/bot-center'));assert.equal(state.workSummary.pending.patrols,1);assert.equal(state.draftCounts.pending,1);
+ let state=ok(await f.call('/api/bot-center'));assert.equal(state.workSummary.pending.patrolItems,1);assert.equal(state.draftCounts.pending,1);
  const detail=ok(await f.call('/api/bot-center/drafts/'+draft.id));assert.equal(detail.draft.itemCounts.external,1);assert.equal(detail.items[0].status,'external');assert.equal(detail.items[1].status,'pending');
  assert.equal((await f.call(`/api/bot-center/drafts/${draft.id}/items/1/review`,'POST',{decision:'approved'})).status,409);
  ok(await f.call('/api/bot-ingest/deliveries','POST',receipt('reply-b',{kind:'patrol',draftId:draft.id,itemSeq:2,sessionRef:'noon',approvalSource:'line'}),f.auth));
