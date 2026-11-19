@@ -1,9 +1,9 @@
 # WO-0.23.0 定期維護改為逐台登記完成
 
-- 狀態：**待實作**（§9 由審查者填寫）。
+- 狀態：**已實作遠端程式並建立 Draft PR #535，待 LOCAL-CYWEB Work 資料庫階段及最終驗收**（§9 由審查者填寫）。
 - 分支：`cyweb/v0.23.0-maintenance-per-machine`（由 main V0.22.1、migration 0079 開出；本工作單已在此分支）。
 - 版號：V0.23.0；migration 0080。
-- 授權：使用者 2026-11-19 同意由執行者實作並合併、部署；Claude 於部署後審查（§9）。
+- 授權沿革：原工作單記載使用者 2026-11-19 同意由執行者實作並合併／部署；**本次較新的明確指示**為「做完所有遠端能做的、寫文件、再由使用者轉交 LOCAL-CYWEB Work 處理資料庫部分」，因此本輪**不合併、不部署、不操作正式 D1**，資料庫完成及部署另待使用者及 LOCAL Work。
 - 開工前必讀：`PROJECT_RULES.md`、`REPO_POLICY.md`（含 §6 部署維運）；現況程式 `worker/http/store-equipment-routes.ts`、`shared/store-equipment.ts`、`src/runtime/modules/StoreMaintenanceMatrix.tsx`、`StoreEquipment.tsx`、`StoreOperationHistory.tsx`、`change-log-labels.ts`；schema `migrations/0051_store_equipment_maintenance.sql`、`0052`；測試 `scripts/store-equipment.test.mjs`。
 
 ## 1. 背景（使用者回報，2026-11-19）
@@ -110,8 +110,31 @@
 - 依 `REPO_POLICY.md` §6：合併後推 `deploy/cyweb-development` 部署（migration 0080 由部署流程套用）；部署後下載完整 job log，確認沒有 Worker／D1／R2 實名、ID、帳號子網域外洩。
 - 確認 `/api/health` 版本 0.23.0、`sourceCommit` 為合併 commit；以正式資料抽查一位客戶的維護表格顯示正確。
 
-## 8. 完成報告（執行者填）
+## 8. 遠端實作與 LOCAL Work 交接報告（GPT，2026-11-19）
 
-- 變更檔案、migration 回填結果（筆數）、測試數（全部／新增）、typecheck、build、截圖路徑、PR 與部署 run 連結、log 檢查結果、與本工作單不同之處及原因。
+### 已完成的程式來源
+
+- GitHub [Draft PR #535](https://github.com/simonliu1118-byte/chihyuan-web/pull/535)，分支 `cyweb/v0.23.0-maintenance-per-machine`，以 main `a15f9da9488ad62c60a8b907263b3f8571499cfe`（V0.22.1／0079）為基準；工作版升至 **V0.23.0**。
+- `migrations/0080_store_maintenance_per_machine.sql`：逐台維護欄位、既有完成 visit 回填、索引；**僅寫入 repo，未在正式資料庫執行，因此回填筆數未知**。
+- `worker/http/store-equipment-routes.ts`：採 selected `equipmentIds` 的完成／取消 API、版本／requestKey、單批 Audit／歷史、逐台查詢與矩陣合併、同客戶月份現有完成提示；`shared/store-equipment.ts` 與 `shared/maintenance-matrix.ts` 同步型別、計算與部分完成投影。
+- `src/runtime/modules/StoreMaintenanceMatrix.tsx`：共用 `EntryTable` 逐台勾選、修改、取消及 1/2 部分完成；`StoreEquipment.tsx`：加入同月完成提示及製造日期兩種精度；共用 `DateInput` 增 `precision="month-or-day"`。
+- `store-equipment.css`、`StoreOperationHistory.tsx`、`change-log-labels.ts`：共用表格與事件顯示；`worker/backup/schema-columns.ts`、`portable-backup.ts`：新欄位、`CURRENT_MIGRATION=0080` 及歷史備份升級邏輯。
+- `scripts/store-equipment.test.mjs`、`scripts/validate_schema.py`、`worker/acceptance/equipment-acceptance.ts` 與 `scripts/visual/wo0230-capture.mjs`：逐台維護、月數、製造日期、本地 D1、1440／390 視覺情境。
+- 同分支 `CHANGELOG.md`、`TODO.md`、`VERSION`、`package.json` 已更新。
+
+### 尚未交付及已知偏差
+
+- **正式 D1 migration、備份、資料量預估、真實回填筆數、完整性／還原驗證、正式站截圖與部署皆未執行**；必須由 LOCAL-CYWEB Work 依本交接文件處理，不能以合成 CI 測試結果代替。
+- **舊 visit CHECK 限制：** `store_maintenance_visits` 原 schema 要求 `completed=0` 時 `completion_date IS NULL`。部分完成情境無法同時在該舊欄位保存最晚完成日。遠端先將真實日期保存在 per-machine plans，並由 GET 投影最晚日期；舊欄位部分完成時保持 NULL。**這與 §2.1 要求的實體 visit cache 尚有偏差，列為 LOCAL Work 的資料庫 schema 決策／修改與驗證項目**，不得宣稱完全驗收。
+- Remote CI TypeScript / Source 已在先前版次通過；**最終 D1 runtime、Build、Playwright 視覺與全 CI 結果，須依 PR 最新 HEAD Actions 狀態核對，未通過前不得 Ready／合併／部署。**
+- `CY Web Deploy` workflow 名稱不代表已部署：本 PR 的正式部署 job 依 repo 策略 skipped；沒有執行環境變更。
+- **LOCAL Work 詳細操作清單與唯讀 SQL：** [`docs/handoff/CYWEB-WO-0230-MAINTENANCE-LOCAL-20261119.md`](../../handoff/CYWEB-WO-0230-MAINTENANCE-LOCAL-20261119.md)；留待執行者補實際筆數、遷移／回復驗證、截圖與 log、更新本 §8。Claude 審查欄位 §9 仍保持待審。
+
+### 待 LOCAL Work
+
+1. 正式 D1 前先備份、盤點已完成月份與 retained／active plans，估算回填與檢查成本。
+2. 在隔離資料庫核對舊 visit CHECK 與新的最晚日期要求，提出安全 schema 改動或等效方案；不得在正式資料庫直接硬改 schema。
+3. 在確認新的使用者授權與服務切換順序後才套用 migration 0080，核對前後筆數、外鍵、復原／備份與真實業務範例。
+4. 將真實驗證回填本節，重新跑 GitHub CI，交 Claude 審查；不自動合併與部署。
 
 ## 9. 審查紀錄（審查者填）
