@@ -126,7 +126,7 @@
 
 - **正式 D1 migration、備份、資料量預估、真實回填筆數、完整性／還原驗證、正式站截圖與部署皆未執行**；必須由 LOCAL-CYWEB Work 依本交接文件處理，不能以合成 CI 測試結果代替。
 - **舊 visit CHECK 限制：** `store_maintenance_visits` 原 schema 要求 `completed=0` 時 `completion_date IS NULL`。部分完成情境無法同時在該舊欄位保存最晚完成日。遠端先將真實日期保存在 per-machine plans，並由 GET 投影最晚日期；舊欄位部分完成時保持 NULL。**這與 §2.1 要求的實體 visit cache 尚有偏差，列為 LOCAL Work 的資料庫 schema 決策／修改與驗證項目**，不得宣稱完全驗收。
-- Remote CI TypeScript / Source 已在先前版次通過；**最終 D1 runtime、Build、Playwright 視覺與全 CI 結果，須依 PR 最新 HEAD Actions 狀態核對，未通過前不得 Ready／合併／部署。**
+- **工程 CI 已驗證：** [Runtime Check run 44533310110](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/44533310110)：Source Contracts、Browser TypeScript、Worker TypeScript、Build（本地 D1 runtime、完整 Node suite 與 Vite build）四個 job 均 success；[Governance run 44533310483](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/44533310483) success。前一版實際 React 隔離視覺 [run 44532062580](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/44532062580) success（1440／390 六張 PNG，Actions artifact ID 14535026172），最新視覺 CI 須依 PR Actions 核對。**上述是合成／本地測試，不是正式 D1 migration 的證據；PR 仍維持 Draft。**
 - `CY Web Deploy` workflow 名稱不代表已部署：本 PR 的正式部署 job 依 repo 策略 skipped；沒有執行環境變更。
 - **LOCAL Work 詳細操作清單與唯讀 SQL：** [`docs/handoff/CYWEB-WO-0230-MAINTENANCE-LOCAL-20261119.md`](../../handoff/CYWEB-WO-0230-MAINTENANCE-LOCAL-20261119.md)；留待執行者補實際筆數、遷移／回復驗證、截圖與 log、更新本 §8。Claude 審查欄位 §9 仍保持待審。
 
