@@ -3,6 +3,12 @@
 > 本檔是 CY Web 唯一的現況與待辦清單，不是永久規則來源。各版本完成內容與驗證見 `CHANGELOG.md`；規格見 `docs/architecture/README.md`。
 > 2026-11-03、2026-11-09 整理：已完成且已記入 CHANGELOG 的版本段落移除；已結案的交接與工作單移到 Git 固定快照（見 `docs/handoff/README.md`）。
 
+## V0.23.0 定期維護逐台完成（開發中）
+
+- [ ] [WO-0.23.0](docs/development/work-orders/WO-0.23.0.md)：原一客戶／月份維護容器不變，改由每台出機紀錄完成、異動、取消、部分狀態及獨立到訪日期。Git 分支 `cyweb/v0.23.0-maintenance-per-machine`，目前為程式實作與 CI 驗證。
+- [ ] Migration 0080 **待 LOCAL-CYWEB Work 執行**：正式 D1 資料量與完整性預查、備份、migration 版本／冪等與回填核對，確認既有完成月份的已完成機器日期與備註，以及新增與取消狀態。未取得驗證不得部署。
+- [ ] PR、Claude 審查、1440／390 登入後畫面確認與正式部署；資料庫及正式環境不由本次遠端程式工作直接修改。
+
 ## V0.22.0 BOT 管理中心改版（已部署 2026-11-19）
 
 - [x] 頁首 BOT 狀態列、四張摘要卡、項次／期限、拍板事項、平台選項、巡視場次狀態、Grok 工具與文件（見 [WO-0.22.0](docs/development/work-orders/WO-0.22.0.md)）。
