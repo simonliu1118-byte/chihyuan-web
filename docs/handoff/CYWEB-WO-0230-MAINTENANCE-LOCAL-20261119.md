@@ -24,6 +24,13 @@
 - `scripts/store-equipment.test.mjs`、`scripts/validate_schema.py`、本地 D1 acceptance、隔離真實 React 的 Playwright 1440 與 390 驗收。
 - CHANGELOG、TODO、VERSION 與 WO 同分支更新。
 
+## 工程 CI 與視覺證據（隔離環境，不等於正式 D1）
+
+- [Runtime Check：成功](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/44533310110)：四項 job 全綠，包含完整 Node 測試、本地 D1 acceptance、Vite build。
+- [Governance Check：成功](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/44533310483)。
+- [已成功之桌機 1440／手機 390 真實 React 視覺驗收](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/44532062580)，[PNG artifact](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/44532062580/artifacts/14535026172)；是隔離示範資料，不是正式登入站。
+- 以上證據適用當時的程式版本；之後若 LOCAL Work 修改 schema 或 API，須依最新 PR HEAD 重新跑全套驗證。
+
 ## C. LOCAL Work 必須完成的實際 D1 作業（未執行）
 
 1. **先重新讀**此分支最新程式、全部共通規則、工單 §2/§6/§7，以及 `REPO_POLICY.md` 的部署授權；核對 base/main 與其他 PR，避免覆寫並行改動。
