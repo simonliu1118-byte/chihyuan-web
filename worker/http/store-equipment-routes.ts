@@ -252,7 +252,7 @@ export async function handleStoreEquipmentRoute(req:Request,env:IdentityRuntimeE
         WHERE visit_id=? AND equipment_id IN (SELECT value FROM json_each(?))`).bind(completing?1:0,date,note,id,members),
      c.db.prepare('UPDATE store_maintenance_visits SET version=version+1,updated_at=?,updated_by=? WHERE id=?').bind(at,c.actor,id),
      recalcVisits(c,JSON.stringify([id])),
-     event(c,'visit',id,k,digest,kind,change.before,change.after),
+     event(c,'visit',id,k,digest,kind,change.before,{...change.after,plannedMonth:old.month}),
      audit(c,'visit',id,'updated',change.before,change.after)
    ]);
    return success(await getVisit(c,id),requestId);
