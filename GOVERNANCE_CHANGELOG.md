@@ -1,5 +1,9 @@
 # CY Web Governance Changelog
 
+## 1.1.32 — 2026/11/19
+
+- 同步 CYID 契約鏡像 `docs/contracts/cyid/`（CYapps #636：CYID 0.4.0 單一登入第 1 階段，consumer 契約 1.1.0，向下相容）。CY Web 仍為 consumer 1.0.5；`/sso` 入口於單一登入第 2 階段實作。
+
 ## 1.1.31 — 2026/11/18
 
 - 同步 CYID 契約鏡像 `docs/contracts/cyid/ARCHITECTURE.md`（CYapps #632 補寫 CYID 正式 Worker 部署查詢變數說明後，鏡像不一致使所有 PR 的 Governance Check 失敗）。之後由 CYapps `cyweb-consumer-check.yml` 在這些檔案變更時提醒同步（CYapps governance 2.3.65）。
