@@ -555,6 +555,16 @@ def main() -> int:
     return 0
 
 
+
+def check_maintenance_per_machine(conn: sqlite3.Connection) -> None:
+    cols = {row[1] for row in conn.execute("PRAGMA table_info(store_equipment_plans)")}
+    assert {"completed", "completion_date", "note"}.issubset(cols)
+    indexes = {row[1] for row in conn.execute("PRAGMA index_list(store_equipment_plans)")}
+    assert "idx_equipment_plan_completion_date" in indexes
+    sql = conn.execute("SELECT sql FROM sqlite_master WHERE type='table' AND name='store_equipment_plans'").fetchone()[0]
+    assert "completed IN (0,1)" in sql or "completed IN(0,1)" in sql
+    assert "completed=1 OR completion_date IS NULL" in sql
+
 if __name__ == "__main__":
     try:
         raise SystemExit(main())
