@@ -25,7 +25,7 @@ export async function acceptEquipmentMaintenance(db:D1Database){
    expectedVersion:withThird.version,requestKey:crypto.randomUUID(),action:'complete',
    equipmentIds:remaining,completionDate:'2026-11-05',note:'後續完成'
  });
- if(!done.completed||done.completedCount!==3||done.note!=='後續完成')throw new Error('EQUIPMENT_D1_COMPLETION');
+ if(!done.completed||done.completedCount!==3||!done.equipment.filter(e=>e.id!==first.id).every(e=>e.note==='後續完成'))throw new Error('EQUIPMENT_D1_COMPLETION');
  const cancelled=await call<MaintenanceVisit>('/visits/'+v.id,'PUT',{
    expectedVersion:done.version,requestKey:crypto.randomUUID(),action:'undo',equipmentIds:[first.id]
  });
