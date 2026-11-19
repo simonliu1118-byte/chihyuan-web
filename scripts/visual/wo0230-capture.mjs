@@ -56,6 +56,13 @@ try{
   await page.goto(base,{waitUntil:"networkidle"});
   await page.locator(".cy-matrix-partial").waitFor({timeout:10000});
   await page.screenshot({path:output+"/"+v.label+"-01-partial.png",fullPage:true,animations:"disabled"});
+  // The 36-month matrix is horizontally scrollable under sticky edge columns.
+  // Bring the selected month into the clear center of the viewport first.
+  await page.locator(".cy-matrix-scroll").evaluate((el)=>{
+    const cell=el.querySelector(".cy-matrix-partial");
+    if(cell){const host=el.getBoundingClientRect(),box=cell.getBoundingClientRect();
+      el.scrollLeft+=box.left-host.left-host.width/2;}
+  });
   await page.locator(".cy-matrix-partial").click();
   await page.getByRole("dialog",{name:/逐台維護登記/}).waitFor();
   await page.getByText("第一趟保養").first().waitFor();
