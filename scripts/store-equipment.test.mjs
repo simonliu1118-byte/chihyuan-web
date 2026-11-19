@@ -300,9 +300,9 @@ test('0080 backfills completed visits into each associated machine and leaves pe
    }
    const migration=readFileSync('migrations/0080_store_maintenance_per_machine.sql','utf8');
    db.exec(migration);
-   assert.deepEqual(db.prepare("SELECT completed,completion_date,note FROM store_equipment_plans WHERE visit_id=11 ORDER BY equipment_id").all(),
+   assert.deepEqual(db.prepare("SELECT completed,completion_date,note FROM store_equipment_plans WHERE visit_id=11 ORDER BY equipment_id").all().map(row=>({...row})),
      [{completed:1,completion_date:'2026-11-05',note:'第一趟'},{completed:1,completion_date:'2026-11-05',note:'第一趟'}]);
-   assert.deepEqual(db.prepare("SELECT completed,completion_date FROM store_equipment_plans WHERE visit_id=12 ORDER BY equipment_id").all(),
+   assert.deepEqual(db.prepare("SELECT completed,completion_date FROM store_equipment_plans WHERE visit_id=12 ORDER BY equipment_id").all().map(row=>({...row})),
      [{completed:0,completion_date:null},{completed:0,completion_date:null}]);
    const before=db.prepare("SELECT * FROM store_maintenance_visits ORDER BY id").all();
    const updateStatements=migration.slice(migration.indexOf('UPDATE store_equipment_plans'),migration.indexOf('-- Partial index'));
