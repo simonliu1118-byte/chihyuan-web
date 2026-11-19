@@ -102,3 +102,5 @@
  .cy-matrix-machine-popover .cy-maintenance-machines{min-width:600px}
  .cy-matrix-machine-fields{display:block}
 }
+
+.cy-equipment-other-completed{margin:6px 0;color:var(--cy-text-muted);font-size:var(--cy-fs-xs)}
