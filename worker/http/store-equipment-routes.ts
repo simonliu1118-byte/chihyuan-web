@@ -57,14 +57,24 @@ const aggregateVisitSql=`UPDATE store_maintenance_visits SET
   EXISTS(SELECT 1 FROM store_equipment_plans p WHERE p.visit_id=store_maintenance_visits.id AND p.completed=1)
   AND NOT EXISTS(SELECT 1 FROM store_equipment_plans p WHERE p.visit_id=store_maintenance_visits.id AND p.active=1 AND p.completed=0)
  THEN 1 ELSE 0 END,
- completion_date=(SELECT MAX(p.completion_date) FROM store_equipment_plans p WHERE p.visit_id=store_maintenance_visits.id AND p.completed=1),
+ completion_date=CASE WHEN
+    EXISTS(SELECT 1 FROM store_equipment_plans p WHERE p.visit_id=store_maintenance_visits.id AND p.completed=1)
+    AND NOT EXISTS(SELECT 1 FROM store_equipment_plans p WHERE p.visit_id=store_maintenance_visits.id AND p.active=1 AND p.completed=0)
+    THEN (SELECT MAX(p.completion_date) FROM store_equipment_plans p WHERE p.visit_id=store_maintenance_visits.id AND p.completed=1)
+    ELSE NULL END,
  note=COALESCE((SELECT p.note FROM store_equipment_plans p WHERE p.visit_id=store_maintenance_visits.id AND p.completed=1
    ORDER BY p.completion_date DESC,p.equipment_id DESC LIMIT 1),'')
  WHERE id IN (SELECT value FROM json_each(?))`;
 const recalcVisits=(c:Context,ids:string)=>c.db.prepare(aggregateVisitSql).bind(ids);
 
 const recordJson=(r:RecordRow):EquipmentRecord=>({id:r.id,sequence:r.list_sequence,customerCode:r.customer_code,customerName:r.customer_name,brand:r.brand,category:r.category as EquipmentFields['category'],categoryOther:r.category_other,model:r.model,saleDate:r.sale_date,quantity:r.quantity,warrantyStart:r.warranty_start,warrantyEnd:r.warranty_end,machines:(JSON.parse(r.machines_json) as EquipmentRecord['machines']).map(m=>({...m,assetNumber:m.assetNumber??''})),maintenance:!!r.maintenance,months:JSON.parse(r.months_json).sort(),version:r.version,createdAt:r.created_at,updatedAt:r.updated_at});
-const visitJson=(r:VisitRow):MaintenanceVisit=>({id:r.id,customerCode:r.customer_code,customerName:r.customer_name,month:r.planned_month,completed:!!r.completed,completionDate:r.completion_date,note:r.note,completedCount:r.completed_count,totalCount:r.total_count,version:r.version,equipment:(JSON.parse(r.equipment_json) as Array<Record<string,unknown>>).map(p=>({...p,completed:!!p.completed,active:!!p.active,completionDate:p.completionDate??null,note:p.note??""})) as MaintenanceVisit["equipment"]});
+const visitJson=(r:VisitRow):MaintenanceVisit=>{
+ const equipment=(JSON.parse(r.equipment_json) as Array<Record<string,unknown>>).map(p=>({...p,completed:!!p.completed,active:!!p.active,completionDate:p.completionDate??null,note:p.note??""})) as MaintenanceVisit["equipment"];
+ const dates=equipment.filter(e=>e.completed&&e.completionDate).map(e=>e.completionDate!) ;
+ return {id:r.id,customerCode:r.customer_code,customerName:r.customer_name,month:r.planned_month,
+   completed:!!r.completed,completionDate:dates.length?dates.sort().at(-1)!:r.completion_date,
+   note:r.note,completedCount:r.completed_count,totalCount:r.total_count,version:r.version,equipment};
+};
 async function getRecord(c:Context,id:number){const r=await one<RecordRow>(c.db,recordSelect+' WHERE r.id=?',id);if(!r)throw new Invalid('出機紀錄不存在',404);return recordJson(r)}
 async function getVisit(c:Context,id:number){const r=await one<VisitRow>(c.db,visitSelect+' WHERE v.id=?',id);if(!r)throw new Invalid('維護排程不存在',404);return visitJson(r)}
 async function revision(c:Context){return (await one<{version:number}>(c.db,'SELECT version FROM store_equipment_state WHERE id=1'))?.version??0}
@@ -80,7 +90,11 @@ function planWrites(c:Context,r:EquipmentRecord){
       EXISTS(SELECT 1 FROM store_equipment_plans p WHERE p.visit_id=store_maintenance_visits.id AND p.completed=1)
       AND NOT EXISTS(SELECT 1 FROM store_equipment_plans p WHERE p.visit_id=store_maintenance_visits.id AND p.active=1 AND p.completed=0)
       THEN 1 ELSE 0 END,
-    completion_date=(SELECT MAX(p.completion_date) FROM store_equipment_plans p WHERE p.visit_id=store_maintenance_visits.id AND p.completed=1),
+    completion_date=CASE WHEN
+    EXISTS(SELECT 1 FROM store_equipment_plans p WHERE p.visit_id=store_maintenance_visits.id AND p.completed=1)
+    AND NOT EXISTS(SELECT 1 FROM store_equipment_plans p WHERE p.visit_id=store_maintenance_visits.id AND p.active=1 AND p.completed=0)
+    THEN (SELECT MAX(p.completion_date) FROM store_equipment_plans p WHERE p.visit_id=store_maintenance_visits.id AND p.completed=1)
+    ELSE NULL END,
     note=COALESCE((SELECT p.note FROM store_equipment_plans p WHERE p.visit_id=store_maintenance_visits.id AND p.completed=1
       ORDER BY p.completion_date DESC,p.equipment_id DESC LIMIT 1),'')
    WHERE id IN (SELECT visit_id FROM store_equipment_plans WHERE equipment_id=?)
