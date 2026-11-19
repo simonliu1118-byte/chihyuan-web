@@ -63,6 +63,19 @@ FROM store_maintenance_visits v WHERE v.completed <>
 PRAGMA foreign_key_check;
 ```
 
+## C.1 重要：舊 Visit CHECK 與部分完成實際日期
+
+舊 `0051_store_equipment_maintenance.sql` 對 `store_maintenance_visits` 有 `CHECK(completed=1 OR completion_date IS NULL)`。新需求同月 A 已完成、B 未完成時，`completed=0`、最晚日期非空，**無法原樣寫回此舊欄位**。
+
+為了避免在無正式 D1 副本下冒然拆表，本遠端程式先採**相容性投影**：
+
+- `store_equipment_plans` 逐台保存完整真實日期／備註（唯一 authority）。
+- `store_maintenance_visits` 在「部分完成」時將舊 `completion_date` 暫存 NULL，以通過既有 CHECK；完全完成時才寫最晚日期。
+- `GET /visits`、`/matrix` 從逐台資料計算並**對外顯示真正最晚已完成日期**，不捏造日期，仍可顯示部分完成 1/2 及兩個日期參照。
+- 因此與 WO §2.1「visit 資料庫實體欄位也應持有部分完成時的最晚日期」存在已知偏差；**LOCAL-CYWEB Work 必須評估在隔離 D1 重建 visit 舊 CHECK 的安全性／資料引用外鍵／回滾方法**，或提出適合現有 schema 的等效安全方案，經確認再補實作。不可用 `PRAGMA writable_schema` 直接偷改正式 sqlite_schema，更不可強關外鍵後無驗證直接 DROP。
+
+這是資料庫階段尚未完成的**實際阻塞項**，不得把此部分的工程驗收視為符合工單全部要求。完成後仍須重跑 local D1、備份還原及 PR CI，並更新工單 §8。
+
 ## D. 遠端尚需 Claude 審查的風險
 
 - `store_equipment_plans` 中 machine 的語意是「每筆出機紀錄」而非每支 serial：工作單要求保留這個既有識別方式。不要擅自拆分來源資料。
