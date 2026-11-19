@@ -114,7 +114,7 @@ const UPGRADES: { migration: string; apply: (data: Data) => void }[] = [
       const id=get(items,item,"id");rows.push([rows.length+1,get(drafts,draft,"bot_id"),"legacy-item-"+id,"",get(drafts,draft,"kind"),get(items,item,"title"),get(items,item,"body"),at,"","","cyweb","",get(drafts,draft,"id"),id,null]);
     }
     data.tables.bot_deliveries={columns,rows};
-  }}
+  }},
   // Historic portable backups use completed visits, not per-machine completion.
   // Upgrade data by table+column names before restoring to the 0080 schema.
   { migration: "0080_store_maintenance_per_machine", apply: data => {
