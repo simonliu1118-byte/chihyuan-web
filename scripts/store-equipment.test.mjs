@@ -280,3 +280,34 @@ test('database checks prevent invalid completion and dangling completion dates',
   assert.throws(()=>f.sql.prepare("INSERT INTO store_equipment_plans(equipment_id,visit_id,active,snapshot_json,completed,completion_date) VALUES(1,1,1,'{}',0,'2026-01-01')").run());
  }finally{f.sql.close()}
 });
+
+
+test('0080 backfills completed visits into each associated machine and leaves pending visits unchanged',()=>{
+ const db=new DatabaseSync(':memory:');
+ try{
+   db.exec('PRAGMA foreign_keys=ON');
+   const files=readdirSync('migrations').filter(f=>f.endsWith('.sql')).sort();
+   for(const name of files.filter(name=>!name.startsWith('0080_')))db.exec(readFileSync('migrations/'+name,'utf8'));
+   db.prepare("INSERT INTO app_members(id,identity_employee_id,employee_no,display_name,is_active,created_at,updated_at) VALUES(1,'migration-equipment','9998','合成驗收',1,?,?)").run(now,now);
+   for(const id of [101,102]){
+     db.prepare(`INSERT INTO store_equipment_records(id,list_sequence,customer_code,customer_name,brand,model,sale_date,quantity,warranty_start,warranty_end,machines_json,maintenance,version,created_at,created_by,updated_at,updated_by)
+       VALUES(?,?,'DE0001','合成醫院','品牌','機型','2026-05-01',1,'2026-05-01','2028-04-30','[]',1,1,?,1,?,1)`).run(id,id,now,now);
+   }
+   for(const [id,month,completed,date,note] of [[11,'2026-11',1,'2026-11-05','第一趟'],[12,'2027-05',0,null,'']]){
+     db.prepare(`INSERT INTO store_maintenance_visits(id,customer_code,customer_name,planned_month,completed,completion_date,note,version,created_at,created_by,updated_at,updated_by)
+       VALUES(?,'DE0001','合成醫院',?,?,?,?,1,?,1,?,1)`).run(id,month,completed,date,note,now,now);
+     for(const equipment of [101,102])db.prepare("INSERT INTO store_equipment_plans(equipment_id,visit_id,active,retained,snapshot_json) VALUES(?,?,1,1,?)").run(equipment,id,JSON.stringify({id:equipment,brand:'品牌',model:'機型'}));
+   }
+   const migration=readFileSync('migrations/0080_store_maintenance_per_machine.sql','utf8');
+   db.exec(migration);
+   assert.deepEqual(db.prepare("SELECT completed,completion_date,note FROM store_equipment_plans WHERE visit_id=11 ORDER BY equipment_id").all(),
+     [{completed:1,completion_date:'2026-11-05',note:'第一趟'},{completed:1,completion_date:'2026-11-05',note:'第一趟'}]);
+   assert.deepEqual(db.prepare("SELECT completed,completion_date FROM store_equipment_plans WHERE visit_id=12 ORDER BY equipment_id").all(),
+     [{completed:0,completion_date:null},{completed:0,completion_date:null}]);
+   const before=db.prepare("SELECT * FROM store_maintenance_visits ORDER BY id").all();
+   const updateStatements=migration.slice(migration.indexOf('UPDATE store_equipment_plans'),migration.indexOf('-- Partial index'));
+   db.exec(updateStatements);
+   assert.deepEqual(db.prepare("SELECT * FROM store_maintenance_visits ORDER BY id").all(),before);
+   assert.deepEqual(db.prepare("PRAGMA foreign_key_check").all(),[]);
+ }finally{db.close();}
+});
