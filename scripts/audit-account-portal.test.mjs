@@ -44,7 +44,10 @@ function fixture(overrides = {}) {
       return Response.json(settings);
     }
     if(u.pathname.endsWith("/workers/domains")) return Response.json(domains);
-    if(u.pathname.includes("/d1/database/")) return Response.json({success:true,result:{uuid:decodeURIComponent(u.pathname.split("/").at(-1))}});
+    if(u.pathname.includes("/d1/database/")) {
+      const reads=calls.filter(x=>new URL(x.url).pathname===u.pathname).length;
+      return Response.json({success:true,result:{uuid:decodeURIComponent(u.pathname.split("/").at(-1)),...(overrides.liveCounters?{file_size:1000+reads,num_tables:10+reads}:{})}});
+    }
     throw Error("unexpected route");
   }
   return {calls,state,options:{accountId:"synthetic-account",apiToken:"synthetic-token",configuredIdentityService:dev,
@@ -90,6 +93,9 @@ test("unsafe portal and multiple managed-domain targets do not pass readiness",a
   await assert.rejects(auditAccountPortal(f.options),/CYWEB_PRODUCTION_PORTAL_INVALID/);
   const g=fixture({change:s=>{s.domains.result.push({...s.domains.result[0]});}});
   await assert.rejects(auditAccountPortal(g.options),/CYWEB_PRODUCTION_DOMAIN_UNVERIFIED/);
+});
+test("live D1 usage counters changing between reads (users signing in) are not resource drift",async()=>{
+  const f=fixture({liveCounters:true});await auditAccountPortal(f.options);
 });
 test("resource drift during canonical strict recheck does not report a mixed snapshot as ready",async()=>{
   const f=fixture({drift:true});await assert.rejects(auditAccountPortal(f.options),/CYWEB_AUDIT_SNAPSHOT_CHANGED/);

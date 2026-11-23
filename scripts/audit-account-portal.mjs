@@ -31,7 +31,11 @@ export async function inspectAccountPortal({ accountId, apiToken, configuredIden
     const payload = await response.clone().json().catch(() => null);
     // Health envelopes have a fresh requestId per read; compare deployed
     // provenance and health, not per-request tracing metadata.
-    const snapshot = target.origin === "https://api.cloudflare.com" ? payload?.result : {
+    // D1 metadata carries live counters (size, table count) that change whenever anyone signs in;
+    // compare the identity of the resources, not their usage.
+    const stable = result => result && typeof result === "object" && !Array.isArray(result)
+      ? Object.fromEntries(Object.entries(result).filter(([key]) => !["file_size", "num_tables", "running_in_region"].includes(key))) : result;
+    const snapshot = target.origin === "https://api.cloudflare.com" ? stable(payload?.result) : {
       ok: payload?.ok, service: payload?.data?.service, database: payload?.data?.database,
       identityConsumerVersion: payload?.data?.identityConsumerVersion,
       version: payload?.data?.version, sourceCommit: payload?.data?.sourceCommit,
