@@ -156,6 +156,10 @@
 
 **還原操作注意：** 保留未改動的原始匯出；匯入工作副本採「所有表 schema 先建立，再插入資料」，且整批交易明確 `defer_foreign_keys=ON`。不照搬 dump 中的停用外鍵 pragma。此為本次隔離演練操作，沒有改動正式備份排程或產品還原 authority。
 
+**Windows runner 限制：** 完整 `validate:d1:local` 的 81 份遷移及 20 組 Worker＋D1 業務驗收均 PASS；結束清理暫存資料庫時遇 `WinError 32`，程序 exit code 1，不宣稱該程序成功；同程式另外核對 Linux Runtime CI。
+
+**本輪程式 CI（e2c1e41e，2026-11-23）：** [Runtime Check 45100302654](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/45100302654) 四個 job 全部 success，包含 Linux 本機 D1、完整 Node 測試及 Vite build；[治理](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/45100302599)、[桌機／手機截圖](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/45100302784)、[部署契約驗證](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/45100302687) 通過，正式部署與稽核操作 job skipped。
+
 **驗證證據：** [去識別化結果摘要](../../handoff/evidence/WO-0.23.0-DB-20261120.json)；本輪本機 `npm run typecheck`、37 項設備／歷史備份測試及 `validate_schema.py`（81 份 migration、173 張產品表、12 組）通過。本機 D1 完成 24 個操作。2026-11-23 收尾再確認完整 `npm run validate:source`、`npm run build` 通過；Windows 執行使用 `PYTHONUTF8=1`。最新遠端檢查以 [PR #535 Checks](https://github.com/simonliu1118-byte/chihyuan-web/pull/535/checks) 的新提交為準，不以初次遠端交付的舊 CI 代替。
 
 ### 留待另行授權的正式階段
