@@ -567,11 +567,16 @@ export const BACKUP_COLUMNS: Record<string, string[]> = {
     "created_at",
     "effective_date",
     "employee_id",
+    "employment_type",
     "handled_by",
     "id",
+    "job_title_id",
     "next_status",
+    "previous_assignment",
     "previous_status",
-    "reason"
+    "reason",
+    "schedule_mode",
+    "store_id"
   ],
   "hr_stores": [
     "created_at",

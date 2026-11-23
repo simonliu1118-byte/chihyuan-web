@@ -82,7 +82,7 @@ export class HrRosterService {
   // One extra fortnight before and week after, so runs and 例假 continue across the loaded range.
   const lookStart=day(millis(bounds.start)-14*DAY),lookEnd=day(millis(bounds.finish)+7*DAY);
   const [e,d,s,l,h,m,a,p]=await Promise.all([
-   this.db.prepare("SELECT e.id,e.employee_no,e.name,e.employment_type,e.schedule_mode,e.skip_roster_checks,e.roster_sort,e.job_title_id,j.name AS job_title_name FROM hr_employees e LEFT JOIN hr_job_titles j ON j.id=e.job_title_id WHERE e.store_id=? AND e.status<>'terminated' ORDER BY j.sort_order,e.roster_sort,e.id LIMIT 101").bind(storeId).all<Emp>(),
+   this.db.prepare("SELECT e.id,e.employee_no,e.name,e.employment_type,e.schedule_mode,e.skip_roster_checks,e.roster_sort,e.job_title_id,j.name AS job_title_name FROM hr_employee_current e LEFT JOIN hr_job_titles j ON j.id=e.job_title_id WHERE e.store_id=? AND e.status<>'terminated' ORDER BY j.sort_order,e.roster_sort,e.id LIMIT 101").bind(storeId).all<Emp>(),
    this.db.prepare("SELECT * FROM hr_schedule_days WHERE store_id=? AND work_date BETWEEN ? AND ? ORDER BY employee_id,work_date LIMIT 10001").bind(storeId,lookStart,lookEnd).all<Cell>(),
    this.db.prepare("SELECT * FROM hr_shift_types ORDER BY sort_order,id LIMIT 100").all<Record<string,unknown>>(),
    this.db.prepare("SELECT * FROM hr_leave_types ORDER BY sort_order,id LIMIT 100").all<Record<string,unknown>>(),
@@ -175,12 +175,12 @@ export class HrRosterService {
  async updateStaff(storeId:number,raw:unknown,ctx:HrContext){
   const v=object(raw),id=integer(v.employeeId,"employeeId",true),sort=integer(v.rosterSort,"rosterSort");
   if(typeof v.skipRosterChecks!=="boolean")throw new HrValidationError("skipRosterChecks","須選擇是否檢核");
-  const before=await this.db.prepare("SELECT id,store_id,roster_sort,skip_roster_checks FROM hr_employees WHERE id=? AND store_id=?").bind(id,storeId).first<Record<string,unknown>>();
+  const before=await this.db.prepare("SELECT id,store_id,roster_sort,skip_roster_checks FROM hr_employee_current WHERE id=? AND store_id=?").bind(id,storeId).first<Record<string,unknown>>();
   if(!before)throw new HrValidationError("employeeId","員工不屬於門市",404);
   const check=v.skipRosterChecks?1:0;
   if(Number(before.roster_sort)===sort&&Number(before.skip_roster_checks)===check)return {saved:true};
   await this.db.batch([
-   this.db.prepare("UPDATE hr_employees SET roster_sort=?,skip_roster_checks=?,revision=revision+1,updated_at=?,updated_by=? WHERE id=? AND store_id=?").bind(sort,check,ctx.now,ctx.actor,id,storeId),
+   this.db.prepare("UPDATE hr_employees SET roster_sort=?,skip_roster_checks=?,revision=revision+1,updated_at=?,updated_by=? WHERE id=? AND id IN (SELECT id FROM hr_employee_current WHERE store_id=?)").bind(sort,check,ctx.now,ctx.actor,id,storeId),
    new AuditService(this.db).prepareRecord({entityType:"hr_employee",entityKey:String(id),action:"hr_employee.updated",
      actorEmployeeId:ctx.actor,requestId:ctx.requestId,before:{rosterSort:before.roster_sort,skipRosterChecks:before.skip_roster_checks},
      after:{rosterSort:sort,skipRosterChecks:check}})
@@ -192,14 +192,14 @@ export class HrRosterService {
   const casualNone=new Set(b.employees.filter(x=>x.employment_type==="casual"&&x.schedule_mode==="none").map(x=>x.id));
   const actualHours:Record<string,Record<string,number>>={};
   if(casualNone.size){
-   const rows=await this.db.prepare("SELECT a.employee_id,a.work_date,a.in1,a.out1,a.in2,a.out2 FROM hr_attendance_days a JOIN hr_employees e ON e.id=a.employee_id WHERE e.store_id=? AND a.work_date BETWEEN ? AND ? ORDER BY a.employee_id,a.work_date LIMIT 3101").bind(storeId,b.bounds.first,b.bounds.end).all<{employee_id:number;work_date:string;in1:string|null;out1:string|null;in2:string|null;out2:string|null}>();
+   const rows=await this.db.prepare("SELECT a.employee_id,a.work_date,a.in1,a.out1,a.in2,a.out2 FROM hr_attendance_days a JOIN hr_employee_current e ON e.id=a.employee_id WHERE e.store_id=? AND a.work_date BETWEEN ? AND ? ORDER BY a.employee_id,a.work_date LIMIT 3101").bind(storeId,b.bounds.first,b.bounds.end).all<{employee_id:number;work_date:string;in1:string|null;out1:string|null;in2:string|null;out2:string|null}>();
    if((rows.results??[]).length>3100)throw new HrValidationError("limit","出勤資料超過安全查詢上限");
    for(const row of rows.results??[])if(casualNone.has(row.employee_id)){
     const group=actualHours[String(row.employee_id)]??(actualHours[String(row.employee_id)]={});
     group[row.work_date]=evaluateAttendance(null,null,row,{noRosterPartTime:true}).workedMinutes/60;
    }
   }
-  const leaveForms=(await this.db.prepare("SELECT r.employee_id,r.work_date,r.batch_id,r.whole_day,r.minutes,t.code FROM hr_leave_records r JOIN hr_leave_types t ON t.id=r.leave_type_id WHERE r.cancelled_at IS NULL AND r.work_date BETWEEN ? AND ? AND r.employee_id IN (SELECT id FROM hr_employees WHERE store_id=?) ORDER BY r.id LIMIT 10000").bind(b.bounds.start,b.bounds.finish,storeId).all<{employee_id:number;work_date:string;batch_id:string;whole_day:number;minutes:number;code:string}>()).results??[];
+  const leaveForms=(await this.db.prepare("SELECT r.employee_id,r.work_date,r.batch_id,r.whole_day,r.minutes,t.code FROM hr_leave_records r JOIN hr_leave_types t ON t.id=r.leave_type_id WHERE r.cancelled_at IS NULL AND r.work_date BETWEEN ? AND ? AND r.employee_id IN (SELECT id FROM hr_employee_current WHERE store_id=?) ORDER BY r.id LIMIT 10000").bind(b.bounds.start,b.bounds.finish,storeId).all<{employee_id:number;work_date:string;batch_id:string;whole_day:number;minutes:number;code:string}>()).results??[];
   return {leaveForms,actualHours,store:b.store,month,bounds:b.bounds,employees:b.employees,shifts:b.shifts,leaveTypes:b.leaveTypes,
    holidays:b.holidays,notes:b.notes,rules:b.rules,days:b.days,approvals:b.approvals,...checked};
  }
@@ -214,7 +214,7 @@ export class HrRosterService {
   for(const c of changes){const key=c.employeeId+"|"+c.date;if(keys.has(key))throw new HrValidationError("changes","日期重複");keys.add(key)}
   const changed=changes.filter(c=>!equal(b.byKey.get(c.employeeId+"|"+c.date),c));
   // Cells with a completed whole-day leave form change only through 銷假 (one query for the month, not per cell).
-  const formed=new Set(((await this.db.prepare("SELECT r.employee_id,r.work_date FROM hr_leave_records r JOIN hr_employees e ON e.id=r.employee_id WHERE e.store_id=? AND r.cancelled_at IS NULL AND r.whole_day=1 AND r.work_date BETWEEN ? AND ? LIMIT 10001").bind(storeId,b.bounds.first,b.bounds.end).all<{employee_id:number;work_date:string}>()).results??[]).map(x=>x.employee_id+"|"+x.work_date));
+  const formed=new Set(((await this.db.prepare("SELECT r.employee_id,r.work_date FROM hr_leave_records r JOIN hr_employee_current e ON e.id=r.employee_id WHERE e.store_id=? AND r.cancelled_at IS NULL AND r.whole_day=1 AND r.work_date BETWEEN ? AND ? LIMIT 10001").bind(storeId,b.bounds.first,b.bounds.end).all<{employee_id:number;work_date:string}>()).results??[]).map(x=>x.employee_id+"|"+x.work_date));
   const locked=changed.filter(c=>formed.has(c.employeeId+"|"+c.date));
   if(locked.length)throw new HrRosterError("HR_LEAVE_FORM_EXISTS",locked.map(c=>({employeeId:c.employeeId,date:c.date,message:"已完成假單，請先在假單銷假"})));
   const staged=new Map(b.byKey);for(const c of changed){const key=c.employeeId+"|"+c.date;

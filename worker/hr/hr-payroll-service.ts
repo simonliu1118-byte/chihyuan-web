@@ -39,7 +39,7 @@ const array=(table:string,cols:string,where:string,order:string,limit:number)=>`
 // so a concurrent change to ANY input cannot confirm an old calculation.
 const SOURCE_SQL=`WITH p AS (SELECT ?1 AS eid,?2 AS month,?3 AS last,?4 AS paid)
  SELECT json_object(
- 'employee',json((SELECT json_object('id',id,'employee_no',employee_no,'name',name,'hire_date',hire_date,'seniority_start_date',seniority_start_date,'termination_date',termination_date,'employment_type',employment_type,'schedule_mode',schedule_mode,'skip_roster_checks',skip_roster_checks,'store_id',store_id,'revision',revision) FROM hr_employees,p WHERE id=p.eid)),
+ 'employee',json((SELECT json_object('id',id,'employee_no',employee_no,'name',name,'hire_date',hire_date,'seniority_start_date',seniority_start_date,'termination_date',termination_date,'employment_type',employment_type,'schedule_mode',schedule_mode,'skip_roster_checks',skip_roster_checks,'store_id',store_id,'revision',revision) FROM hr_employee_current,p WHERE id=p.eid)),
  'salaries',${array('hr_salary_records,p','id,effective_date,payment_type,base_amount','employee_id=p.eid AND effective_date<=p.last','effective_date,id',501)},
  'allowances',${array('hr_salary_allowances','id,salary_record_id,item_type_id,amount,is_regular','salary_record_id IN (SELECT id FROM hr_salary_records,p WHERE employee_id=p.eid AND effective_date<=p.last)','id',2001)},
  'types',${array('hr_salary_item_types','id,name','1=1','id',201)},

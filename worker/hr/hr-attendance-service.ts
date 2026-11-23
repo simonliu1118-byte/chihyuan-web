@@ -25,7 +25,7 @@ function monthDates(month:string) {
 export class HrAttendanceService {
  constructor(private db:D1Database){}
  private async staff(id:number){
-  const row=await this.db.prepare("SELECT id,store_id,employment_type,schedule_mode FROM hr_employees WHERE id=?").bind(id).first<Staff>();
+  const row=await this.db.prepare("SELECT id,store_id,employment_type,schedule_mode FROM hr_employee_current WHERE id=?").bind(id).first<Staff>();
   if(!row)throw new HrValidationError("employeeId","員工不存在",404);return row;
  }
  async get(id:number,month:string){
@@ -134,8 +134,8 @@ export class HrAttendanceService {
  async anomalies(storeId:number,month:string){
   const dates=monthDates(month),from=dates[0],to=dates.at(-1)!;
   const [employees,attendance,schedules,types,leaveTypes]=await Promise.all([
-   this.db.prepare("SELECT id,employee_no,name,employment_type,schedule_mode FROM hr_employees WHERE store_id=? AND status<>'terminated' ORDER BY id LIMIT 101").bind(storeId).all<{id:number;employee_no:string;name:string;employment_type:string;schedule_mode:string}>(),
-   this.db.prepare("SELECT a.*,e.store_id FROM hr_attendance_days a JOIN hr_employees e ON e.id=a.employee_id WHERE e.store_id=? AND a.work_date BETWEEN ? AND ? LIMIT 3101").bind(storeId,from,to).all<Punch&{employee_id:number}>(),
+   this.db.prepare("SELECT id,employee_no,name,employment_type,schedule_mode FROM hr_employee_current WHERE store_id=? AND status<>'terminated' ORDER BY id LIMIT 101").bind(storeId).all<{id:number;employee_no:string;name:string;employment_type:string;schedule_mode:string}>(),
+   this.db.prepare("SELECT a.*,e.store_id FROM hr_attendance_days a JOIN hr_employee_current e ON e.id=a.employee_id WHERE e.store_id=? AND a.work_date BETWEEN ? AND ? LIMIT 3101").bind(storeId,from,to).all<Punch&{employee_id:number}>(),
    this.db.prepare("SELECT * FROM hr_schedule_days WHERE store_id=? AND work_date BETWEEN ? AND ? LIMIT 3101").bind(storeId,from,to).all<Schedule&{employee_id:number}>(),
    this.db.prepare("SELECT * FROM hr_shift_types LIMIT 100").all<Record<string,unknown>>(),
    this.db.prepare("SELECT id,code FROM hr_leave_types LIMIT 100").all<{id:number;code:string}>()

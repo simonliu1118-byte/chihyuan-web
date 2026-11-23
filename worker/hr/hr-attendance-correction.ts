@@ -4,16 +4,16 @@ import {HrValidationError,date,integer,object,required} from './hr-validation';
 import {payrollMonth} from './hr-payroll-service';
 import type {HrContext} from './hr-service';
 type Role='SUPER_ADMIN'|'ADMIN'|'USER';
-const scope="EXISTS(SELECT 1 FROM hr_attendance_correction_grants g JOIN hr_employees e ON e.store_id=g.store_id WHERE e.id=? AND g.member_id=? AND g.is_active=1)";
+const scope="EXISTS(SELECT 1 FROM hr_attendance_correction_grants g JOIN hr_employee_current e ON e.store_id=g.store_id WHERE e.id=? AND g.member_id=? AND g.is_active=1)";
 export class HrAttendanceCorrectionService {
  constructor(private db:D1Database,private actor:number,private role:Role){}
  async capabilities(){if(this.role==='SUPER_ADMIN')return {payroll:true,stores:(await this.db.prepare('SELECT id,name FROM hr_stores ORDER BY sort_order,id LIMIT 101').all()).results??[]};
   if(this.role!=='ADMIN')return {payroll:false,stores:[]};return {payroll:false,stores:(await this.db.prepare('SELECT s.id,s.name FROM hr_stores s JOIN hr_attendance_correction_grants g ON g.store_id=s.id WHERE g.member_id=? AND g.is_active=1 ORDER BY s.sort_order,s.id LIMIT 101').bind(this.actor).all()).results??[]};}
  private async allowedStore(store:number){if(this.role==='SUPER_ADMIN')return;if(this.role!=='ADMIN'||!(await this.db.prepare('SELECT id FROM hr_attendance_correction_grants WHERE member_id=? AND store_id=? AND is_active=1').bind(this.actor,store).first()))throw new HrValidationError('permission','沒有此門市的出勤更正授權',403);}
- async list(store:number,month:string){await this.allowedStore(store);payrollMonth(month);const rows=(await this.db.prepare("SELECT e.id AS employeeId,e.employee_no,e.name,a.work_date,a.out1,a.out2,a.revision FROM hr_attendance_days a JOIN hr_employees e ON e.id=a.employee_id WHERE e.store_id=? AND a.work_date LIKE ? AND (?=1 OR EXISTS(SELECT 1 FROM hr_attendance_correction_grants g WHERE g.store_id=e.store_id AND g.member_id=? AND g.is_active=1)) ORDER BY a.work_date,e.employee_no LIMIT 3101").bind(store,month+'-%',this.role==='SUPER_ADMIN'?1:0,this.actor).all()).results??[];if(rows.length>3100)throw new HrValidationError('limit','本次出勤超過安全上限');return rows;}
+ async list(store:number,month:string){await this.allowedStore(store);payrollMonth(month);const rows=(await this.db.prepare("SELECT e.id AS employeeId,e.employee_no,e.name,a.work_date,a.out1,a.out2,a.revision FROM hr_attendance_days a JOIN hr_employee_current e ON e.id=a.employee_id WHERE e.store_id=? AND a.work_date LIKE ? AND (?=1 OR EXISTS(SELECT 1 FROM hr_attendance_correction_grants g WHERE g.store_id=e.store_id AND g.member_id=? AND g.is_active=1)) ORDER BY a.work_date,e.employee_no LIMIT 3101").bind(store,month+'-%',this.role==='SUPER_ADMIN'?1:0,this.actor).all()).results??[];if(rows.length>3100)throw new HrValidationError('limit','本次出勤超過安全上限');return rows;}
  async correct(raw:unknown,ctx:HrContext){
   const v=object(raw),employee=integer(v.employeeId,'employeeId',true),at=date(v.date,'date'),revision=integer(v.revision,'revision',true),reason=required(v.reason,'reason',1000);
-  const before=await this.db.prepare('SELECT a.*,e.store_id FROM hr_attendance_days a JOIN hr_employees e ON e.id=a.employee_id WHERE a.employee_id=? AND a.work_date=?').bind(employee,at).first<{in1:string|null;in2:string|null;out1:string|null;out2:string|null;revision:number;store_id:number}>();
+  const before=await this.db.prepare('SELECT a.*,e.store_id FROM hr_attendance_days a JOIN hr_employee_current e ON e.id=a.employee_id WHERE a.employee_id=? AND a.work_date=?').bind(employee,at).first<{in1:string|null;in2:string|null;out1:string|null;out2:string|null;revision:number;store_id:number}>();
   if(!before)throw new HrValidationError('date','沒有可更正的既有出勤紀錄',404);
   await this.allowedStore(before.store_id);
   if(before.revision!==revision)throw new HrValidationError('revision','打卡資料已更動，請重讀',409);

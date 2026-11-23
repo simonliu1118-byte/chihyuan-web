@@ -64,13 +64,13 @@ const ACTIVITY_TABLES=["hr_salary_records","hr_leave_records","hr_overtime_days"
 const HAS_ACTIVITY="("+ACTIVITY_TABLES.map(t=>`EXISTS(SELECT 1 FROM ${t} WHERE employee_id=?1)`).join(" OR ")+" OR (SELECT COUNT(*) FROM hr_status_changes WHERE employee_id=?1)>1)";
 export class HrService {
   constructor(private db:D1Database) {}
-  private employeeRow(id:number) { return this.db.prepare("SELECT e.*,COALESCE((SELECT c.next_status FROM hr_status_changes c WHERE c.employee_id=e.id AND c.effective_date<=date('now','+8 hours') ORDER BY c.effective_date DESC,c.id DESC LIMIT 1),e.status) AS effective_status FROM hr_employees e WHERE e.id=?").bind(id).first<Record<string,unknown>>(); }
+  private employeeRow(id:number) { return this.db.prepare("SELECT e.*,COALESCE((SELECT c.next_status FROM hr_status_changes c WHERE c.employee_id=e.id AND c.effective_date<=date('now','+8 hours') ORDER BY c.effective_date DESC,c.id DESC LIMIT 1),e.status) AS effective_status FROM hr_employee_current e WHERE e.id=?").bind(id).first<Record<string,unknown>>(); }
   async list(q:string,statusFilter:string|undefined,cursor:number,limit=40) {
     const todayStatus="COALESCE((SELECT c.next_status FROM hr_status_changes c WHERE c.employee_id=e.id AND c.effective_date<=date('now','+8 hours') ORDER BY c.effective_date DESC,c.id DESC LIMIT 1),e.status)";
     const terms=["e.id>?"],values:(string|number)[]=[cursor];
     if(q){terms.push("(e.employee_no LIKE ? OR e.name LIKE ?)");values.push("%"+q.slice(0,80)+"%","%"+q.slice(0,80)+"%");}
     if(statusFilter){status(statusFilter);terms.push(todayStatus+"=?");values.push(statusFilter);}
-    const found=await this.db.prepare("SELECT e.*,"+todayStatus+" AS effective_status FROM hr_employees e WHERE "+terms.join(" AND ")+" ORDER BY e.id LIMIT ?").bind(...values,Math.min(limit,100)+1).all<Record<string,unknown>>();
+    const found=await this.db.prepare("SELECT e.*,"+todayStatus+" AS effective_status FROM hr_employee_current e WHERE "+terms.join(" AND ")+" ORDER BY e.id LIMIT ?").bind(...values,Math.min(limit,100)+1).all<Record<string,unknown>>();
     const all=found.results??[];return {items:all.slice(0,limit).map(sanitized),nextCursor:all.length>limit?Number(all[limit-1].id):null};
   }
   async get(id:number) {
@@ -97,7 +97,7 @@ export class HrService {
     const effectiveStatus="COALESCE((SELECT c.next_status FROM hr_status_changes c WHERE c.employee_id=e.id AND c.effective_date<=date('now','+8 hours') ORDER BY c.effective_date DESC,c.id DESC LIMIT 1),e.status)";
     const [employees,salaries]=await Promise.all([
       this.db.prepare("SELECT e.id,e.employee_no,e.name,e.store_id,s.name AS store_name,j.name AS job_title,"+
-        effectiveStatus+" AS effective_status FROM hr_employees e LEFT JOIN hr_stores s ON s.id=e.store_id "+
+        effectiveStatus+" AS effective_status FROM hr_employee_current e LEFT JOIN hr_stores s ON s.id=e.store_id "+
         "LEFT JOIN hr_job_titles j ON j.id=e.job_title_id ORDER BY e.employee_no,e.id").all<{
           id:number;employee_no:string;name:string;store_id:number|null;store_name:string|null;job_title:string|null;effective_status:string
         }>(),
@@ -157,15 +157,19 @@ export class HrService {
     if(!before) throw new HrValidationError("id","人事資料不存在",404);
     const revision=integer(v.revision,"revision",true);
     if(revision!==before.revision)throw new HrValidationError("revision","資料已由其他人修改，請重新整理",409);
+    for(const [key,column] of [["storeId","store_id"],["jobTitleId","job_title_id"],["employmentType","employment_type"],["scheduleMode","schedule_mode"]]){
+      if(v[key]!==undefined&&v[key]!==before[column])throw new HrValidationError(key,"此欄位請透過狀態異動變更");
+    }
     const profile=normalizeProfile({...v,status:before.status,nationalId:v.nationalId===undefined?before.national_id:v.nationalId,
     storeId:v.storeId===undefined?before.store_id:v.storeId,jobTitleId:v.jobTitleId===undefined?before.job_title_id:v.jobTitleId,
     rosterSort:v.rosterSort===undefined?before.roster_sort:v.rosterSort,employmentType:v.employmentType===undefined?before.employment_type:v.employmentType,
     skipRosterChecks:v.skipRosterChecks===undefined?before.skip_roster_checks:v.skipRosterChecks,scheduleMode:v.scheduleMode===undefined?before.schedule_mode:v.scheduleMode});
-    const assignments=fields.map(x=>x+"=?").join(",");
-    const stmts:D1PreparedStatement[]=[this.db.prepare("UPDATE hr_employees SET "+assignments+",revision=revision+1,updated_at=?,updated_by=? WHERE id=? AND revision=?").bind(...profile.vals,ctx.now,ctx.actor,id,revision)];
+    const editable=fields.map((field,index)=>({field,index})).filter(x=>!["store_id","job_title_id","employment_type","schedule_mode"].includes(x.field));
+    const assignments=editable.map(x=>x.field+"=?").join(",");
+    const stmts:D1PreparedStatement[]=[this.db.prepare("UPDATE hr_employees SET "+assignments+",revision=revision+1,updated_at=?,updated_by=? WHERE id=? AND revision=?").bind(...editable.map(x=>profile.vals[x.index]),ctx.now,ctx.actor,id,revision)];
     for(const g of profile.children){
       stmts.push(this.db.prepare("DELETE FROM "+g.table+" WHERE employee_id=? AND EXISTS(SELECT 1 FROM hr_employees WHERE id=? AND revision=? AND updated_at=? AND updated_by=?)").bind(id,id,revision+1,ctx.now,ctx.actor));
-      for(const [index,values] of g.values.entries())stmts.push(this.db.prepare("INSERT INTO "+g.table+" (employee_id,"+g.columns.join(",")+",sort_order) SELECT id,"+g.columns.map(()=>"?").join(",")+",? FROM hr_employees WHERE id=? AND revision=? AND updated_at=? AND updated_by=?").bind(...values,index,id,revision+1,ctx.now,ctx.actor));
+      for(const [index,values] of g.values.entries())stmts.push(this.db.prepare("INSERT INTO "+g.table+" (employee_id,"+g.columns.join(",")+",sort_order) SELECT id,"+g.columns.map(()=>"?").join(",")+",? FROM hr_employee_current WHERE id=? AND revision=? AND updated_at=? AND updated_by=?").bind(...values,index,id,revision+1,ctx.now,ctx.actor));
     }
     const previousChildren: Record<string, Scalar[][]> = {};
     for(const g of profile.children){
@@ -197,10 +201,28 @@ export class HrService {
     const effective=date(v.effectiveDate,"effectiveDate"),next=status(v.nextStatus),reason=required(v.reason,"reason",500);
     const today=ctx.now.slice(0,10);
     if(next==="terminated"&&(!nullableDate(v.terminationDate,"terminationDate")||!required(v.terminationReason,"terminationReason",500)))throw new HrValidationError("terminationDate","離職日與原因必填");
-    const statements=[this.db.prepare("INSERT INTO hr_status_changes (employee_id,effective_date,previous_status,next_status,reason,handled_by,created_at) VALUES (?,?,?,?,?,?,?)").bind(id,effective,employee.status,next,reason,ctx.actor,ctx.now)];
-    if(next==="terminated" || effective<=today)statements.push(this.db.prepare("UPDATE hr_employees SET status=CASE WHEN ? THEN ? ELSE status END,termination_date=?,termination_reason=?,revision=revision+1,updated_at=? WHERE id=?").bind(effective<=today?1:0,next,next==="terminated"?date(v.terminationDate,"terminationDate"):null,next==="terminated"?required(v.terminationReason,"terminationReason",500):null,ctx.now,id));
-    statements.push(audit(this.db,ctx,"hr_status_change",String(employee.employee_no),"hr_employee.status_changed",{status:employee.status},{status:next,effectiveDate:effective}));
-    await this.db.batch(statements);return this.get(id);
+    if(v.expectedRevision!==undefined&&integer(v.expectedRevision,"expectedRevision",true)!==employee.revision)throw new HrValidationError("revision","資料已由其他人修改，請重新整理",409);
+    const assignmentColumns=["store_id","job_title_id","employment_type","schedule_mode"];
+    const atDate=await this.db.prepare("SELECT "+assignmentColumns.map(column=>"COALESCE((SELECT c."+column+" FROM hr_status_changes c WHERE c.employee_id=e.id AND c."+column+" IS NOT NULL AND c.effective_date<=?1 ORDER BY c.effective_date DESC,c.id DESC LIMIT 1),e."+column+") AS "+column).join(",")+" FROM hr_employees e WHERE e.id=?2").bind(effective,id).first<Record<string,unknown>>();
+    const prior:Record<string,unknown>={},changes:Record<string,unknown>={};
+    for(const [key,column,table] of [["storeId","store_id","hr_stores"],["jobTitleId","job_title_id","hr_job_titles"],["employmentType","employment_type",""],["scheduleMode","schedule_mode",""]]){
+      if(v[key]===undefined)continue;
+      const value=table?integer(v[key],key,true):String(v[key]);
+      if(table&&!await this.db.prepare("SELECT id FROM "+table+" WHERE id=? AND is_active=1").bind(value).first())throw new HrValidationError(key,"請選擇有效的門市或職稱");
+      if(value!==atDate?.[column]){prior[column]=atDate?.[column];changes[column]=value;}
+    }
+    const employment=String(changes.employment_type??atDate?.employment_type),schedule=String(changes.schedule_mode??atDate?.schedule_mode);
+    if(!["full","half","casual"].includes(employment)||!["shift","hours","none"].includes(schedule)||employment==="full"&&schedule!=="shift"||employment==="half"&&schedule==="none")throw new HrValidationError("scheduleMode","排班方式與僱用型態不符");
+    if("employment_type" in changes||"schedule_mode" in changes){prior.employment_type=atDate?.employment_type;prior.schedule_mode=atDate?.schedule_mode;changes.employment_type=employment;changes.schedule_mode=schedule;}
+    const changeMetadata=next==="terminated"||effective<=today?1:0,revision=Number(employee.revision);
+    const guard="EXISTS(SELECT 1 FROM hr_employees WHERE id=? AND revision=? AND updated_at=? AND updated_by=?)";
+    const guardValues=[id,revision+1,ctx.now,ctx.actor];
+    const statements=[this.db.prepare("UPDATE hr_employees SET status=CASE WHEN ? THEN ? ELSE status END,termination_date=CASE WHEN ? THEN ? ELSE termination_date END,termination_reason=CASE WHEN ? THEN ? ELSE termination_reason END,revision=revision+1,updated_at=?,updated_by=? WHERE id=? AND revision=?")
+      .bind(effective<=today?1:0,next,changeMetadata,next==="terminated"?date(v.terminationDate,"terminationDate"):null,changeMetadata,next==="terminated"?required(v.terminationReason,"terminationReason",500):null,ctx.now,ctx.actor,id,revision),
+      this.db.prepare("INSERT INTO hr_status_changes (employee_id,effective_date,previous_status,next_status,reason,handled_by,created_at,store_id,job_title_id,employment_type,schedule_mode,previous_assignment) SELECT ?,?,?,?,?,?,?,?,?,?,?,? WHERE "+guard)
+      .bind(id,effective,employee.effective_status??employee.status,next,reason,ctx.actor,ctx.now,changes.store_id??null,changes.job_title_id??null,changes.employment_type??null,changes.schedule_mode??null,Object.keys(prior).length?JSON.stringify(prior):null,...guardValues)];
+    statements.push(new AuditService(this.db).prepareRecord({entityType:"hr_status_change",entityKey:String(employee.employee_no),action:"hr_employee.status_changed",actorEmployeeId:ctx.actor,requestId:ctx.requestId,before:{status:employee.status},after:{status:next,effectiveDate:effective,assignments:changes,previousAssignments:prior}},{sql:guard,values:guardValues}));
+    const results=await this.db.batch(statements);if(!results[0]?.meta?.changes)throw new HrValidationError("revision","資料已由其他人修改，請重新整理",409);return this.get(id);
   }
   async exclusions(id:number) {return (await this.db.prepare("SELECT * FROM hr_seniority_exclusions WHERE employee_id=? ORDER BY start_date").bind(id).all()).results??[];}
   async leave(id:number,asOf:string) {

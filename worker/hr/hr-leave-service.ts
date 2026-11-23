@@ -22,7 +22,7 @@ export class HrLeaveError extends Error{
 export class HrLeaveService{
  constructor(private db:D1Database){}
  private async employee(id:number){
-  const row=await this.db.prepare("SELECT id,employee_no,name,employment_type,store_id,seniority_start_date FROM hr_employees WHERE id=?").bind(id).first<Employee>();
+  const row=await this.db.prepare("SELECT id,employee_no,name,employment_type,store_id,seniority_start_date FROM hr_employee_current WHERE id=?").bind(id).first<Employee>();
   if(!row)throw new HrValidationError("employeeId","員工不存在",404);
   return row;
  }
@@ -95,7 +95,7 @@ export class HrLeaveService{
  }
  async summary(year:number,storeId:number|undefined,asOf:string){
   if(!Number.isInteger(year)||year<2000||year>2200)throw new HrValidationError("year","年度錯誤");
-  const employees=(await this.db.prepare("SELECT e.id,e.employee_no,e.name,e.store_id,e.employment_type,e.seniority_start_date FROM hr_employees e WHERE e.status<>'terminated' AND (? IS NULL OR e.store_id=?) ORDER BY e.employee_no LIMIT 101")
+  const employees=(await this.db.prepare("SELECT e.id,e.employee_no,e.name,e.store_id,e.employment_type,e.seniority_start_date FROM hr_employee_current e WHERE e.status<>'terminated' AND (? IS NULL OR e.store_id=?) ORDER BY e.employee_no LIMIT 101")
     .bind(storeId??null,storeId??null).all<{id:number;employee_no:string;name:string;store_id:number;employment_type:"full"|"half"|"casual";seniority_start_date:string}>()).results??[];
   if(employees.length>100)throw new HrValidationError("limit","最多 100 人",422);
   const employeeIds=employees.map(x=>x.id);
