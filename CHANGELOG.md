@@ -1,5 +1,13 @@
 # CY Web 版本紀錄
 
+## CY Web V0.25.0 — 系統中文名稱（2026-11-23）
+
+- 「系統與安全」已登記的系統表格欄位改為：系統（英文名稱，系統名稱與識別）｜中文名稱｜登入回跳網址｜狀態｜操作；未設定的中文名稱顯示「—」。超級管理員在「設定」（及「登記系統」）對話框可編輯選填的「中文名稱」：未改動不送欄位、清空送 null，與登入回跳網址相同；既有系統的英文顯示名稱仍唯讀。新增錯誤碼 `INVALID_APPLICATION_ZH_NAME`、`APPLICATION_SHARED_ACROSS_WORKSPACES` 的中文說明。中文名稱只用於顯示，識別碼、英文名稱與權限都不變。
+- 「前往 <系統>」確認畫面優先顯示中文名稱，未設定時顯示英文名稱（`previewSsoHandoff` 讀取預覽的 `application.displayNameZh`，字串、去空白、至多 60 字）；CYID 尚未提供該欄位時行為與之前相同。
+- 側邊欄「工具」的網頁系統入口不再寫死於 `shared/program-catalog.ts`：新增 `GET /api/sso/applications`（同源、需登入、`Cache-Control: no-store`），由轉接層呼叫 CYID 唯讀 `POST /v1/identity/sso/applications`，只列出該員工可進入且已登記回跳網址的系統；名稱為中文名稱（無則英文名稱）、連結為系統網址（`origin/`，開啟後自動走 CY Web 登入）、圖示以 `origin` 比對程式目錄中網頁程式的網址取得，比對不到使用通用外部連結圖示。登入後載入一次、不輪詢；呼叫失敗或 CYID 尚未提供此接口（404）時不顯示網頁系統入口，不影響導覽。「CY 程式」頁面維持原狀。
+- 登入回跳網址欄位說明移除「單一登入」字樣。
+- 沒有 migration。需要 CYID 0.4.2（consumer contract 1.3.0，向下相容）；`CYID_CONSUMER_VERSION` 與契約鏡像屬治理檔，另案同步。測試：`scripts/sso-portal.test.mjs`（中文名稱優先與英文後備、App 清單端點與舊 provider 後備）、`scripts/web-app-navigation.test.mjs`。
+
 ## CY Web V0.24.2 — 修正「前往」被誤擋（2026-11-23）
 
 - 已登入 CY Web 時按「前往」（或剛登入後自動前往）出現「此要求不是從 CY Web 發出，已拒絕」。原因：`/sso` 頁面使用 `Referrer-Policy: no-referrer`，瀏覽器送出該頁表單時 `Origin` 為 `null`，原檢查要求 Origin 等於本站。改為：明確的外站 Origin 一律拒絕；有 Fetch Metadata 時須為 `same-origin`；沒有時 Origin 須等於本站；綁定 Session 的 CSRF token 仍必須正確。新增對應測試。

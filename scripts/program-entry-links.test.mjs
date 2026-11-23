@@ -27,7 +27,9 @@ test("existing desktop release gates and website precedence are preserved", () =
 test("sidebar web-program links use the program's CY app icon", async () => {
   const fs = await import("node:fs");
   const app = fs.readFileSync("src/App.tsx", "utf8"), shell = fs.readFileSync("src/ui/shell/AppShell.tsx", "utf8");
-  assert.match(app, /iconSrc:program\.icon \? programIcons\[program\.icon\] : undefined/);
+  const nav = fs.readFileSync("src/runtime/navigation/web-app-navigation.ts", "utf8");
+  assert.match(app, /webApplicationNavigation\(webApps, verifiedProgramCatalog\.programs, programIcons\)/);
+  assert.match(nav, /program\.icon \? icons\[program\.icon\] : undefined/);
   assert.match(shell, /item\.iconSrc \? <img className="cy-shell-nav-icon cy-shell-nav-app-icon"/);
   for (const program of verifiedProgramCatalog.programs.filter(p => p.platform === "web" && p.websiteUrl)) assert.ok(program.icon, program.id);
 });
