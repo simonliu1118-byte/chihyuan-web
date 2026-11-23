@@ -1,5 +1,9 @@
 # CY Web 版本紀錄
 
+## CY Web V0.24.2 — 修正「前往」被誤擋（2026-11-23）
+
+- 已登入 CY Web 時按「前往」（或剛登入後自動前往）出現「此要求不是從 CY Web 發出，已拒絕」。原因：`/sso` 頁面使用 `Referrer-Policy: no-referrer`，瀏覽器送出該頁表單時 `Origin` 為 `null`，原檢查要求 Origin 等於本站。改為：明確的外站 Origin 一律拒絕；有 Fetch Metadata 時須為 `same-origin`；沒有時 Origin 須等於本站；綁定 Session 的 CSRF token 仍必須正確。新增對應測試。
+
 ## CY Web V0.24.1 — 系統與安全版面（2026-11-23）
 
 - 「已登記的系統」與「驗證碼與 Email 安全設定」改為上下排、滿寬（使用者 2026-11-23）：登入回跳網址一行顯示；安全設定為扁平卡，四項排成 2x2（驗證碼一欄、Email 一欄）；窄螢幕退回一欄且網址可換行。
