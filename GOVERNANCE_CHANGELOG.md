@@ -1,5 +1,10 @@
 # CY Web Governance Changelog
 
+## 1.1.34 — 2026/11/23
+
+- 同步 CYID 契約鏡像 `docs/contracts/cyid/`（CYapps #644：CYID 0.4.2，App 中文名稱與入口可用系統清單，consumer 契約 1.3.0，向下相容）。
+- `CYID_CONSUMER_VERSION` 1.2.0 → 1.3.0：CY Web V0.25.0 使用中文名稱與 `sso/applications`。
+
 ## 1.1.33 — 2026/11/23
 
 - 同步 CYID 契約鏡像 `docs/contracts/cyid/`（CYapps #640：CYID 0.4.1 新增入口唯讀預覽 `handoff/preview`，consumer 契約 1.2.0，向下相容）。
