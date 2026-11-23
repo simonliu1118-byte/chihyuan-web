@@ -1,8 +1,8 @@
-# CYWEB V0.25.1 — 人事主檔與任用異動交接
+# CYWEB V0.25.1 Build 1 — 人事主檔與任用異動交接
 
 ## 狀態與使用者決策
 
-- 分支 `cyweb/hr-personnel-changes`，基準 main `ca1fe3378f4c390ff33c49ab2fc18a07f463063c`（V0.25.0 Build 1）；本輪 V0.25.1 Build 0。
+- 分支 `cyweb/hr-personnel-changes`，基準 main `ca1fe3378f4c390ff33c49ab2fc18a07f463063c`（V0.25.0 Build 1）；本輪 V0.25.1 Build 1。
 - Claude 最終審查：**待審**。未合併、未部署，0081 未套用正式 D1。
 - 使用者撤回「改狀態判定邏輯」的建議：維持現有生效日排序。並指定一筆正式人事資料更正，另見下方私密作業界線。
 - 狀態異動維持原卡片，不改全寬區塊；把狀態、門市、職稱、僱用型態、排班方式的異動塞進同一入口與卡片。
@@ -21,6 +21,7 @@
 | `worker/backup/portable-backup.ts`、`schema-columns.ts` | CURRENT_MIGRATION 0081，新欄位按名稱與排序納入備份；舊備份缺欄位使用 migration 的 null 預設，不臆造舊任用歷史。 |
 | `scripts/hr-personnel.test.mjs` | 真 SQLite 的任用異動、未來生效、狀態-only 不清空、主檔拒改、調店後排班設定、薪資總覽、舊 revision、無效設定、外鍵、備份還原與主檔建立／修改控制項。僅合成資料。 |
 | `scripts/test-support/hr-ui-fixture.mjs` | React 模組絕對路徑改標準 file URL，讓既有 UI 測試可在 Windows 執行；不改正式程式。 |
+| `scripts/bot-decisions.test.mjs` | 首輪 CI 的唯一失敗為最新備份 migration 寫死 0080；改為從 migration 目錄獨立核對最新檔名，保留所有 BOT 備份及舊快照還原驗證，不改 BOT 正式程式。 |
 | VERSION／BUILD／package、CHANGELOG、TODO、本文件、handoff index、HR_MODULE_CONTRACT | 版本、行為與待審查狀態同步。 |
 
 ## 正式資料更正（已完成；不要重跑）
@@ -41,6 +42,7 @@
 - 隔離本地 D1：0081 與完整 migration chain 通過，Worker／D1 全部 **20 項 acceptance 通過**（含 hrPayroll、portableBackupRecovery、isolatedRecovery、foreignKeys、auditAtomicBatch）。本機 Windows 程序最後清除 Miniflare 暫存時遇到 SQLite 檔案鎖，**整個命令 exit 1，不能宣稱 exit 0**；Linux PR CI 是正式整體驗收。
 - 第一輪隔離驗收發現既有誤建員工刪除路徑誤指向唯讀 view，已修正為原 `hr_employees`，並加入專門測試。第二輪業務與資料驗收全部通過；本機副本只嘗試補 Windows 子程序清理，沒有更改任何業務檢查，不提交副本或其暫存。
 - 最終 CI 結果以 PR 最新 head Checks 及 PR 說明為準，避免為純 CI 狀態另 push 觸發重複完整驗證。`git diff --check` 通過。
+- PR #546 首輪 `df6ab0e6`／Runtime run `45213271655`：Linux 本地 D1 隔離完整驗收通過；全 Node 1005 通過、1 失敗。唯一失敗是上述 BOT 備份測試的固定 0080 版本斷言。Build 1 只同步該測試，未改正式任用或 BOT 邏輯；最終 CI 在 PR 補入。
 
 ## Claude 審查重點與部署界線
 
