@@ -193,7 +193,7 @@
 .cy-ordering-arrival-mark svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .cy-ordering-arrival-mark.is-complete { color: var(--cy-success); }
 .cy-ordering-arrival-mark.is-partial { color: var(--cy-warning); }
-.cy-ordering-closed-note { display: block; padding: 0 8px 5px; color: var(--cy-text-muted); overflow-wrap: anywhere; }
+.cy-ordering-closed-note { display: block; padding: 0 8px 5px; color: var(--cy-text-muted); white-space: pre-wrap; overflow-wrap: anywhere; }
 .cy-ordering-closed-note:first-child { padding-top: 7px; }
 .cy-ordering-grid td[data-locked], .cy-ordering-grid td[data-locked] .cy-ordering-cell-text { background: var(--cy-surface-muted); color: var(--cy-text-muted); cursor: not-allowed; }
 .cy-ordering-receipt-table { table-layout: fixed; min-width: 900px; }
@@ -273,7 +273,10 @@
 .cy-ordering-status-chip { display: inline-flex; align-items: center; justify-content: center; padding: 3px 7px; min-height: 24px; border-radius: var(--cy-radius-sm); background: var(--cy-surface-muted); color: var(--cy-text-muted); font-size: var(--cy-fs-xs); font-weight: 600; white-space: nowrap; }
 .cy-ordering-status-chip.state-received { color: var(--cy-success); background: var(--cy-success-soft); }
 .cy-ordering-status-chip.state-partial { color: var(--cy-warning); background: var(--cy-warning-soft); }
-.cy-ordering-status-chip.state-closed { color: var(--cy-text-muted); background: var(--cy-surface-muted); }
+.cy-ordering-status-chip.state-closed { padding-inline: 5px; color: var(--cy-text-muted); background: var(--cy-surface-muted); }
+.cy-ordering-receipt-summary { display: grid; gap: 2px; }
+.cy-ordering-grid-scroll .cy-ordering-received, .cy-ordering-grid-scroll .cy-ordering-receipt-summary .cy-ordering-received { color: var(--cy-success); font-weight: 600; }
+.cy-ordering-grid-scroll .cy-ordering-original-quantity { color: var(--cy-text-muted); text-decoration: line-through; }
 .cy-ordering-grid .cy-ordering-col-itemName,.cy-ordering-grid .cy-ordering-col-vendorItemName { min-width: 120px; }
 .cy-ordering-source-management { display: block; max-height: min(70vh,650px); overflow: auto; }
 .cy-ordering-source-management .cy-op-table { width: 100%; min-width: 700px; }

@@ -3,6 +3,11 @@
 > 本檔是 CY Web 唯一的現況與待辦清單，不是永久規則來源。各版本完成內容與驗證見 `CHANGELOG.md`；規格見 `docs/architecture/README.md`。
 > 2026-11-03、2026-11-09 整理：已完成且已記入 CHANGELOG 的版本段落移除；已結案的交接與工作單移到 Git 固定快照（見 `docs/handoff/README.md`）。
 
+## V0.22.2 叫貨明細部分到貨結案
+
+- [x] 已到貨的指定結案不再整列劃掉，原數量單獨刪線、已到量綠字，結案原因與原備註分行；桌機／手機同步。
+- [ ] Claude 依 [handoff](docs/handoff/CYWEB-ORDERING-PARTIAL-CLOSURE-20261123.md) 審查，待使用者授權後合併／部署。
+
 ## V0.22.0 BOT 管理中心改版（已部署 2026-11-19）
 
 - [x] 頁首 BOT 狀態列、四張摘要卡、項次／期限、拍板事項、平台選項、巡視場次狀態、Grok 工具與文件（見 [WO-0.22.0](docs/development/work-orders/WO-0.22.0.md)）。
