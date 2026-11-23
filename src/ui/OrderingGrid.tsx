@@ -16,6 +16,10 @@ const columns={
 /** 自訂中國貨 書籍 (user 2026-11-11): 規格 is split in 出版社 and 作者. */
 const CN_BOOK_COLUMNS=[["itemCode","品號"],["itemName","品名"],["publisher","出版社"],["author","作者"],["quantityText","數量"],["unit","單位"],["note","備註"]] as const;
 const receiptState=(row:GridLine)=>lineState({quantity:row.quantity===undefined?parseQuantity(row.quantityText).quantity:row.quantity,received:row.received??0,closedAs:row.closedAs??null});
+// Presentation only: a closed remainder must not hide goods already received.
+const closedWithReceipt=(row:GridLine)=>!!row.closedAs&&(row.received??0)>0;
+const receiptLabel=(row:GridLine)=>row.closedAs?(closedWithReceipt(row)?"部分到貨結案":"未到貨結案"):receiptState(row)==="OPEN"?"待到貨":receiptState(row)==="RECEIVED"?"已到齊":LINE_STATE_LABELS[receiptState(row)];
+const displayQuantity=(value:number)=>value.toLocaleString("zh-TW",{useGrouping:false,maximumFractionDigits:12});
 /** What a final save of an unchanged row sends: its own vendor values, so they are remembered. */
 const finalPatch=(row:GridLine):Partial<GridLine>=>({...(row.vendorItemCode?{vendorItemCode:row.vendorItemCode}:{}),...(row.vendorNameFollows===false&&row.vendorItemName?{vendorItemName:row.vendorItemName}:{})});
 const empty=(section:OrderingSection,id:number):GridLine=>({id,section,sortOrder:0,itemCode:"",itemName:"",vendorItemCode:"",vendorItemName:"",spec:"",quantityText:"",unit:"",note:""});
@@ -78,6 +82,13 @@ export function OrderingGrid({kind,section,lines,busy,readOnly=false,onCommit,on
  const closable=(row:GridLine)=>readOnly&&!!onCloseLine&&row.id>0&&["OPEN","PARTIAL"].includes(receiptState(row));
  // Under 備註 (user 2026-11-09): 其他 shows only its reason; 缺貨／取消 show the option, plus a reason if one was given.
  const closedText=(row:GridLine)=>!row.closedAs?"":row.closedAs==="OTHER"&&row.closedNote?row.closedNote:CLOSED_AS_LABELS[row.closedAs]+(row.closedNote?"－"+row.closedNote:"");
+ const closedSummary=(row:GridLine)=>{
+  if(!row.closedAs)return undefined;
+  const quantity=row.quantity===undefined?parseQuantity(row.quantityText).quantity:row.quantity;
+  const unit=row.unit?" "+row.unit:"";
+  return "已到 "+displayQuantity(row.received??0)+"／"+(quantity===null?row.quantityText:displayQuantity(quantity))+unit+
+   (quantity===null?"":"；剩餘 "+displayQuantity(Math.max(0,quantity-(row.received??0)))+unit+"指定結案")+"；原因："+closedText(row);
+ };
  const mappedIds=new Set([...savedDrafts.current.values()].map(x=>x.line.id));
  // Drag ordering is optimistic (user 2026-11-03): the dropped order shows at once and stays while it
  // saves in the background; new lines from the server (or a failed save) replace it.
@@ -326,16 +337,17 @@ export function OrderingGrid({kind,section,lines,busy,readOnly=false,onCommit,on
   {visible.filter(row=>row.id>0||hasInput(row)).map((row,i)=><ListRow key={mobileKey(row)}
    title={(i+1)+". "+(row.itemName||row.vendorItemName||"未命名品項")}
    subtitle={row.itemCode||"未填品號"}
-   trailing={<span>{row.quantityText?row.quantityText+(row.unit?" "+row.unit:""):"未填數量"}{readOnly?<small>{LINE_STATE_LABELS[receiptState(row)]??"待到貨"}</small>:null}</span>}
+   trailing={<span className="cy-ordering-receipt-summary"><span><span className={readOnly&&closedWithReceipt(row)?"cy-ordering-original-quantity":undefined}>{row.quantityText?row.quantityText+(row.unit?" "+row.unit:""):"未填數量"}</span>{readOnly?<small className={closedWithReceipt(row)?"cy-ordering-received":undefined}> · 已到 {row.received??0}</small>:null}</span>{readOnly?<small>{receiptLabel(row)}</small>:null}</span>}
    label={"編輯第"+(i+1)+"項 "+(row.itemName||row.itemCode||"未命名品項")}
    selected={mobileKey(row)===mobileRowId} onClick={()=>setMobileRowId(mobileKey(row))}/>)}
   {!readOnly&&!visible.some(row=>row.id>0||hasInput(row))?<p className="cy-op-empty">尚無品項，請按「新增品項」。</p>:null}
   {mobileRow?<BottomSheet open title={(readOnly?"查看":"編輯")+"品項："+(mobileRow.itemName||mobileRow.itemCode||"新項目")} onClose={closeMobileSheet}>
    <FormSection>{fields.map(([field,title],col)=><Field key={field} label={title} size="l" required={!readOnly&&(field==="quantityText"||(field==="itemName"&&kind!=="GENERAL"&&kind!=="VENDOR"))}>
-    {readOnly||lockedFields(mobileRow)?.has(field)?<span>{String(mobileRow[field]??"")}</span>:renderEditor(mobileRow,field,title,col,visible.findIndex(x=>mobileKey(x)===mobileRowId))}
+    {readOnly||lockedFields(mobileRow)?.has(field)?<span className={readOnly&&field==="quantityText"&&closedWithReceipt(mobileRow)?"cy-ordering-original-quantity":undefined}>{String(mobileRow[field]??"")}</span>:renderEditor(mobileRow,field,title,col,visible.findIndex(x=>mobileKey(x)===mobileRowId))}
    </Field>)}
+    {readOnly?<Field label="已到數量" size="l"><span className={closedWithReceipt(mobileRow)?"cy-ordering-received":undefined}>{mobileRow.received??0}</span></Field>:null}
     {photoCell&&mobileRow.id>0?<Field label="照片" size="l"><span>{photoCell(mobileRow)}</span></Field>:null}</FormSection>
-   {readOnly?<p>狀態：{LINE_STATE_LABELS[receiptState(mobileRow)]??"待到貨"}{mobileRow.closedAs?"・"+closedText(mobileRow):""}</p>:lockedFields(mobileRow)?<p>{lockedTitle(mobileRow)}</p>:null}
+   {readOnly?<p>狀態：{receiptLabel(mobileRow)}{mobileRow.closedAs?<><br/>{closedSummary(mobileRow)}</>:null}</p>:lockedFields(mobileRow)?<p>{lockedTitle(mobileRow)}</p>:null}
    <div className="cy-op-form-footer">
     {mobileRow.id>0&&!readOnly&&!lockedFields(mobileRow)?<button type="button" className="cy-op-button danger" disabled={busy} onClick={()=>{runAction(()=>onDelete(mobileRow));setMobileRowId(null)}}>刪除品項</button>:null}
     {closable(mobileRow)?<button type="button" className="cy-op-button" disabled={busy} onClick={()=>{setMobileRowId(null);onCloseLine!(mobileRow)}}>指定結案</button>:null}
@@ -345,18 +357,18 @@ export function OrderingGrid({kind,section,lines,busy,readOnly=false,onCommit,on
  </div>:<table className="cy-ordering-grid" data-kind={kind} data-readonly={readOnly||undefined} data-photo={photoCell?true:undefined}>
    <colgroup><col className="cy-ordering-col-index"/>{fields.flatMap(([field])=>[<col key={field} className={"cy-ordering-col-"+field}/>,...(readOnly&&field==="quantityText"?[<col key="received" className="cy-ordering-col-received"/>]:[])])}{photoCell?<col className="cy-ordering-col-photo"/>:null}{readOnly?<col className="cy-ordering-col-status"/>:<col className="cy-ordering-col-actions"/>}{readOnly&&onCloseLine?<col className="cy-ordering-col-close"/>:null}</colgroup>
    <thead><tr><th scope="col">項次</th>{fields.flatMap(([field,label])=>[<th scope="col" key={field} className={field==="quantityText"?"is-number":undefined} aria-sort={shownSort?.field===field?(shownSort.dir===1?"ascending":"descending"):undefined}>{SORTABLE.has(field)?<button type="button" className="cy-ordering-sort" data-active={shownSort?.field===field||undefined} title={persistSort?"依"+label+"重新排列並儲存順序（再按一次反向）":"依"+label+"排序（再按一次反向，第三次取消）"} onClick={()=>toggleSort(field)}>{label}<svg viewBox="0 0 10 14" width="8" height="12" aria-hidden="true"><path d="M5 1 8.5 5h-7z" data-on={shownSort?.field===field&&shownSort.dir===1||undefined}/><path d="M5 13 1.5 9h7z" data-on={shownSort?.field===field&&shownSort.dir===-1||undefined}/></svg></button>:label}</th>,...(readOnly&&field==="quantityText"?[<th scope="col" key="received" className="is-number">已到數量</th>]:[])])}{photoCell?<th scope="col" className="is-center">照片</th>:null}{readOnly?<th scope="col" className="is-center">狀態</th>:<th scope="col">操作</th>}{readOnly&&onCloseLine?<th scope="col"><span className="cy-ordering-visually-hidden">操作</span></th>:null}</tr></thead>
-   <tbody>{visible.map((row,i)=>{const warning=warnRow?.(row);return <tr key={savedRowKeys.current.get(row.id)??row.id} className={readOnly&&row.closedAs?"cy-row-struck":undefined} data-saving={inFlight.current.has(row.id)||undefined} data-warning={warning?true:undefined} title={warning} data-drop-target={dropTarget===row.id||undefined}
+   <tbody>{visible.map((row,i)=>{const warning=warnRow?.(row);return <tr key={savedRowKeys.current.get(row.id)??row.id} className={readOnly&&row.closedAs&&!closedWithReceipt(row)?"cy-row-struck":undefined} data-saving={inFlight.current.has(row.id)||undefined} data-warning={warning?true:undefined} title={warning} data-drop-target={dropTarget===row.id||undefined}
     onDragOver={e=>{if(dragging.current!==null&&row.id>0){e.preventDefault();if(dropTarget!==row.id)setDropTarget(row.id)}}} onDrop={e=>{e.preventDefault();drop(row.id)}}>
     <td data-label="項次" data-col="index" draggable={canDrag&&row.id>0||undefined} className={canDrag&&row.id>0?"cy-ordering-drag":undefined} title={canDrag&&row.id>0?"拖曳調整順序":undefined}
      onDragStart={e=>{dragging.current=row.id;e.dataTransfer.effectAllowed="move";e.dataTransfer.setData("text/plain",String(row.id))}} onDragEnd={()=>{dragging.current=null;setDropTarget(null)}}>{i+1}</td>
     {fields.flatMap(([field,title],col)=>{
 
      const locked=readOnly||!!lockedFields(row)?.has(field);
-     return [<td key={field} data-label={title} data-col={field} data-locked={!readOnly&&locked||undefined} title={!readOnly&&locked?lockedTitle(row):undefined}>{locked&&field==="note"&&row.closedAs&&!row.note?null:locked?<span className={"cy-ordering-cell-text"+(field==="quantityText"?" cy-ordering-quantity":"")+((field==="itemName"||field==="vendorItemName"||field==="note"||(kind==="CN_CUSTOM"&&(field==="spec"||field==="publisher"||field==="author")))?" cy-ordering-wrap":"")}>{String(row[field as keyof GridLine]??"")}</span> :renderEditor(row,field,title,col,i)}
-      {field==="note"&&row.closedAs?<small className="cy-ordering-closed-note">{closedText(row)}</small>:null}</td>,...(readOnly&&field==="quantityText"?[<td key="received" data-label="已到數量" data-col="received"><span className="cy-ordering-cell-text cy-ordering-quantity">{row.received??0}</span></td>]:[])];
+     return [<td key={field} data-label={title} data-col={field} data-locked={!readOnly&&locked||undefined} title={!readOnly&&locked?lockedTitle(row):undefined}>{locked&&field==="note"&&row.closedAs&&!row.note?null:locked?<span className={"cy-ordering-cell-text"+(field==="quantityText"?" cy-ordering-quantity"+(readOnly&&closedWithReceipt(row)?" cy-ordering-original-quantity":""):"")+((field==="itemName"||field==="vendorItemName"||field==="note"||(kind==="CN_CUSTOM"&&(field==="spec"||field==="publisher"||field==="author")))?" cy-ordering-wrap":"")}>{String(row[field as keyof GridLine]??"")}</span> :renderEditor(row,field,title,col,i)}
+      {field==="note"&&row.closedAs?<small className="cy-ordering-closed-note">{closedText(row)}</small>:null}</td>,...(readOnly&&field==="quantityText"?[<td key="received" data-label="已到數量" data-col="received"><span className={"cy-ordering-cell-text cy-ordering-quantity"+(closedWithReceipt(row)?" cy-ordering-received":"")}>{row.received??0}</span></td>]:[])];
     })}
     {photoCell?<td className="cy-ordering-photo-cell" data-label="照片" data-col="photo">{row.id>0?photoCell(row):null}</td>:null}
-    {readOnly?<td className="cy-ordering-status-cell" data-label="狀態" data-col="status"><span className={"cy-ordering-status-chip state-"+receiptState(row).toLowerCase()}>{receiptState(row)==="OPEN"?"待到貨":receiptState(row)==="RECEIVED"?"已到齊":LINE_STATE_LABELS[receiptState(row)]}</span></td>:null}
+    {readOnly?<td className="cy-ordering-status-cell" data-label="狀態" data-col="status"><span className={"cy-ordering-status-chip state-"+receiptState(row).toLowerCase()} title={closedSummary(row)}>{receiptLabel(row)}</span></td>:null}
     {readOnly&&onCloseLine?<td className="cy-ordering-close-cell" data-label="操作" data-col="close">{closable(row)?<button type="button" className="cy-op-button compact soft cy-ordering-close-line" disabled={busy} onClick={()=>onCloseLine(row)}>指定結案</button>:null}</td>:null}
     {!readOnly?<td className="cy-ordering-grid-actions" data-label="操作" data-col="actions">{row.id>0&&!lockedFields(row)?<IconButton label={"刪除第"+(i+1)+"列"} disabled={busy||actionSaves.current.size>0} onClick={()=>runAction(()=>onDelete(row))} icon={<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3M6 7l1 14h10l1-14M10 10v8m4-8v8"/></svg>}/>:null}</td>:null}</tr>})}</tbody>
   </table>}

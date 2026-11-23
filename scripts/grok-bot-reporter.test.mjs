@@ -302,6 +302,8 @@ test('new draft references replace the previous revision and stale wakeups stop 
 
 // V0.22.0 工具：拍板、場次連結、平台選項、場次明確結束。
 test("decision command submits, validates, is idempotent and reads back the human's choice",async t=>{
+ // Keep the future/past deadline cases independent of the runner's calendar.
+ t.mock.timers.enable({apis:["Date"],now:Date.parse("2026-11-18T00:00:00Z")});
  const f=await setup(t),deadline="2026-11-19T18:00:00+08:00";
  const input={externalRef:"synthetic-decision-1",title:"合成廣告加碼",body:"合成說明",category:"廣告預算",amount:3000,deadline,options:["加碼三天","加碼兩天"]};
  const first=await f.client.run("decision",input);
