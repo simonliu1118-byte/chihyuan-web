@@ -29,12 +29,14 @@ function SsoFlow({ session, params, freshLogin }: { session: AuthSession; params
     if (started.current) return;
     started.current = true;
     loadSsoContext(params.app, params.state).then(setContext, (cause: unknown) => {
-      setError(cause instanceof ApiClientError && cause.code === "IDENTITY_UNAVAILABLE" ? "帳號服務目前無法連線，請稍後再試。" : "無法開始單一登入，請回到原系統重新操作。");
+      setError(cause instanceof ApiClientError && cause.code === "IDENTITY_UNAVAILABLE" ? "帳號服務目前無法連線，請稍後再試。"
+        : cause instanceof ApiClientError && cause.code === "SSO_APPLICATION_UNAVAILABLE" ? "此系統尚未設定單一登入，請改用原登入方式。"
+        : "無法開始單一登入，請回到原系統重新操作。");
     });
   }, [params.app, params.state]);
 
   // The password was just typed in this page view: continue without a second confirmation.
-  const automatic = freshLogin && !params.result;
+  const automatic = freshLogin && !params.result && context?.access === "allowed";
   useEffect(() => {
     if (!context || !automatic || submitted.current) return;
     submitted.current = true;
@@ -49,9 +51,9 @@ function SsoFlow({ session, params, freshLogin }: { session: AuthSession; params
   const name = context.application.name ?? context.application.id;
   const clean = `/sso?app=${encodeURIComponent(params.app)}&state=${encodeURIComponent(params.state)}`;
 
-  if (params.result === "denied") return <Card title="無法前往"><p role="alert">此帳號沒有 {name} 的使用權限。</p>
+  if (params.result === "denied" || context.access === "denied") return <Card title="無法前往"><p role="alert">此帳號沒有 {name} 的使用權限。</p>
     <button className="cy-auth-primary-button" type="button" onClick={() => window.location.assign("/")}>回到首頁</button></Card>;
-  if (params.result === "first_login") return <Card title="請先完成驗證"><p role="alert">此帳號尚未完成 Email 驗證與正式密碼設定，請先完成後再前往 {name}。</p>
+  if (params.result === "first_login" || context.access === "first_login_required") return <Card title="請先完成驗證"><p role="alert">此帳號尚未完成 Email 驗證與正式密碼設定，請先完成後再前往 {name}。</p>
     <button className="cy-auth-primary-button" type="button" onClick={() => { void logoutCurrentSession().catch(() => undefined).then(() => window.location.assign(clean)); }}>前往登入並完成驗證</button></Card>;
   if (params.result) return <Card title="無法前往"><p className="cy-auth-error" role="alert">目前無法前往 {name}，請稍後再試。</p>
     <button className="cy-auth-primary-button" type="button" onClick={() => window.location.assign(clean)}>重試</button></Card>;
@@ -59,7 +61,7 @@ function SsoFlow({ session, params, freshLogin }: { session: AuthSession; params
   const form = <form ref={formRef} className="cy-auth-form" method="post" action="/sso/continue" onKeyDown={enterAdvancesFields} onSubmit={() => setSubmitting(true)}><FormSection>
     <input type="hidden" name="app" value={params.app} />
     <input type="hidden" name="state" value={params.state} />
-    <input type="hidden" name="csrf" value={context.csrf} />
+    <input type="hidden" name="csrf" value={context.csrf ?? ""} />
     {automatic ? null : <div className="cy-auth-form">
       <button className="cy-auth-primary-button" type="submit" disabled={submitting} aria-busy={submitting || undefined}>前往</button>
       <button className="cy-auth-link-button" type="button" disabled={submitting} onClick={() => window.location.assign("/")}>取消</button>

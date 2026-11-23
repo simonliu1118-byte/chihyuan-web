@@ -16,7 +16,7 @@ const STATE = "S".repeat(40);
 const RETURN_URL = "https://target.example.test/sso/callback";
 const principal = { workspaceId: "workspace-test", employeeId: "employee-test", employeeNo: "0007", displayName: "測試員工", workspaceRole: "USER", isIdentityAdmin: false, emailVerified: true, isWorkspaceSuperAdmin: false, credentialVersion: 1, employeeRevision: 1 };
 
-function makeEnv({ issue = { status: 200, body: { code: CODE, returnUrl: RETURN_URL, expiresAt: "2999-01-01T00:00:00.000Z" } }, snapshot = null } = {}) {
+function makeEnv({ issue = { status: 200, body: { code: CODE, returnUrl: RETURN_URL, expiresAt: "2999-01-01T00:00:00.000Z" } }, preview = { status: 200, body: { application: { applicationId: "TARGET_APP", displayName: "目標系統" }, access: "allowed" } } } = {}) {
   const calls = [];
   const logs = [];
   const env = {
@@ -29,7 +29,8 @@ function makeEnv({ issue = { status: 200, body: { code: CODE, returnUrl: RETURN_
       calls.push({ path, body, authorization: req.headers.get("authorization"), app: req.headers.get("x-identity-application") });
       if (path === "/v1/identity/session/resolve") return Response.json({ principal, session: { expiresAt: "2999-01-01T00:00:00.000Z" } });
       if (path === "/v1/identity/sso/handoff/issue") return Response.json(issue.body, { status: issue.status });
-      if (path === "/v1/admin/identity/snapshot") return snapshot ? Response.json(snapshot) : Response.json({ error: { code: "WORKSPACE_ADMIN_REQUIRED" } }, { status: 403 });
+      if (path === "/v1/identity/sso/handoff/preview") return preview.raw !== undefined ? new Response(preview.raw, { status: preview.status }) : Response.json(preview.body, { status: preview.status });
+      if (path === "/v1/admin/identity/snapshot") throw new Error("admin snapshot must not be read for the SSO page");
       throw new Error("unexpected provider path " + path);
     } },
   };
@@ -90,20 +91,88 @@ test("GET never issues a code and every /sso response is no-store with no referr
   assert.equal(issued(env).length, 0);
 });
 
-test("context shows who signs in to which App and sets a Host-prefixed HttpOnly CSRF cookie", async () => {
-  const env = makeEnv({ snapshot: { applications: [{ application_id: "TARGET_APP", display_name: "目標系統" }] } });
+const previewCalls = env => env.calls.filter(c => c.path === "/v1/identity/sso/handoff/preview");
+const previewOf = (access, name = "目標系統") => ({ status: 200, body: { application: { applicationId: "TARGET_APP", displayName: name }, access } });
+
+test("context shows who signs in to which App by its preview name and sets a Host-prefixed HttpOnly CSRF cookie", async () => {
+  const env = makeEnv();
   const { response, body } = await contextOf(env);
   assert.deepEqual(body.data.user, { displayName: "測試員工", employeeNo: "0007" });
   assert.deepEqual(body.data.application, { id: "TARGET_APP", name: "目標系統" });
+  assert.equal(body.data.access, "allowed");
+  assert.equal(typeof body.data.csrf, "string");
   const cookie = response.headers.get("set-cookie");
   assert.match(cookie, /^__Host-cyweb_sso_csrf=/);
   for (const part of ["Path=/", "HttpOnly", "Secure", "SameSite=Strict"]) assert.ok(cookie.includes(part));
   assert.ok(!cookie.includes("Domain"));
   assert.ok(!JSON.stringify(body).includes(token));
+  // Preview carries the user's own Session and CY Web's application id, and only the target id in the body.
+  const [call] = previewCalls(env);
+  assert.equal(call.authorization, `Bearer ${token}`);
+  assert.equal(call.app, "CYWEB_TEST");
+  assert.deepEqual(JSON.parse(call.body), { applicationId: "TARGET_APP" });
+  assert.equal(issued(env).length, 0);
   const anonymous = await handleSsoRoute(new Request(`${origin}/api/sso/context?app=TARGET_APP&state=${STATE}`), makeEnv(), "r");
   assert.equal(anonymous.status, 401);
-  // Non-administrators cannot read names: the identifier is shown instead.
-  assert.equal((await contextOf(makeEnv())).body.data.application.name, null);
+});
+
+test("preview denied and first-login show the state at once: no CSRF token, no cookie, no code", async () => {
+  for (const access of ["denied", "first_login_required"]) {
+    const env = makeEnv({ preview: previewOf(access) });
+    const { response, nonce, body } = await contextOf(env);
+    assert.equal(response.status, 200);
+    assert.equal(body.data.access, access);
+    assert.equal(body.data.application.name, "目標系統");
+    assert.equal(body.data.csrf, null);
+    assert.equal(nonce, undefined);
+    assert.equal(response.headers.get("set-cookie"), null);
+    assert.equal(issued(env).length, 0);
+    // Without a token the POST cannot proceed even if the form is forged.
+    const forged = await post(env, { fields: { app: "TARGET_APP", state: STATE, csrf: "x".repeat(43) }, cookie: cookieHeader() });
+    assert.equal(forged.status, 403);
+    assert.equal(issued(env).length, 0);
+  }
+});
+
+test("preview unavailable application is an error state; session and provider failures map to 401 and 503", async () => {
+  const unavailable = makeEnv({ preview: { status: 404, body: { error: { code: "SSO_APPLICATION_UNAVAILABLE" } } } });
+  const a = await contextOf(unavailable);
+  assert.equal(a.response.status, 404);
+  assert.equal(a.body.error.code, "SSO_APPLICATION_UNAVAILABLE");
+  assert.equal(a.response.headers.get("set-cookie"), null);
+  const invalid = await contextOf(makeEnv({ preview: { status: 401, body: { error: { code: "SESSION_INVALID" } } } }));
+  assert.equal(invalid.response.status, 401);
+  for (const preview of [
+    { status: 503, body: { error: { code: "X" } } },
+    { status: 403, body: { error: { code: "SSO_PORTAL_REQUIRED" } } },
+    { status: 200, body: { application: { displayName: "x" }, access: "bogus" } },
+  ]) {
+    const result = await contextOf(makeEnv({ preview }));
+    assert.equal(result.response.status, 503);
+    assert.equal(result.body.error.code, "IDENTITY_UNAVAILABLE");
+    assert.equal(result.response.headers.get("set-cookie"), null);
+  }
+});
+
+test("provider that predates preview (route-not-found 404): page falls back to the App id with access unknown and still works", async () => {
+  for (const preview of [
+    { status: 404, body: { error: { code: "NOT_FOUND", message: "Identity endpoint was not found." } } },
+    { status: 404, raw: "<html>not found</html>" },
+  ]) {
+    const env = makeEnv({ preview });
+    const { response, nonce, body } = await contextOf(env);
+    assert.equal(response.status, 200);
+    assert.equal(body.data.application.name, null);
+    assert.equal(body.data.access, "unknown");
+    assert.ok(nonce);
+    assert.equal(typeof body.data.csrf, "string");
+    // Issue stays the authority: the confirmed POST still redirects (or refuses) as before.
+    const redirect = await validPost(makeEnv({ preview }));
+    assert.equal(redirect.status, 303);
+    assert.equal(redirect.headers.get("location"), `${RETURN_URL}?code=${CODE}&state=${STATE}`);
+    const refused = await validPost(makeEnv({ preview, issue: { status: 403, body: { error: { code: "APPLICATION_ACCESS_DENIED" } } } }));
+    assert.equal(new URL(refused.headers.get("location")).searchParams.get("result"), "denied");
+  }
 });
 
 test("confirmed POST redirects to the provider return URL plus code and state exactly", async () => {
@@ -209,7 +278,10 @@ test("portal page rules: no confirmation skipped for an existing session, automa
   const portal = readFileSync(new URL("../src/auth/SsoPortal.tsx", import.meta.url), "utf8");
   const gate = readFileSync(new URL("../src/auth/AuthGate.tsx", import.meta.url), "utf8");
   // Automatic continuation depends solely on the flag set by a password login in this page view.
-  assert.match(portal, /const automatic = freshLogin && !params\.result/);
+  assert.match(portal, /const automatic = freshLogin && !params\.result && context\?\.access === "allowed"/);
+  // Denied / first-login from the preview are shown immediately, without the 前往 form.
+  assert.match(portal, /context\.access === "denied"/);
+  assert.match(portal, /context\.access === "first_login_required"/);
   assert.match(gate, /setFreshLogin\(true\)/);
   assert.equal((gate.match(/setFreshLogin\(true\)/g) ?? []).length, 1);
   assert.match(gate, /const \[freshLogin, setFreshLogin\] = useState\(false\)/);

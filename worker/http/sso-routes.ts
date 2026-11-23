@@ -6,7 +6,8 @@ import { identityClient, type IdentityRuntimeEnv } from "./auth-routes";
  * Single sign-on portal (SSO_PORTAL_DESIGN §5, AUTH_CONTRACT §13, CONSUMER_INTEGRATION_STANDARD §21.2).
  *
  *   GET  /sso?app&state          SPA shell (the page decides login / confirmation). Never issues a code.
- *   GET  /api/sso/context        same-origin read for the SPA: who is signing in, to which App, plus a CSRF token.
+ *   GET  /api/sso/context        same-origin read for the SPA: who is signing in, to which App (name and whether access
+ *                                is allowed, from the provider's read-only preview), plus a CSRF token only when allowed/unknown.
  *   POST /sso/continue           the only place a code is requested. CSRF protected, answers 303.
  *
  * `state` is opaque and passed back verbatim; nothing is stored server-side. The destination is always the
@@ -96,12 +97,20 @@ async function context(request: Request, env: SsoEnv, requestId: string, url: UR
 
   const sessionToken = cookieValue(request, CYWEB_IDENTITY_COOKIE);
   if (!isSessionToken(sessionToken)) return noStore(failure({ code: "AUTH_REQUIRED", message: "Authentication required" }, requestId, 401));
-  const nonce = base64url(crypto.getRandomValues(new Uint8Array(32)));
-  const applicationName = await provider.applicationDisplayName(request, params.app);
+  const preview = await provider.previewSsoHandoff(request, params.app);
+  if (preview.status === "application_unavailable") return noStore(failure({ code: "SSO_APPLICATION_UNAVAILABLE", message: "Application is not available for single sign-on" }, requestId, 404));
+  if (preview.status === "session_invalid") return noStore(failure({ code: "AUTH_REQUIRED", message: "Authentication required" }, requestId, 401));
+  if (preview.status !== "ok") return noStore(failure({ code: "IDENTITY_UNAVAILABLE", message: "Identity provider is unavailable" }, requestId, 503));
 
+  const user = { displayName: resolution.principal.displayName, employeeNo: resolution.principal.employeeNo };
+  const application = { id: params.app, name: preview.name };
+  // Denied / first-login: the page shows the message and offers no way forward, so no CSRF token or cookie exists.
+  if (preview.access === "denied" || preview.access === "first_login_required") {
+    return noStore(success({ user, application, access: preview.access, csrf: null }, requestId));
+  }
+  const nonce = base64url(crypto.getRandomValues(new Uint8Array(32)));
   return noStore(success({
-    user: { displayName: resolution.principal.displayName, employeeNo: resolution.principal.employeeNo },
-    application: { id: params.app, name: applicationName },
+    user, application, access: preview.access,
     csrf: await csrfToken(nonce, sessionToken),
   }, requestId, { headers: { "set-cookie": csrfCookie(nonce) } }));
 }

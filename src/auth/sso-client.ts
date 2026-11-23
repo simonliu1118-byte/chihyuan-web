@@ -6,7 +6,10 @@ export const SSO_STATE_PATTERN = /^[A-Za-z0-9_-]{32,128}$/;
 export interface SsoContext {
   user: { displayName: string; employeeNo: string };
   application: { id: string; name: string | null };
-  csrf: string;
+  /** Provider preview: `unknown` only while the provider predates the preview endpoint (issue still decides). */
+  access: "allowed" | "denied" | "first_login_required" | "unknown";
+  /** Null when access is denied or first_login_required: no confirmation is possible. */
+  csrf: string | null;
 }
 
 /** Same checks as the Worker; the page never calls the server with values that fail them. */

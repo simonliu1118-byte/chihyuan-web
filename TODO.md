@@ -8,7 +8,7 @@
 - [x] `/sso` 入口、CSRF 與登入後續行、App 回跳網址登記欄位已實作，測試見 `scripts/sso-portal.test.mjs`；分支 `cyweb/v0.24.0-sso-portal`，尚未合併、未部署。
 - [ ] Claude 審查；部署前需 `CYID_CONSUMER_VERSION` 對齊 1.1.0（治理檔，另案處理）並同步契約鏡像。
 - [ ] 第 3 階段：目標 App 接 `/v1/identity/sso/handoff/redeem`。
-- [ ] 確認畫面的 App 名稱目前只有管理員讀得到，其他員工顯示系統識別碼；需提供者提供一般員工可讀的名稱，或在 CY Web 維護名稱對照。
+- [ ] 確認畫面名稱與可否進入改由 CYID 預覽接口（0.4.1／contract 1.2.0）提供；CYID 0.4.1 部署前頁面退回顯示系統識別碼。部署前 `CYID_CONSUMER_VERSION` 與契約鏡像需對齊 1.2.0（治理檔，另案處理）。
 
 ## V0.23.0 定期維護逐台完成（已合併，2026-11-23）
 

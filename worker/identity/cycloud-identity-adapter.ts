@@ -75,6 +75,12 @@ export type IdentitySsoIssueResult =
   | { status: "session_invalid" }
   | { status: "unavailable" };
 
+export type IdentitySsoPreviewResult =
+  | { status: "ok"; name: string | null; access: "allowed" | "denied" | "first_login_required" | "unknown" }
+  | { status: "application_unavailable" }
+  | { status: "session_invalid" }
+  | { status: "unavailable" };
+
 export type IdentityLogoutResult = { status: "logged_out" } | { status: "unavailable" };
 
 function boundedRetryAfter(response: Response): number {
@@ -363,21 +369,35 @@ export class CYCloudIdentityClient implements IdentityAdapter {
   }
 
   /**
-   * Best-effort display name of an Application for the SSO confirmation screen. The only provider read that
-   * carries names is the administrator snapshot, so this returns null for non-administrators and on any failure.
+   * Read-only SSO preview (AUTH_CONTRACT §13.2.1, contract 1.2.0): App display name and whether this Employee
+   * may enter it. Never carries a return URL or a code. A provider that predates the endpoint answers with the
+   * generic route-not-found 404 (not `SSO_APPLICATION_UNAVAILABLE`); the page then keeps working with the App id
+   * and `access: "unknown"`, and `issueSsoHandoff` remains the authority.
    */
-  async applicationDisplayName(request: Request, applicationId: string): Promise<string | null> {
+  async previewSsoHandoff(request: Request, targetApplicationId: string): Promise<IdentitySsoPreviewResult> {
     const token = cookieValue(request, CYWEB_IDENTITY_COOKIE);
-    if (!isSessionToken(token)) return null;
+    if (!isSessionToken(token)) return { status: "session_invalid" };
     const headers = forwardedHeaders(request);
-    headers.delete("content-type");
     headers.set("authorization", `Bearer ${token}`);
     headers.set("x-identity-application", this.applicationId);
-    const response = await fetchIdentityProvider(this.binding, new Request("https://identity.internal/v1/admin/identity/snapshot", { method: "GET", headers }));
-    if (!response?.ok) return null;
-    const payload = await response.json().catch(() => null) as { applications?: Array<{ application_id?: unknown; display_name?: unknown }> } | null;
-    const row = payload?.applications?.find(item => item.application_id === applicationId);
-    return typeof row?.display_name === "string" && row.display_name.trim() ? row.display_name.trim().slice(0, 120) : null;
+    const response = await fetchIdentityProvider(this.binding, new Request("https://identity.internal/v1/identity/sso/handoff/preview", {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ applicationId: targetApplicationId }),
+    }));
+    if (!response) return { status: "unavailable" };
+    const payload = await response.json().catch(() => null) as { application?: { applicationId?: unknown; displayName?: unknown }; access?: unknown; error?: { code?: unknown } } | null;
+    if (!response.ok) {
+      const code = String(payload?.error?.code ?? "");
+      if (code === "SSO_APPLICATION_UNAVAILABLE") return { status: "application_unavailable" };
+      if (response.status === 401 || code === "SESSION_INVALID") return { status: "session_invalid" };
+      if (response.status === 404 && code !== "SSO_PORTAL_REQUIRED") return { status: "ok", name: null, access: "unknown" };
+      return { status: "unavailable" };
+    }
+    const access = payload?.access;
+    if (access !== "allowed" && access !== "denied" && access !== "first_login_required") return { status: "unavailable" };
+    const name = payload?.application?.displayName;
+    return { status: "ok", name: typeof name === "string" && name.trim() ? name.trim().slice(0, 120) : null, access };
   }
 
   async revokeToken(request: Request, token: string): Promise<void> {
