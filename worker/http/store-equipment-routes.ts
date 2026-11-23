@@ -57,11 +57,7 @@ const aggregateVisitSql=`UPDATE store_maintenance_visits SET
   EXISTS(SELECT 1 FROM store_equipment_plans p WHERE p.visit_id=store_maintenance_visits.id AND p.completed=1)
   AND NOT EXISTS(SELECT 1 FROM store_equipment_plans p WHERE p.visit_id=store_maintenance_visits.id AND p.active=1 AND p.completed=0)
  THEN 1 ELSE 0 END,
- completion_date=CASE WHEN
-    EXISTS(SELECT 1 FROM store_equipment_plans p WHERE p.visit_id=store_maintenance_visits.id AND p.completed=1)
-    AND NOT EXISTS(SELECT 1 FROM store_equipment_plans p WHERE p.visit_id=store_maintenance_visits.id AND p.active=1 AND p.completed=0)
-    THEN (SELECT MAX(p.completion_date) FROM store_equipment_plans p WHERE p.visit_id=store_maintenance_visits.id AND p.completed=1)
-    ELSE NULL END,
+ completion_date=(SELECT MAX(p.completion_date) FROM store_equipment_plans p WHERE p.visit_id=store_maintenance_visits.id AND p.completed=1),
  note=COALESCE((SELECT p.note FROM store_equipment_plans p WHERE p.visit_id=store_maintenance_visits.id AND p.completed=1
    ORDER BY p.completion_date DESC,p.equipment_id DESC LIMIT 1),'')
  WHERE id IN (SELECT value FROM json_each(?))`;
@@ -90,11 +86,7 @@ function planWrites(c:Context,r:EquipmentRecord){
       EXISTS(SELECT 1 FROM store_equipment_plans p WHERE p.visit_id=store_maintenance_visits.id AND p.completed=1)
       AND NOT EXISTS(SELECT 1 FROM store_equipment_plans p WHERE p.visit_id=store_maintenance_visits.id AND p.active=1 AND p.completed=0)
       THEN 1 ELSE 0 END,
-    completion_date=CASE WHEN
-    EXISTS(SELECT 1 FROM store_equipment_plans p WHERE p.visit_id=store_maintenance_visits.id AND p.completed=1)
-    AND NOT EXISTS(SELECT 1 FROM store_equipment_plans p WHERE p.visit_id=store_maintenance_visits.id AND p.active=1 AND p.completed=0)
-    THEN (SELECT MAX(p.completion_date) FROM store_equipment_plans p WHERE p.visit_id=store_maintenance_visits.id AND p.completed=1)
-    ELSE NULL END,
+    completion_date=(SELECT MAX(p.completion_date) FROM store_equipment_plans p WHERE p.visit_id=store_maintenance_visits.id AND p.completed=1),
     note=COALESCE((SELECT p.note FROM store_equipment_plans p WHERE p.visit_id=store_maintenance_visits.id AND p.completed=1
       ORDER BY p.completion_date DESC,p.equipment_id DESC LIMIT 1),'')
    WHERE id IN (SELECT visit_id FROM store_equipment_plans WHERE equipment_id=?)

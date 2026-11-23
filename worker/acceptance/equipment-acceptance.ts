@@ -16,10 +16,12 @@ export async function acceptEquipmentMaintenance(db:D1Database){
  const v=list.rows[0],payload={expectedVersion:v.version,requestKey:crypto.randomUUID(),action:'complete',equipmentIds:[first.id],completionDate:'2026-11-05',note:'第一台已完成'};
  const partial=await call<MaintenanceVisit>('/visits/'+v.id,'PUT',payload);
  if(partial.completed||partial.completedCount!==1||partial.totalCount!==2||partial.equipment.find(e=>e.id===first.id)?.note!==payload.note)throw new Error('EQUIPMENT_D1_PARTIAL');
+ if((await db.prepare('SELECT completion_date FROM store_maintenance_visits WHERE id=?').bind(v.id).first<{completion_date:string}>())?.completion_date!==payload.completionDate)throw new Error('EQUIPMENT_D1_PARTIAL_STORED_DATE');
  await call('/visits/'+v.id,'PUT',{...payload,requestKey:crypto.randomUUID()},409);
  const addition=await call<EquipmentRecord>('','POST',{...fields,model:'第三型號',requestKey:crypto.randomUUID()});
  const withThird=await call<MaintenanceVisit>('/visits/'+v.id);
  if(withThird.completedCount!==1||withThird.totalCount!==3||withThird.equipment.find(e=>e.id===addition.id)?.completed)throw new Error('EQUIPMENT_D1_NEW_MONTH_JOIN');
+ if((await db.prepare('SELECT completion_date FROM store_maintenance_visits WHERE id=?').bind(v.id).first<{completion_date:string}>())?.completion_date!==payload.completionDate)throw new Error('EQUIPMENT_D1_JOIN_STORED_DATE');
  const remaining=withThird.equipment.filter(e=>e.active&&!e.completed).map(e=>e.id);
  const done=await call<MaintenanceVisit>('/visits/'+v.id,'PUT',{
    expectedVersion:withThird.version,requestKey:crypto.randomUUID(),action:'complete',

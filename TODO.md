@@ -6,7 +6,8 @@
 ## V0.23.0 定期維護逐台完成（開發中）
 
 - [ ] [WO-0.23.0](docs/development/work-orders/WO-0.23.0.md)：原一客戶／月份維護容器不變，改由每台出機紀錄完成、異動、取消、部分狀態及獨立到訪日期。Git 分支 `cyweb/v0.23.0-maintenance-per-machine`，目前為程式實作與 CI 驗證。
-- [ ] Migration 0080 **待 LOCAL-CYWEB Work 執行**：正式 D1 資料量與完整性預查、備份、migration 版本／冪等與回填核對，確認既有完成月份的已完成機器日期與備註，以及新增與取消狀態。未取得驗證不得部署。
+- [x] LOCAL 預查、備份及隔離演練完成（2026-11-20，Build 1）：正式 0079 schema、7 出機／15 月份／17 關聯／27 事件，預期與隔離回填均 13 筆；舊 visit CHECK 修正、部分日期實體保存、完整備份前後還原與外鍵核對通過，見 [工單 §8](docs/development/work-orders/WO-0.23.0.md) 與 [handoff](docs/handoff/CYWEB-WO-0230-MAINTENANCE-LOCAL-20261119.md)。正式 D1 寫入為 0。
+- [ ] Migration 0080 **正式套用仍待使用者另行授權**：執行窗口重新預查及備份，審查舊服務切換順序後才可操作；未合併、未部署。
 - [ ] PR、Claude 審查、1440／390 登入後畫面確認與正式部署；資料庫及正式環境不由本次遠端程式工作直接修改。
 
 ## V0.22.0 BOT 管理中心改版（已部署 2026-11-19）

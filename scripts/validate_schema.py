@@ -566,6 +566,9 @@ def validate_maintenance_per_machine(schema: str) -> None:
     sql = conn.execute("SELECT sql FROM sqlite_master WHERE type='table' AND name='store_equipment_plans'").fetchone()[0]
     assert "completed IN (0,1)" in sql or "completed IN(0,1)" in sql
     assert "completed=1 OR completion_date IS NULL" in sql
+    visit_sql = conn.execute("SELECT sql FROM sqlite_master WHERE type='table' AND name='store_maintenance_visits'").fetchone()[0]
+    assert "completed=1 OR completion_date IS NULL" not in visit_sql
+    assert conn.execute("PRAGMA foreign_key_check").fetchall() == []
     conn.close()
 
 if __name__ == "__main__":

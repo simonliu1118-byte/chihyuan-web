@@ -6,6 +6,7 @@
 - **程式分支**：`cyweb/v0.23.0-maintenance-per-machine`（V0.23.0）
 - **main 基準**：`a15f9da9488ad62c60a8b907263b3f8571499cfe`（V0.22.1，migration 0079）
 - **目標 migration**：`migrations/0080_store_maintenance_per_machine.sql`
+- **LOCAL 更新（2026-11-20）**：V0.23.0 Build 1 的正式唯讀預查、原生備份、私有副本及本機 D1 演練已完成，結果見 §E；正式 D1 仍為 0079，未合併、未部署。
 - **嚴格界線**：本遠端 GitHub 對話只寫 migration 原始碼與驗收；**尚未連線、更動或套用正式 D1**。LOCAL Work 接收此文件並不等於獲准直接合併、部署或破壞資料；執行正式操作前須再次核對使用者授權及 REPO_POLICY 部署維運守則。
 
 ## A. 為何要做
@@ -31,13 +32,13 @@
 - [已成功之桌機 1440／手機 390 真實 React 視覺驗收](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/44532062580)，[PNG artifact](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/44532062580/artifacts/14535026172)；是隔離示範資料，不是正式登入站。
 - 以上證據適用當時的程式版本；之後若 LOCAL Work 修改 schema 或 API，須依最新 PR HEAD 重新跑全套驗證。
 
-## C. LOCAL Work 必須完成的實際 D1 作業（未執行）
+## C. 資料庫作業清單（本輪完成情況見 §E）
 
 1. **先重新讀**此分支最新程式、全部共通規則、工單 §2/§6/§7，以及 `REPO_POLICY.md` 的部署授權；核對 base/main 與其他 PR，避免覆寫並行改動。
 2. **預估成本／核對**：先用唯讀查詢取得 `store_maintenance_visits` 筆數、`store_equipment_plans` 筆數、已完成 visit 數、其 active 或 retained plans 數、已完成但無日期數、每月的多台重複情況；評估 0080 的掃描／更新量、D1 配額與耗時，記錄查詢結果和工作單 §8。別印出真實客戶名稱、序號等資料到公開 log。
 3. **正式備份**：使用 repo 維運標準流程建立完整備份，取得可還原證據與版本號；若正式 D1 schema 或資料狀態不符工單預期（例早已有 0080 部分欄位、不同本地分支改過 visits），**停止**，不硬套 migration、不清空／重建業務表。
 4. **先在本地隔離 D1 使用正式備份的去識別化副本或合成資料演練**：應用 migration 0080；確認每筆已完成 visit 的 active/retained plan 繼承完成日期／備註；未完成月不變；沒有遺失機器、月份或事件歷史。重複驗證語意冪等及 `PRAGMA foreign_key_check`。
-5. **確認執行窗口與明確授權後，才對目標 D1 執行 forward migration**（不要在 PR 未合併、服務未對應新版 schema 時私自改正式站；依既有先備份／部署協調程序）。migration 不包含 DROP table，不改原始客戶／機器來源資料；若任何步驟失敗，先停止並交代一致性及回復策略，不臨時手改正式資料。
+5. **確認執行窗口與明確授權後，才對目標 D1 執行 forward migration**（不要在 PR 未合併、服務未對應新版 schema 時私自改正式站；依既有先備份／部署協調程序）。Build 1 的 0080 在單一交易暫存／重建 visit，包含 `DROP` 舊表，但原 ID、全部列與子表引用均保存並已隔離驗證；不改客戶／機器來源資料。若任何步驟失敗，停止並回報，不臨時手改正式資料。
 6. **實際回填驗證**：統計 migration 前的「已完成 visit × active/retained plan」理論受影響數，與後的 `p.completed=1` 數比對；核對 `completion_date`、`note` 對應、未完成 plan 不應被改為完成、`v.completed` 衍生規則、`v.completion_date` 最晚日期、`foreign_key_check` 空集合。確認 `CURRENT_MIGRATION=0080` 與正式 migration ledger 相同。
 7. **真實業務驗收**：在經授權的測試資料或受控操作中，確認 A 完成後 B 仍能加入同月並顯示 1/2；A/B 同月不同日期與備註；取消 A 不影響 B；保固月數的指定例子；製造日期兩種格式；桌機 1440、手機 390 視覺。
 8. **完成報告**：將實際前後筆數、資料庫識別資訊僅存安全內部紀錄（公開 PR 不貼正式 ID）、migration/備份/回填/外鍵／驗收證據、部署 job 與 log 核對寫入本分支 handoff 與工單 §8。若 user 未授權合併／部署，只回報就緒，不代為執行。
@@ -74,19 +75,40 @@ PRAGMA foreign_key_check;
 
 舊 `0051_store_equipment_maintenance.sql` 對 `store_maintenance_visits` 有 `CHECK(completed=1 OR completion_date IS NULL)`。新需求同月 A 已完成、B 未完成時，`completed=0`、最晚日期非空，**無法原樣寫回此舊欄位**。
 
-為了避免在無正式 D1 副本下冒然拆表，本遠端程式先採**相容性投影**：
+初次遠端交付曾採相容性投影；**Build 1 已移除這項過渡行為**，不再將部分完成的實體日期暫存 NULL。
 
 - `store_equipment_plans` 逐台保存完整真實日期／備註（唯一 authority）。
-- `store_maintenance_visits` 在「部分完成」時將舊 `completion_date` 暫存 NULL，以通過既有 CHECK；完全完成時才寫最晚日期。
-- `GET /visits`、`/matrix` 從逐台資料計算並**對外顯示真正最晚已完成日期**，不捏造日期，仍可顯示部分完成 1/2 及兩個日期參照。
-- 因此與 WO §2.1「visit 資料庫實體欄位也應持有部分完成時的最晚日期」存在已知偏差；**LOCAL-CYWEB Work 必須評估在隔離 D1 重建 visit 舊 CHECK 的安全性／資料引用外鍵／回滾方法**，或提出適合現有 schema 的等效安全方案，經確認再補實作。不可用 `PRAGMA writable_schema` 直接偷改正式 sqlite_schema，更不可強關外鍵後無驗證直接 DROP。
+- 0080 先 `defer_foreign_keys=ON`，暫存 visit 列、重建原表名、插回同一批 ID 與欄位，再建立索引；不關閉外鍵、不寫 `sqlite_schema`，也不以切換 defer OFF 丟棄違反計數。
+- 不採「複製新表→刪舊表→rename」：該方式已在有子列的 SQLite 演練證實會留下 deferred FK 計數。改從原表名重新 INSERT 後，子表引用可正確解除，提交及 `foreign_key_check` 均通過。
+- visit 的 completed bool、唯一客戶／月份、版本及 actor FK 保留；只移除 visit 的「completed=0 不准有日期」CHECK，plan 仍保留該 CHECK。
+- Worker 的既有批次重算在部分／全部完成時都保存已完成 plan 的最大日期；實際日期索引改涵蓋非 NULL 日期。沒有新增第二套寫入流程或背景工作。
 
-這是資料庫階段尚未完成的**實際阻塞項**，不得把此部分的工程驗收視為符合工單全部要求。完成後仍須重跑 local D1、備份還原及 PR CI，並更新工單 §8。
+此 schema 偏差的來源修正及隔離驗證已完成；**正式套用仍未授權**。最新 CI 以 PR Checks 為準，不能把隔離完成視為正式上線。
 
 ## D. 遠端尚需 Claude 審查的風險
 
 - `store_equipment_plans` 中 machine 的語意是「每筆出機紀錄」而非每支 serial：工作單要求保留這個既有識別方式。不要擅自拆分來源資料。
-- 多筆已完成訪視包含空 completion_date 的歷史資料，**不要捏造日期**；須照實保留，再在業務介面由人員補正。
+- 本次正式快照的歷史無日期完成月份為 0；其他歷史備份仍可能包含無日期紀錄，合成驗收已確認不捏造日期。
 - 寫入舊版服務與新 schema 的切換順序必須審查；不得因 migration 新欄位 default 而將舊操作覆蓋成錯誤完成狀態。
 - 可攜備份升級與正式 migration backfill 各有獨立資料來源，需核對歷史備份與正式資料不被二次覆蓋。
 - 本文件不代表 Claude 已通過 §9，也不是正式資料庫套用授權。
+
+## E. LOCAL 完成證據（GPT，2026-11-20，Build 1）
+
+- 使用者本輪只授權預查、備份與隔離演練；Cloudflare 登入恢復後，從正式網域解析現行 Worker 的 DB binding，核對版本 0.22.1、實際 migration 0079、原 visit CHECK 與 plan 欄位。正式 SQL 只有 SELECT／查驗 PRAGMA，**寫入 0**。
+- 正式快照：7 筆出機、15 個月份、17 筆 plan、27 筆事件；11 個完成月份，符合 active／retained 的理論回填與隔離實際回填均 **13 筆**。四張表筆數未變，原日期、備註、機身 JSON、snapshot_json 及全部事件原值保留。
+- 完整 D1 原生匯出 **3,654,039 bytes／174 表／9,671 列**，原始檔與 SHA-256 僅存本機私有目錄，回讀核對通過；不用會新增 backup_sets 的 In-App 操作，以維持本輪正式 D1 不寫入的授權邊界。
+- 正式備份在本機私有 SQLite 副本還原並執行 0080；驗證所有非 plans 業務表全欄資料指紋相同、plans 舊欄相同、新完成欄逐值對應、FK 空集合及 integrity=ok。隔離 migration ledger 增 1 列，總列數 **9,671→9,672**；其他表無增減。
+- 已做同一資料副本的完整交易 rollback，回復原 schema 及全部原值；只重跑資料回填 body 不改任何指紋；遷移後備份再還原至另一個全新副本，全表一致、FK 空集合。
+- Wrangler 4.141.0 本機 D1 合成演練也通過：完整 0079→0080、3 筆歷史回填、遷移前後匯出各還原至獨立 D1，174 表資料指紋相同、外鍵 0 異常；可寫入 completed=0 但有最晚實際日期的部分完成 cache。正式資料不進這個合成 D1 的 log。
+- 原生 SQL dump 的 table 出現順序不保證 parent 在 child 前，且 SQLite 外鍵延後須有完整交易。演練的還原工作副本採「schema 全建→資料插入」及明確 `defer_foreign_keys=ON`，未停用外鍵；原始匯出不改動。產品 portable restore 仍沿既有 owner，在已建立的完整目標 schema 中以原子 batch 還原。
+- 用量：成功預查的 D1 meta **24,631 讀／0 寫**，另完整匯出實際拷貝 **9,671 列**；export 沒有獨立計費 meta，不宣稱拷貝數等於計費讀取數。當日帳號 UTC 用量 205,138 讀／7,758 寫；帳單方案未授權讀取，保守以 Free 每日 5M 讀／100K 寫估算。按真實 15／17／13 筆，正式遷移預估讀 ≤2,000／寫 ≤500（含重建、索引餘裕），**仍未執行**；本機 SQLite 量到 59 次列變更，不當作遠端 D1 計費數。
+- 來源修改：`0080`、Worker 批次重算、設備與備份升級測試、schema 驗證、`BUILD=1`、CHANGELOG／TODO／本 handoff／WO §8；無 UI 或其他模組變更。`VERSION` 與 package version 保持 0.23.0。
+- 本機 typecheck、37 項設備／備份測試、81 migration／173 產品表／12 組 schema 驗證通過；[可公開的結果摘要](evidence/WO-0.23.0-DB-20261120.json)。最新工程 CI 見 [PR #535 Checks](https://github.com/simonliu1118-byte/chihyuan-web/pull/535/checks)，沿用初次工程 CI 不能替代本輪修正驗證。
+- 2026-11-23 收尾：完整來源契約驗證與建置通過（Windows 使用 `PYTHONUTF8=1`）；新增 D1 acceptance 直接核對「部分完成」及「加入新機器後」的實體 visit 日期，不只驗證 GET 投影。公開提交前已以實際環境識別值與 OAuth 憑證比對新增文字，無命中；私有備份與資料指紋未納入 Git。
+
+### 下一階段界線
+
+1. Claude 填寫 WO §9 最終審查；本次執行者不代填通過。
+2. 使用者另行批准正式 D1／部署窗口後，重做當下預查及新備份，協調舊 Worker 與新逐台 schema 的切換；回填與新版 Worker 生效之間不要由舊服務登記維護。
+3. 交易失敗可 rollback；已提交後若要用整庫備份回復，會影響其他模組之後的異動，須另行授權並核對差異。本輪沒有執行這些正式操作。

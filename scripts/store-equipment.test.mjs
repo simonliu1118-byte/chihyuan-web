@@ -109,6 +109,7 @@ test('B can join completed A month; the visit becomes partially complete until B
    const current=ok(await f.call('/visits/'+completed.id));
    assert.equal(current.completed,false);
    assert.equal(current.completedCount,1);assert.equal(current.totalCount,2);
+   assert.equal(f.sql.prepare('SELECT completion_date FROM store_maintenance_visits WHERE id=?').get(current.id).completion_date,'2027-07-06');
    assert.equal(current.equipment.find(e=>e.id===a.id).completed,true);
    assert.equal(current.equipment.find(e=>e.id===b.id).completed,false);
    assert.equal(ok(await f.call('/month-status?customerCode=DE0001&equipmentId='+b.id)).completedMonths.includes(current.month),true);
@@ -130,8 +131,8 @@ test('search and bounded keyset pages return newest first without duplicate rows
 test('visit pages, year/open filters and bounded histories use stable cursors',async()=>{
  const f=fixture();try{const months=Array.from({length:101},(_,i)=>shiftEquipmentMonth('2026-07',i));const r=ok(await create(f,{warrantyEnd:'2035-12-31',months}));const p=ok(await f.call('/visits'));assert.equal(p.rows.length,100);const rest=ok(await f.call('/visits?before='+encodeURIComponent(p.nextBefore)));assert.equal(rest.rows.length,1);assert.equal(new Set([...p.rows,...rest.rows].map(v=>v.id)).size,101);assert.equal((await visits(f,'?year=2027')).length,12);let first=p.rows[0];ok(await complete(f,first));assert.equal((await visits(f,'?open=1')).some(v=>v.id===first.id),false);for(let i=0;i<55;i++)f.sql.prepare("INSERT INTO store_equipment_events(equipment_id,actor,at,kind,before_json,after_json,request_key,request_hash) VALUES(?,1,?,'修改出機','{}','{}',?,'x')").run(r.id,now,'history-key-'+i);const h=ok(await f.call('/'+r.id+'/history'));assert.equal(h.rows.length,50);const tail=ok(await f.call('/'+r.id+'/history?cursor='+h.nextCursor));assert.equal(tail.rows.length,6)}finally{f.sql.close()}
 });
-test('dispatches, visit dates/notes, memberships and history round-trip through portable backup',async()=>{
- const source=fixture(),target=fixture({seed:false});try{ok(await create(source));ok(await complete(source,(await visits(source))[0]));const bundle=await backup.exportPortableBackup(source.db,{workspaceScope:'synthetic',appVersion:'0.11.4'});assert.equal(JSON.parse(new TextDecoder().decode(bundle.manifestBytes)).schemaMigration,backup.CURRENT_MIGRATION);await backup.restoreIntoEmptyDatabase(target.db,bundle,'synthetic');for(const table of ['store_equipment_state','store_equipment_records','store_maintenance_visits','store_equipment_plans','store_equipment_events'])assert.deepEqual(target.sql.prepare('SELECT * FROM '+table+' ORDER BY 1,2').all(),source.sql.prepare('SELECT * FROM '+table+' ORDER BY 1,2').all());assert.deepEqual(target.sql.prepare('PRAGMA foreign_key_check').all(),[])}finally{source.sql.close();target.sql.close()}
+test('dispatches, partial visit dates/notes, memberships and history round-trip through portable backup',async()=>{
+ const source=fixture(),target=fixture({seed:false});try{const a=ok(await create(source));ok(await create(source,{model:'B'}));ok(await complete(source,(await visits(source))[0],{equipmentIds:[a.id]}));const bundle=await backup.exportPortableBackup(source.db,{workspaceScope:'synthetic',appVersion:'0.23.0'});assert.equal(JSON.parse(new TextDecoder().decode(bundle.manifestBytes)).schemaMigration,backup.CURRENT_MIGRATION);await backup.restoreIntoEmptyDatabase(target.db,bundle,'synthetic');for(const table of ['store_equipment_state','store_equipment_records','store_maintenance_visits','store_equipment_plans','store_equipment_events'])assert.deepEqual(target.sql.prepare('SELECT * FROM '+table+' ORDER BY 1,2').all(),source.sql.prepare('SELECT * FROM '+table+' ORDER BY 1,2').all());assert.deepEqual(target.sql.prepare('PRAGMA foreign_key_check').all(),[])}finally{source.sql.close();target.sql.close()}
 });
 const matrix=await compiled('shared/maintenance-matrix.ts');
 const visit=(id,month,completionDate=null)=>({id,customerCode:'DE0001',customerName:base.customerName,month,completed:!!completionDate,completionDate,note:'',version:1,equipment:[]});
@@ -188,6 +189,7 @@ test('separate actual dates and notes for one customer/month remain independent;
   const visit=(await visits(f))[0],dayA='2027-07-05',dayB='2027-07-06';
   const first=ok(await complete(f,visit,{equipmentIds:[a.id],completionDate:dayA,note:'first trip'}));
   assert.equal(first.completedCount,1);assert.equal(first.totalCount,2);assert.equal(first.completed,false);
+  assert.equal(f.sql.prepare('SELECT completion_date FROM store_maintenance_visits WHERE id=?').get(visit.id).completion_date,dayA);
   const pending=ok(await f.call('/matrix?year=2027&open=1')).rows[0].visits.find(x=>x.id===visit.id);
   assert.ok(pending);assert.equal(pending.completedCount,1);
   const second=ok(await complete(f,first,{equipmentIds:[b.id],completionDate:dayB,note:'second trip'}));
@@ -219,6 +221,7 @@ test('undo one completed machine leaves the other intact and restores partial st
   const a=ok(await create(f)),b=ok(await create(f,{model:'B'})),v=(await visits(f))[0];
   const done=ok(await complete(f,v)),part=ok(await undo(f,done,[a.id]));
   assert.equal(part.completed,false);assert.equal(part.completedCount,1);assert.equal(part.totalCount,2);
+  assert.equal(f.sql.prepare('SELECT completion_date FROM store_maintenance_visits WHERE id=?').get(v.id).completion_date,'2027-07-06');
   assert.equal(part.equipment.find(x=>x.id===a.id).completed,false);
   assert.equal(part.equipment.find(x=>x.id===b.id).completed,true);
   assert.equal((await undo(f,part,[a.id])).status,422);
@@ -293,21 +296,36 @@ test('0080 backfills completed visits into each associated machine and leaves pe
      db.prepare(`INSERT INTO store_equipment_records(id,list_sequence,customer_code,customer_name,brand,model,sale_date,quantity,warranty_start,warranty_end,machines_json,maintenance,version,created_at,created_by,updated_at,updated_by)
        VALUES(?,?,'DE0001','合成醫院','品牌','機型','2026-05-01',1,'2026-05-01','2028-04-30','[]',1,1,?,1,?,1)`).run(id,id,now,now);
    }
-   for(const [id,month,completed,date,note] of [[11,'2026-11',1,'2026-11-05','第一趟'],[12,'2027-05',0,null,'']]){
+   for(const [id,month,completed,date,note] of [[11,'2026-11',1,'2026-11-05','第一趟'],[12,'2027-05',0,null,'保留原註記'],[13,'2025-05',1,null,'歷史無日期']]){
      db.prepare(`INSERT INTO store_maintenance_visits(id,customer_code,customer_name,planned_month,completed,completion_date,note,version,created_at,created_by,updated_at,updated_by)
        VALUES(?,'DE0001','合成醫院',?,?,?,?,1,?,1,?,1)`).run(id,month,completed,date,note,now,now);
-     for(const equipment of [101,102])db.prepare("INSERT INTO store_equipment_plans(equipment_id,visit_id,active,retained,snapshot_json) VALUES(?,?,1,1,?)").run(equipment,id,JSON.stringify({id:equipment,brand:'品牌',model:'機型'}));
+     for(const equipment of [101,102])db.prepare("INSERT INTO store_equipment_plans(equipment_id,visit_id,active,retained,snapshot_json) VALUES(?,?,?,?,?)").run(equipment,id,equipment===101?1:0,equipment===102?1:0,JSON.stringify({id:equipment,brand:'品牌',model:'機型'}));
    }
+   db.prepare("INSERT INTO store_equipment_events(id,visit_id,actor,at,kind,before_json,after_json,request_key,request_hash) VALUES(7,11,1,?,'登記維護','{}','{}','old-event','old-hash')").run(now);
+   const original=Object.fromEntries(['store_maintenance_visits','store_equipment_plans','store_equipment_records','store_equipment_events'].map(t=>[t,db.prepare('SELECT * FROM '+t+' ORDER BY 1,2').all()]));
+   const originalSchema=db.prepare("SELECT sql FROM sqlite_master WHERE name='store_maintenance_visits'").get().sql;
    const migration=readFileSync('migrations/0080_store_maintenance_per_machine.sql','utf8');
-   db.exec(migration);
+   db.exec('BEGIN;'+migration);
+   assert.deepEqual(db.prepare('PRAGMA foreign_key_check').all(),[]);
+   db.exec('ROLLBACK;');
+   assert.equal(db.prepare("SELECT sql FROM sqlite_master WHERE name='store_maintenance_visits'").get().sql,originalSchema);
+   for(const [table,rows] of Object.entries(original))assert.deepEqual(db.prepare('SELECT * FROM '+table+' ORDER BY 1,2').all(),rows);
+   db.exec('BEGIN;'+migration+'COMMIT;');
    assert.deepEqual(db.prepare("SELECT completed,completion_date,note FROM store_equipment_plans WHERE visit_id=11 ORDER BY equipment_id").all().map(row=>({...row})),
      [{completed:1,completion_date:'2026-11-05',note:'第一趟'},{completed:1,completion_date:'2026-11-05',note:'第一趟'}]);
    assert.deepEqual(db.prepare("SELECT completed,completion_date FROM store_equipment_plans WHERE visit_id=12 ORDER BY equipment_id").all().map(row=>({...row})),
      [{completed:0,completion_date:null},{completed:0,completion_date:null}]);
+   assert.equal(db.prepare('SELECT note FROM store_maintenance_visits WHERE id=12').get().note,'保留原註記');
+   assert.deepEqual(db.prepare('SELECT completed,completion_date,note FROM store_equipment_plans WHERE visit_id=13').all().map(r=>({...r})),
+     [{completed:1,completion_date:null,note:'歷史無日期'},{completed:1,completion_date:null,note:'歷史無日期'}]);
+   for(const table of ['store_equipment_records','store_equipment_events'])assert.deepEqual(db.prepare('SELECT * FROM '+table+' ORDER BY 1,2').all(),original[table]);
+   db.exec("UPDATE store_equipment_plans SET completion_date='2026-11-03',note='逐台更正' WHERE visit_id=11 AND equipment_id=101");
    const before=db.prepare("SELECT * FROM store_maintenance_visits ORDER BY id").all();
+   const plansBefore=db.prepare('SELECT * FROM store_equipment_plans ORDER BY 1,2').all();
    const updateStatements=migration.slice(migration.indexOf('UPDATE store_equipment_plans'),migration.indexOf('-- Partial index'));
    db.exec(updateStatements);
    assert.deepEqual(db.prepare("SELECT * FROM store_maintenance_visits ORDER BY id").all(),before);
+   assert.deepEqual(db.prepare('SELECT * FROM store_equipment_plans ORDER BY 1,2').all(),plansBefore);
    assert.deepEqual(db.prepare("PRAGMA foreign_key_check").all(),[]);
  }finally{db.close();}
 });

@@ -1,9 +1,10 @@
 # WO-0.23.0 定期維護改為逐台登記完成
 
-- 狀態：**已實作遠端程式並建立 Draft PR #535，待 LOCAL-CYWEB Work 資料庫階段及最終驗收**（§9 由審查者填寫）。
+- 狀態：**LOCAL 預查、備份及隔離資料庫演練完成，V0.23.0 Build 1／Draft PR #535 待最終審查；正式 D1 套用及部署未授權**（§9 由審查者填寫）。
 - 分支：`cyweb/v0.23.0-maintenance-per-machine`（由 main V0.22.1、migration 0079 開出；本工作單已在此分支）。
 - 版號：V0.23.0；migration 0080。
 - 授權沿革：原工作單記載使用者 2026-11-19 同意由執行者實作並合併／部署；**本次較新的明確指示**為「做完所有遠端能做的、寫文件、再由使用者轉交 LOCAL-CYWEB Work 處理資料庫部分」，因此本輪**不合併、不部署、不操作正式 D1**，資料庫完成及部署另待使用者及 LOCAL Work。
+- LOCAL 接續授權：使用者另行授權正式 D1 唯讀預查、原生備份與隔離演練；本節所稱「不操作正式 D1」的遠端階段限制不排除此明確授權的唯讀工作。正式 SQL 寫入／migration、合併與部署仍未授權。
 - 開工前必讀：`PROJECT_RULES.md`、`REPO_POLICY.md`（含 §6 部署維運）；現況程式 `worker/http/store-equipment-routes.ts`、`shared/store-equipment.ts`、`src/runtime/modules/StoreMaintenanceMatrix.tsx`、`StoreEquipment.tsx`、`StoreOperationHistory.tsx`、`change-log-labels.ts`；schema `migrations/0051_store_equipment_maintenance.sql`、`0052`；測試 `scripts/store-equipment.test.mjs`。
 
 ## 1. 背景（使用者回報，2026-11-19）
@@ -122,7 +123,7 @@
 - `scripts/store-equipment.test.mjs`、`scripts/validate_schema.py`、`worker/acceptance/equipment-acceptance.ts` 與 `scripts/visual/wo0230-capture.mjs`：逐台維護、月數、製造日期、本地 D1、1440／390 視覺情境。
 - 同分支 `CHANGELOG.md`、`TODO.md`、`VERSION`、`package.json` 已更新。
 
-### 尚未交付及已知偏差
+### 遠端初次交付狀態（後續以本節 LOCAL 報告為準）
 
 - **正式 D1 migration、備份、資料量預估、真實回填筆數、完整性／還原驗證、正式站截圖與部署皆未執行**；必須由 LOCAL-CYWEB Work 依本交接文件處理，不能以合成 CI 測試結果代替。
 - **舊 visit CHECK 限制：** `store_maintenance_visits` 原 schema 要求 `completed=0` 時 `completion_date IS NULL`。部分完成情境無法同時在該舊欄位保存最晚完成日。遠端先將真實日期保存在 per-machine plans，並由 GET 投影最晚日期；舊欄位部分完成時保持 NULL。**這與 §2.1 要求的實體 visit cache 尚有偏差，列為 LOCAL Work 的資料庫 schema 決策／修改與驗證項目**，不得宣稱完全驗收。
@@ -130,11 +131,38 @@
 - `CY Web Deploy` workflow 名稱不代表已部署：本 PR 的正式部署 job 依 repo 策略 skipped；沒有執行環境變更。
 - **LOCAL Work 詳細操作清單與唯讀 SQL：** [`docs/handoff/CYWEB-WO-0230-MAINTENANCE-LOCAL-20261119.md`](../../handoff/CYWEB-WO-0230-MAINTENANCE-LOCAL-20261119.md)；留待執行者補實際筆數、遷移／回復驗證、截圖與 log、更新本 §8。Claude 審查欄位 §9 仍保持待審。
 
-### 待 LOCAL Work
+### LOCAL 資料庫完成報告（GPT，2026-11-20，Build 1）
 
-1. 正式 D1 前先備份、盤點已完成月份與 retained／active plans，估算回填與檢查成本。
-2. 在隔離資料庫核對舊 visit CHECK 與新的最晚日期要求，提出安全 schema 改動或等效方案；不得在正式資料庫直接硬改 schema。
-3. 在確認新的使用者授權與服務切換順序後才套用 migration 0080，核對前後筆數、外鍵、復原／備份與真實業務範例。
-4. 將真實驗證回填本節，重新跑 GitHub CI，交 Claude 審查；不自動合併與部署。
+本輪使用者授權為「預查、備份與隔離演練」，**正式 D1 SQL 寫入 0；未套用 0080、未合併、未部署**。
+
+| 項目 | 正式備份／隔離實際結果 |
+| --- | --- |
+| 正式基準 | 網域對應 Worker 版本 0.22.1；ledger 最新 0079，plans 尚無完成欄；實際 visit 舊 CHECK 與 0051 相符 |
+| 出機／月份／關聯／事件 | 7／15／17／27，遷移後四表筆數完全相同 |
+| 歷史完成 | 11 個完成月份；active 或 retained 理論回填 13 筆，隔離實際回填 13 筆；未完成的 4 筆 plan 保持未完成 |
+| 無日期／孤立完成月份 | 本次正式快照皆 0；合成測試另覆蓋歷史無日期，不猜填日期 |
+| 完整備份 | 原生 D1 唯讀匯出 3,654,039 bytes，雜湊私存並回讀核對；174 張表（含 migration ledger）、9,671 列 |
+| 私有正式副本驗證 | 原備份還原、0080 交易回復演練、正式形狀回填、重跑回填、遷移後再匯出／還原均通過 |
+| 遷移前後總列數 | 9,671 → 9,672，唯一增加為隔離 migration ledger 的 0080；其他業務表全欄逐表資料指紋相同，plans 原欄逐值相同 |
+| 日期／備註／機器／歷史 | 13 筆回填日期與備註逐值符合來源月份；15 筆 visit 原值、7 筆機身 JSON 與 27 筆事件均保留 |
+| 外鍵／完整性 | 預查及各隔離階段 `foreign_key_check` 均空集合，`integrity_check=ok` |
+| 本機 D1 引擎 | 完整 0079→0080、3 筆合成歷史回填、遷移前後 SQL 備份各還原至獨立 D1；174 張表資料指紋完全相同、外鍵 0 異常；部分完成實體日期可寫入 |
+
+**舊 CHECK 已在來源修正：** 0080 在單一 migration transaction 延後外鍵，暫存原 visit 列、重建原表名、再插回原 ID 與欄位，移除 visit 的「未完成必須 NULL 日期」限制，保留 plan 的該限制與所有業務關聯。從原表名插回資料可正確解除 SQLite 的 deferred FK 計數；沒有使用 `foreign_keys=OFF`、`writable_schema` 或丟棄 FK 違反計數。Worker 原批次重算現在直接保存所有已完成 plan 的最晚日期，已取消「部分完成暫存 NULL」過渡行為。
+
+**回填與備份修正：** 回填只填 `p.completed=0` 的舊完成成員，不覆蓋已有逐台日期／備註；pending visit 原註記不因遷移被清空。DDL 仍由 migration ledger 保證只套用一次，「冪等」指資料回填 body，不能將整份 ADD COLUMN／重建 DDL 重跑。0079 可攜備份升級與 0080 部分完成備份還原均有自動測試。
+
+**用量：** 成功唯讀查詢的 D1 `meta` 合計讀取 **24,631 列、寫入 0 列**；另完整備份實際拷貝 **9,671 列**（原生 export 未提供獨立 `rows_read` 計費數字，不把拷貝數冒充計費值）。查得帳號當日 UTC 2026-11-19 已用 205,138 讀／7,758 寫；無帳單權確認目前方案，因此保守對照 Free 5,000,000 讀／100,000 寫每日額度，遠低於上限。表總數以每批最多 25 個獨立 COUNT 查詢讀取；沒有無界重試或逐筆遠端核對。正式 migration 尚未執行；依 15 visits／17 plans／13 回填保守估算讀 ≤2,000、寫 ≤500 列（含表重建與索引餘裕），正式階段須以 D1 meta 再記錄。隔離 SQLite 量得 59 次列變更，不能視為正式 D1 DDL／索引計費量。
+
+**還原操作注意：** 保留未改動的原始匯出；匯入工作副本採「所有表 schema 先建立，再插入資料」，且整批交易明確 `defer_foreign_keys=ON`。不照搬 dump 中的停用外鍵 pragma。此為本次隔離演練操作，沒有改動正式備份排程或產品還原 authority。
+
+**驗證證據：** [去識別化結果摘要](../../handoff/evidence/WO-0.23.0-DB-20261120.json)；本輪本機 `npm run typecheck`、37 項設備／歷史備份測試及 `validate_schema.py`（81 份 migration、173 張產品表、12 組）通過。本機 D1 完成 24 個操作。2026-11-23 收尾再確認完整 `npm run validate:source`、`npm run build` 通過；Windows 執行使用 `PYTHONUTF8=1`。最新遠端檢查以 [PR #535 Checks](https://github.com/simonliu1118-byte/chihyuan-web/pull/535/checks) 的新提交為準，不以初次遠端交付的舊 CI 代替。
+
+### 留待另行授權的正式階段
+
+1. Claude 對照本輪 handoff、來源與最新 CI 審查；§9 留給審查者，不由執行者代填通過。
+2. 使用者明確批准正式窗口後，重新盤點並備份；本次是快照證據，不能假定正式資料永遠不再變動。
+3. 協調設備／維護寫入窗口與新版 Worker 切換。避免舊版服務在新 schema 回填後繼續只改 visit，而沒有同步逐台狀態。
+4. 才可透過受控流程套用 0080、部署及正式站驗收。Migration 交易失敗可回復；整庫備份還原會影響其他模組的後續異動，必須另經授權及差異核對，不自動操作。
 
 ## 9. 審查紀錄（審查者填）
