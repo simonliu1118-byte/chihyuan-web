@@ -4,6 +4,7 @@
 
 - 已登入 CY Web 時按「前往」（或剛登入後自動前往）出現「此要求不是從 CY Web 發出，已拒絕」。原因：`/sso` 頁面使用 `Referrer-Policy: no-referrer`，瀏覽器送出該頁表單時 `Origin` 為 `null`，原檢查要求 Origin 等於本站。改為：明確的外站 Origin 一律拒絕；有 Fetch Metadata 時須為 `same-origin`；沒有時 Origin 須等於本站；綁定 Session 的 CSRF token 仍必須正確。新增對應測試。
 - 部署後稽核：比對 Cloudflare 讀取結果時忽略 D1 的即時用量欄位（`file_size`、`num_tables`、`running_in_region`）；使用者登入造成資料庫大小變動不再被誤判為資源漂移（V0.24.2 部署時發生）。真正的設定變動仍會被擋下。
+- 部署後稽核：健康檢查的比對不含 `version`／`sourceCommit`（部署後數秒內邊緣節點會新舊版本並存，造成誤判；版本已由 verify-deployed-health 核對）；漂移時另列出變動的資源類型與欄位名（不含值）。
 
 ## CY Web V0.24.1 — 系統與安全版面（2026-11-23）
 

@@ -159,3 +159,12 @@ test("production identity name is accepted directly without reading a developmen
   options.env.CF_IDENTITY_SERVICE=f.state.prod;options.env.CYID_LOOKUP_SERVICE=f.state.prod;
   assert.equal((await resolveCyWebProductionIdentity(options)).CF_IDENTITY_SERVICE,f.state.prod);
 });
+
+test("health flapping between old and new builds right after a deploy is not identity drift",async()=>{
+  const f=fixture();let n=0;const base=f.options.fetchImpl;
+  f.options.fetchImpl=async(url,init)=>{
+    if(new URL(url).hostname==="portal.example.test"&&n++<2){const r=await base(url,init);const b=await r.json();return Response.json({...b,data:{...b.data,sourceCommit:"0".repeat(40)}});}
+    return base(url,init);
+  };
+  await auditAccountPortal(f.options);
+});
