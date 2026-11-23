@@ -542,6 +542,7 @@ def main() -> int:
         validate_retired_identity_migration,
         validate_ordering_receipt_d1_pattern_limit,
         validate_home_hub_data_and_grants,
+        validate_maintenance_per_machine,
     ]
     for check in checks:
         check(schema)
@@ -554,6 +555,21 @@ def main() -> int:
     )
     return 0
 
+
+
+def validate_maintenance_per_machine(schema: str) -> None:
+    conn = new_db(schema)
+    cols = {row[1] for row in conn.execute("PRAGMA table_info(store_equipment_plans)")}
+    assert {"completed", "completion_date", "note"}.issubset(cols)
+    indexes = {row[1] for row in conn.execute("PRAGMA index_list(store_equipment_plans)")}
+    assert "idx_equipment_plan_completion_date" in indexes
+    sql = conn.execute("SELECT sql FROM sqlite_master WHERE type='table' AND name='store_equipment_plans'").fetchone()[0]
+    assert "completed IN (0,1)" in sql or "completed IN(0,1)" in sql
+    assert "completed=1 OR completion_date IS NULL" in sql
+    visit_sql = conn.execute("SELECT sql FROM sqlite_master WHERE type='table' AND name='store_maintenance_visits'").fetchone()[0]
+    assert "completed=1 OR completion_date IS NULL" not in visit_sql
+    assert conn.execute("PRAGMA foreign_key_check").fetchall() == []
+    conn.close()
 
 if __name__ == "__main__":
     try:

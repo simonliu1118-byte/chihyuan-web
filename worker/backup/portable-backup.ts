@@ -9,7 +9,7 @@ export const BACKUP_TABLES = Object.keys(BACKUP_COLUMNS).sort();
  * The latest migration in migrations/ (file name without .sql). Bump it with every migration; a test
  * keeps it in step. A backup records it, and a restore maps its data by table and column name.
  */
-export const CURRENT_MIGRATION = "0079_bot_decisions_sessions";
+export const CURRENT_MIGRATION = "0080_store_maintenance_per_machine";
 /**
  * Only for a migration that changes what existing data means (moves, renames, drops or recomputes
  * values). New tables, new columns with a default, new indexes and wider checks need nothing here:
@@ -114,7 +114,28 @@ const UPGRADES: { migration: string; apply: (data: Data) => void }[] = [
       const id=get(items,item,"id");rows.push([rows.length+1,get(drafts,draft,"bot_id"),"legacy-item-"+id,"",get(drafts,draft,"kind"),get(items,item,"title"),get(items,item,"body"),at,"","","cyweb","",get(drafts,draft,"id"),id,null]);
     }
     data.tables.bot_deliveries={columns,rows};
-  }}
+  }},
+  // Historic portable backups use completed visits, not per-machine completion.
+  // Upgrade data by table+column names before restoring to the 0080 schema.
+  { migration: "0080_store_maintenance_per_machine", apply: data => {
+    const visits=data.tables.store_maintenance_visits, plans=data.tables.store_equipment_plans;
+    if(!visits||!plans)return;
+    const col=(table:{columns:string[]},name:string)=>table.columns.indexOf(name);
+    const vId=col(visits,"id"),vDone=col(visits,"completed"),
+      vDate=col(visits,"completion_date"),vNote=col(visits,"note"),
+      pVisit=col(plans,"visit_id"),pActive=col(plans,"active"),pRetained=col(plans,"retained");
+    if([vId,vDone,vDate,vNote,pVisit,pActive].some(x=>x<0))return;
+    const previous=new Map(visits.rows.map(row=>[String(row[vId]),row]));
+    for(const field of ["completed","completion_date","note"]){
+      if(!plans.columns.includes(field)){plans.columns.push(field);plans.rows.forEach(row=>row.push(field==="completed"?0:field==="note"?"":null));}
+    }
+    const pCompleted=col(plans,"completed"),pDate=col(plans,"completion_date"),pNote=col(plans,"note");
+    for(const row of plans.rows){
+      const visit=previous.get(String(row[pVisit]));
+      if(!visit||Number(visit[vDone])!==1||Number(row[pActive])!==1&&!(pRetained>=0&&Number(row[pRetained])===1))continue;
+      row[pCompleted]=1;row[pDate]=visit[vDate];row[pNote]=visit[vNote];
+    }
+  } },
 ];
 // Operational queue, heartbeat and revocable credential hashes are intentionally
 // excluded from durable backup (also the ERP 關閉／暫停 request and BOT ingest token).

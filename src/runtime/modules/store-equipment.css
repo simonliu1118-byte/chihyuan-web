@@ -30,7 +30,7 @@
 .cy-equipment-warranty-period{display:flex;align-items:center;gap:5px;min-width:0}
 .cy-equipment-warranty-period>.cy-f-cell{flex:1;min-width:0}
 .cy-equipment-warranty-period .cy-date-input{width:100%;max-width:none}
-.cy-equipment-entry .cy-date-input[data-precision=month]{width:100%;max-width:210px}
+.cy-equipment-entry .cy-date-input[data-precision=month-or-day]{width:100%;max-width:210px}
 .cy-equipment-months th,.cy-equipment-months td{text-align:center}
 .cy-equipment-months th{color:var(--cy-text)}
 .cy-equipment-months .cy-f-check{display:inline-flex;justify-content:center;padding:3px}
@@ -82,3 +82,25 @@
  .cy-store-equipment .cy-equipment-detail .cy-entry-table td::before{display:none}
  .cy-equipment-detail>td{overflow-x:auto}
 }
+
+/* WO-0.23: shared-entry-table machine dialog, responsive without duplicated UI. */
+.cy-store-maintenance .cy-matrix-month>.cy-matrix-machine-popover{
+ width:min(770px,calc(100vw - 28px));max-width:min(770px,calc(100vw - 28px));
+ max-height:min(75vh,680px);overflow-y:auto;overflow-x:auto;
+}
+.cy-matrix-machine-popover .cy-maintenance-machines{min-width:600px;width:100%;table-layout:auto}
+.cy-matrix-machine-popover .cy-maintenance-machines td{vertical-align:middle}
+.cy-matrix-machine-popover .cy-matrix-visit-heading{font-weight:600;margin-bottom:8px}
+.cy-matrix-machine-fields{display:flex;gap:8px;align-items:end;flex-wrap:wrap;margin-top:8px}
+.cy-matrix-machine-fields .cy-f-cell{min-width:190px;flex:1}
+.cy-matrix-partial{font:inherit;font-weight:700;border:1px solid var(--cy-warning);
+ border-radius:var(--cy-radius-sm,4px);padding:2px 3px;min-width:30px;
+ color:var(--cy-warning);background:var(--cy-warning-soft);cursor:pointer}
+.cy-matrix-partial:hover{filter:brightness(.97)}
+@media(max-width:820px){
+ .cy-store-maintenance .cy-matrix-month>.cy-matrix-machine-popover{width:calc(100vw - 28px);max-width:calc(100vw - 28px)}
+ .cy-matrix-machine-popover .cy-maintenance-machines{min-width:600px}
+ .cy-matrix-machine-fields{display:block}
+}
+
+.cy-equipment-other-completed{margin:6px 0;color:var(--cy-text-muted);font-size:var(--cy-fs-xs)}

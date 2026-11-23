@@ -1,0 +1,91 @@
+{
+  "workOrder": "WO-0.23.0",
+  "version": "0.23.0",
+  "build": 1,
+  "evidenceDateTaipei": "2026-11-20",
+  "scope": "Preflight, native read-only export and isolated rehearsal only. No production D1 migration, merge or deployment.",
+  "productionVersion": "0.22.1",
+  "productionMigration": "0079_bot_decisions_sessions.sql",
+  "productionTableCounts": {
+    "equipment": 7,
+    "visits": 15,
+    "plans": 17,
+    "events": 27
+  },
+  "completedVisits": 11,
+  "expectedBackfill": 13,
+  "isolatedActualBackfill": 13,
+  "backup": {
+    "bytes": 3654039,
+    "tableCount": 174,
+    "totalRows": 9671,
+    "checksumVerifiedLocally": true,
+    "contentsAndDataFingerprintsNotPublished": true
+  },
+  "privateCopyRehearsal": {
+    "postTotalRows": 9672,
+    "onlyExtraRow": "isolated d1_migrations 0080 ledger",
+    "allOtherBusinessTablesUnchanged": true,
+    "legacyPlanColumnsUnchanged": true,
+    "exactDatesAndNotesPreserved": true,
+    "machineJsonAndEventsPreserved": true,
+    "rollbackVerified": true,
+    "backfillReplayVerified": true,
+    "preBackupRestored": true,
+    "postBackupRestored": true,
+    "foreignKeyViolations": 0,
+    "integrityCheck": "ok",
+    "sqliteChangedRowsExcludingDDL": 59
+  },
+  "localD1SyntheticRehearsal": {
+    "expectedBackfill": 3,
+    "actualBackfill": 3,
+    "preRestore": {
+      "tableCount": 174,
+      "rows": 163,
+      "allTableDigestsEqual": true,
+      "foreignKeyViolations": 0
+    },
+    "postRestore": {
+      "tableCount": 174,
+      "rows": 164,
+      "allTableDigestsEqual": true,
+      "foreignKeyViolations": 0
+    },
+    "partialCachePreserved": true,
+    "localCommands": 24
+  },
+  "usage": {
+    "successfulRemoteQueryRowsRead": 24631,
+    "remoteRowsWritten": 0,
+    "exportRowsCopied": 9671,
+    "exportBillingRowsRead": "Native export did not report a separate rows_read value",
+    "estimatedFutureMigrationMaxRowsRead": 2000,
+    "estimatedFutureMigrationMaxRowsWritten": 500,
+    "estimateIncludesRebuildAndIndexMargin": true
+  },
+  "checks": {
+    "codeCommit": "e2c1e41e737a20d4819790505772e3f2a12e3b6c",
+    "runtimeRun": "https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/45100302654",
+    "runtimeConclusion": "success",
+    "linuxFullNodeAndLocalD1": "passed",
+    "governanceConclusion": "success",
+    "visualConclusion": "success",
+    "deploymentContractConclusion": "success; deployment skipped",
+    "sourceContracts": "passed",
+    "build": "passed",
+    "finalLocalCheckDateTaipei": "2026-11-23",
+    "fullLocalD1BusinessChecks": 20,
+    "fullLocalD1BusinessResult": "passed",
+    "fullLocalD1ProcessExit": 1,
+    "fullLocalD1CleanupLimitation": "Windows WinError 32 while removing Miniflare cache metadata.sqlite after successful acceptance; Linux CI checked separately",
+    "typecheck": "passed",
+    "targetedNodeTests": 37,
+    "schemaMigrationFiles": 81,
+    "productTables": 173,
+    "schemaValidationGroups": 12
+  },
+  "migrationSourceSha256": "80e3c41d240b8cd260540a3d63122a820be5ea8394fdc3d21bdd90c7d5d6bca8",
+  "migrationWorkingCopySha256": "5d8429eda47800b88b853422e7be9a9e4cd132564e076369af4d056f2265a5d8",
+  "migrationSourceHashEncoding": "Git blob uses LF. Windows working copy uses CRLF; LF-normalized working copy exactly matches the committed blob and the SQL read by the offline rehearsal."
+}

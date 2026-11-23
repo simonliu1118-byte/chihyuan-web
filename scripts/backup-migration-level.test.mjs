@@ -21,6 +21,28 @@ function edited(bundle,edit){const manifest=JSON.parse(Buffer.from(bundle.manife
  const dataBytes=Buffer.from(JSON.stringify(data));manifest.dataSha256=sha(dataBytes);manifest.dataByteLength=dataBytes.length;return {manifestBytes:Buffer.from(JSON.stringify(manifest)),dataBytes}}
 const dropColumn=(table,column)=>{const i=table.columns.indexOf(column);table.columns.splice(i,1);table.rows.forEach(r=>r.splice(i,1))};
 
+test('a 0079 backup restores active and retained completions without inventing legacy dates or losing notes',async()=>{
+ const source=connection(),target=connection();try{
+  seed(source.sql);
+  for(const id of [101,102])source.sql.prepare(`INSERT INTO store_equipment_records(id,list_sequence,customer_code,customer_name,brand,model,sale_date,quantity,machines_json,maintenance,created_at,created_by,updated_at,updated_by)
+   VALUES(?,?,'SYNTHETIC','合成醫院','合成品牌','合成型號','2025-01-01',1,'[{"serialNo":"SYNTHETIC","manufacturedMonth":"2024-07","assetNumber":"SYNTHETIC"}]',1,?,1,?,1)`).run(id,id,now,now);
+  for(const [id,month,done,date,note] of [[11,'2025-02',1,'2025-02-05','舊完成備註'],[12,'2025-08',1,null,'歷史無日期'],[13,'2026-02',0,null,'保留未完成備註']]){
+   source.sql.prepare(`INSERT INTO store_maintenance_visits(id,customer_code,customer_name,planned_month,completed,completion_date,note,created_at,created_by,updated_at,updated_by)
+    VALUES(?,'SYNTHETIC','合成醫院',?,?,?,?,?,1,?,1)`).run(id,month,done,date,note,now,now);
+   for(const eq of [101,102])source.sql.prepare("INSERT INTO store_equipment_plans(equipment_id,visit_id,active,retained,snapshot_json) VALUES(?,?,?,?,?)").run(eq,id,eq===101?1:0,eq===102?1:0,JSON.stringify({id:eq,model:'合成型號'}));
+  }
+  const older=edited(await exportPortableBackup(source.db,scope),(d,m)=>{m.schemaMigration=migrations.filter(f=>f<'0080').at(-1).replace(/\.sql$/,'');
+   for(const field of ['completed','completion_date','note'])dropColumn(d.tables.store_equipment_plans,field)});
+  await verifyPortableBackup(older,'synthetic');await restoreIntoEmptyDatabase(target.db,older,'synthetic');
+  assert.equal(target.sql.prepare('SELECT COUNT(*) n FROM store_equipment_plans WHERE completed=1').get().n,4);
+  assert.equal(target.sql.prepare('SELECT COUNT(*) n FROM store_equipment_plans WHERE completed=1 AND completion_date IS NULL').get().n,2);
+  assert.equal(target.sql.prepare('SELECT COUNT(*) n FROM store_equipment_plans WHERE visit_id=13 AND completed=0').get().n,2);
+  for(const t of ['store_equipment_records','store_maintenance_visits'])assert.deepEqual(target.sql.prepare('SELECT * FROM '+t+' ORDER BY id').all(),source.sql.prepare('SELECT * FROM '+t+' ORDER BY id').all());
+  assert.deepEqual(target.sql.prepare('SELECT DISTINCT note FROM store_equipment_plans WHERE visit_id=11').all().map(r=>r.note),['舊完成備註']);
+  assert.deepEqual(target.sql.prepare('PRAGMA foreign_key_check').all(),[]);
+ }finally{source.sql.close();target.sql.close()}
+});
+
 test('CURRENT_MIGRATION is the last migration file, and a new backup records it',async()=>{
  assert.equal(CURRENT_MIGRATION+'.sql',migrations.at(-1),'bump CURRENT_MIGRATION in worker/backup/portable-backup.ts with every migration');
  const f=connection();try{const manifest=JSON.parse(Buffer.from((await exportPortableBackup(f.db,scope)).manifestBytes));

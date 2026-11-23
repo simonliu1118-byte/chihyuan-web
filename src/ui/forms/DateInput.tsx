@@ -2,21 +2,22 @@ import {useEffect,useId,useLayoutEffect,useRef,useState,type InputHTMLAttributes
 import {dateValue,monthDays,parseDateInput,parseMonthInput,shiftDate,shiftMonthInput,taipeiToday,dateInputDisplay,monthInputDisplay} from "../../../shared/date-input";
 import {digitsOnly,digitOffset,digitCaret,deleteDigit} from "../../../shared/digit-input";
 import "./date-input.css";
-type Props=Omit<InputHTMLAttributes<HTMLInputElement>,"type"|"value"|"onChange"|"min"|"max">&{value:string;onChange:(iso:string)=>void;min?:string;max?:string;density?:"compact"|"regular";precision?:"day"|"month"};
+type Props=Omit<InputHTMLAttributes<HTMLInputElement>,"type"|"value"|"onChange"|"min"|"max">&{value:string;onChange:(iso:string)=>void;min?:string;max?:string;density?:"compact"|"regular";precision?:"day"|"month"|"month-or-day"};
 /** CYACCWEB interaction model, adapted to CYWEB controlled fields, bounds and keyboard flow. */
 export function DateInput({value,onChange,min="0001-01-01",max="9999-12-31",disabled,required,className="",density="compact",precision="day",...props}:Props){
- const monthOnly=precision==="month";
+ const monthOnly=precision==="month",dual=precision==="month-or-day";
+ const parse=(raw:string)=>dual?(digitsOnly(raw).length<=6?parseMonthInput(raw):parseDateInput(raw)):monthOnly?parseMonthInput(raw):parseDateInput(raw);
  const [draft,setDraft]=useState(value.replaceAll("-","/")),[open,setOpen]=useState(false),[view,setView]=useState<"days"|"months"|"years">("days");
  const [month,setMonth]=useState((value||taipeiToday()).slice(0,7)),[yearStart,setYearStart]=useState(2020);
  const root=useRef<HTMLDivElement>(null),field=useRef<HTMLInputElement>(null),trigger=useRef<HTMLButtonElement>(null),panel=useRef<HTMLDivElement>(null),id=useId(),typing=useRef(false);
- const y=Number(month.slice(0,4)),m=Number(month.slice(5)),selected=monthOnly?parseMonthInput(value):parseDateInput(value),today=taipeiToday(),todayValue=monthOnly?today.slice(0,7):today;
+ const y=Number(month.slice(0,4)),m=Number(month.slice(5)),selected=parse(value),today=taipeiToday(),todayValue=monthOnly?today.slice(0,7):today;
  const caret=useRef<number|null>(null),[invalidShown,setInvalidShown]=useState(false);
  const allowed=(iso:string)=>!!iso&&iso>=min.slice(0,iso.length)&&iso<=max.slice(0,iso.length);
- function validity(text:string){const iso=monthOnly?parseMonthInput(text):parseDateInput(text);return text&&!iso?(monthOnly?"請輸入有效年月（YYYY/MM）":"請輸入有效日期（YYYY/MM/DD、四碼月日或八碼日期）"):iso&&!allowed(iso)?"日期超出允許範圍":""}
+ function validity(text:string){const iso=parse(text);return text&&!iso?(monthOnly?"請輸入有效年月（YYYY/MM）":"請輸入有效日期（YYYY/MM/DD、四碼月日或八碼日期）"):iso&&!allowed(iso)?"日期超出允許範圍":""}
  useEffect(()=>{if(!typing.current)setDraft(value.replaceAll("-","/"))},[value]);
  useLayoutEffect(()=>{field.current?.setCustomValidity(disabled?"":validity(draft))},[draft,min,max,disabled,monthOnly]);
  useLayoutEffect(()=>{if(caret.current!==null&&field.current){const at=digitCaret(draft,caret.current);field.current.setSelectionRange(at,at);caret.current=null}},[draft]);
- function edit(digits:string,position:number,expand=true){const text=monthOnly?monthInputDisplay(digits.slice(0,6)):dateInputDisplay(digits.slice(0,8),expand),iso=monthOnly?parseMonthInput(text):parseDateInput(text);typing.current=true;caret.current=position+(!monthOnly&&digits.length===4&&text.length===10?4:0);setDraft(text);onChange(allowed(iso)?iso:"")}
+ function edit(digits:string,position:number,expand=true){const asMonth=monthOnly||dual&&digits.length<=6;const text=asMonth?monthInputDisplay(digits.slice(0,6)):dateInputDisplay(digits.slice(0,8),expand),iso=parse(text);typing.current=true;caret.current=position+(!asMonth&&digits.length===4&&text.length===10?4:0);setDraft(text);onChange(allowed(iso)?iso:"")}
  function close(focus=false){setOpen(false);if(focus)field.current?.focus()}
  function choose(iso:string){if(!allowed(iso))return;typing.current=false;setDraft(iso.replaceAll("-","/"));onChange(iso);close(true)}
  function show(){const current=allowed(selected)?selected:todayValue<min.slice(0,todayValue.length)?min:todayValue>max.slice(0,todayValue.length)?max:todayValue;setMonth(current.slice(0,7));setYearStart(Math.max(1,Math.min(9988,Number(current.slice(0,4))-5)));setView(monthOnly?"months":"days");setOpen(true)}
@@ -40,8 +41,8 @@ export function DateInput({value,onChange,min="0001-01-01",max="9999-12-31",disa
    onCopy={e=>{const start=e.currentTarget.selectionStart??0,end=e.currentTarget.selectionEnd??0;if(start!==end){e.clipboardData.setData("text/plain",digitsOnly(e.currentTarget.value.slice(start,end)));e.preventDefault()}}}
    onCut={e=>{const node=e.currentTarget,start=node.selectionStart??0,end=node.selectionEnd??0;if(start===end)return;e.clipboardData.setData("text/plain",digitsOnly(node.value.slice(start,end)));e.preventDefault();const next=deleteDigit(node.value,start,end,false);edit(next.value,next.caret,false)}}
    onInvalid={e=>{e.preventDefault();setInvalidShown(true);props.onInvalid?.(e)}}
-   onBlur={e=>{typing.current=false;setInvalidShown(true);const iso=monthOnly?parseMonthInput(draft):parseDateInput(draft);if(allowed(iso))setDraft(iso.replaceAll("-","/"));props.onBlur?.(e)}}
-   onKeyDown={e=>{props.onKeyDown?.(e);if(e.defaultPrevented||e.nativeEvent.isComposing)return;if(!e.ctrlKey&&!e.metaKey&&!e.altKey&&["Backspace","Delete"].includes(e.key)){e.preventDefault();const node=e.currentTarget,next=deleteDigit(node.value,node.selectionStart??0,node.selectionEnd??0,e.key==="Backspace");edit(next.value,next.caret,false);return}if(e.ctrlKey&&!e.altKey&&!e.metaKey&&!e.shiftKey&&["ArrowUp","ArrowDown"].includes(e.key)){e.preventDefault();const current=monthOnly?parseMonthInput(draft):parseDateInput(draft);if(current)choose(monthOnly?shiftMonthInput(current,e.key==="ArrowUp"?1:-1):shiftDate(current,e.key==="ArrowUp"?1:-1))}if(e.key==="Enter"&&!e.ctrlKey&&!e.metaKey){const error=validity(draft);if(error||required&&!draft){e.preventDefault();e.stopPropagation();setInvalidShown(true)}}}}/>
+   onBlur={e=>{typing.current=false;setInvalidShown(true);const iso=parse(draft);if(allowed(iso))setDraft(iso.replaceAll("-","/"));props.onBlur?.(e)}}
+   onKeyDown={e=>{props.onKeyDown?.(e);if(e.defaultPrevented||e.nativeEvent.isComposing)return;if(!e.ctrlKey&&!e.metaKey&&!e.altKey&&["Backspace","Delete"].includes(e.key)){e.preventDefault();const node=e.currentTarget,next=deleteDigit(node.value,node.selectionStart??0,node.selectionEnd??0,e.key==="Backspace");edit(next.value,next.caret,false);return}if(e.ctrlKey&&!e.altKey&&!e.metaKey&&!e.shiftKey&&["ArrowUp","ArrowDown"].includes(e.key)){e.preventDefault();const current=parse(draft);if(current)choose(monthOnly||dual&&current.length===7?shiftMonthInput(current,e.key==="ArrowUp"?1:-1):shiftDate(current,e.key==="ArrowUp"?1:-1))}if(e.key==="Enter"&&!e.ctrlKey&&!e.metaKey){const error=validity(draft);if(error||required&&!draft){e.preventDefault();e.stopPropagation();setInvalidShown(true)}}}}/>
   <button type="button" ref={trigger} className="cy-date-trigger" disabled={disabled} aria-label={monthOnly?"開啟年月選擇器":"開啟日期選擇器"} aria-haspopup="dialog" aria-controls={id} aria-expanded={open} onClick={()=>open?close():show()}>
    <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 3v4M17 3v4M3 10h18"/></svg>
   </button>

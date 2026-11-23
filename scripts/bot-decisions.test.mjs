@@ -219,7 +219,7 @@ test('migration 0079: backup carries the decision table and the new columns; old
  const compiled=await build({entryPoints:['worker/backup/portable-backup.ts'],bundle:true,write:false,platform:'node',format:'esm'});
  const backup=await import('data:text/javascript;base64,'+Buffer.from(compiled.outputFiles[0].text).toString('base64'));
  const f=await setup(t),target=fixture('SUPER_ADMIN',false,{seedMember:false}),older=fixture('SUPER_ADMIN',false,{seedMember:false});t.after(()=>{target.sql.close();older.sql.close()});
- assert.equal(backup.CURRENT_MIGRATION,'0079_bot_decisions_sessions');
+ assert.equal(backup.CURRENT_MIGRATION,'0080_store_maintenance_per_machine');
  ok(await noon(f));await patrolDraft(f,'bk-1',1,'noon');ok(await noon(f,{completed:true}));
  const d=await f.decide({deadline:future(),amount:12345},'bk-d');ok(await f.call(`/api/bot-center/drafts/${d.id}/review`,'POST',{decision:'approved',choice:1}));
  const saved=await backup.exportPortableBackup(f.db,{workspaceScope:'synthetic',appVersion:'0.22.0'});
