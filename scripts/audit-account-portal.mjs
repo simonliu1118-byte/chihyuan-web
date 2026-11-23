@@ -38,7 +38,8 @@ export async function inspectAccountPortal({ accountId, apiToken, configuredIden
     const snapshot = target.origin === "https://api.cloudflare.com" ? stable(payload?.result) : {
       ok: payload?.ok, service: payload?.data?.service, database: payload?.data?.database,
       identityConsumerVersion: payload?.data?.identityConsumerVersion,
-      version: payload?.data?.version, sourceCommit: payload?.data?.sourceCommit,
+      // version/sourceCommit are left out: right after a deploy the edge briefly serves old and new
+      // builds side by side. Deployed provenance is verified by verify-deployed-health before this audit.
     };
     const fingerprint = JSON.stringify(snapshot);
     if (observations.has(target.href) && observations.get(target.href) !== fingerprint) {
