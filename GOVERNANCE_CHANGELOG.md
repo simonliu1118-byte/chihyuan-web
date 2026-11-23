@@ -1,5 +1,10 @@
 # CY Web Governance Changelog
 
+## 1.1.33 — 2026/11/23
+
+- 同步 CYID 契約鏡像 `docs/contracts/cyid/`（CYapps #640：CYID 0.4.1 新增入口唯讀預覽 `handoff/preview`，consumer 契約 1.2.0，向下相容）。
+- `CYID_CONSUMER_VERSION` 1.0.5 → 1.2.0：CY Web V0.24.0 擔任登入入口（契約 1.1.0 §21）並使用預覽（1.2.0）。
+
 ## 1.1.32 — 2026/11/19
 
 - 同步 CYID 契約鏡像 `docs/contracts/cyid/`（CYapps #636：CYID 0.4.0 單一登入第 1 階段，consumer 契約 1.1.0，向下相容）。CY Web 仍為 consumer 1.0.5；`/sso` 入口於單一登入第 2 階段實作。
