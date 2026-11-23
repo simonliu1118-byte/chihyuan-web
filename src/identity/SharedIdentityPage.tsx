@@ -1015,14 +1015,14 @@ function GroupWorkspace({ snapshot, session, view, columns, reload, switcher }: 
 // ---------- 系統與安全（超級管理員） ----------
 
 function ApplicationRegistryPanel({ snapshot, refresh }: { snapshot: IdentityAdminSnapshot; refresh: () => Promise<void> }) {
-  const [registration, setRegistration] = useState<{ applicationId: string; displayName: string } | null>(null);
+  const [registration, setRegistration] = useState<{ applicationId: string; displayName: string; ssoReturnUrl: string; originalSsoReturnUrl: string; existing: boolean } | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage, reportError, messageTone] = useFeedbackMessage<string | null>(null);
   const [registrationError, , setRegistrationError] = useFeedbackMessage<string | null>(null);
   const formId = useId();
   const { confirm, confirmationDialog } = useConfirmation();
   const guard = useUnsavedChangesGuard({
-    active: !!registration && (registration.applicationId !== "" || registration.displayName !== ""),
+    active: !!registration && (registration.existing ? registration.ssoReturnUrl !== registration.originalSsoReturnUrl : (registration.applicationId !== "" || registration.displayName !== "" || registration.ssoReturnUrl !== "")),
     blocked: busy, message: "尚有未完成的系統登記，確定放棄？",
   });
 
@@ -1036,17 +1036,23 @@ function ApplicationRegistryPanel({ snapshot, refresh }: { snapshot: IdentityAdm
     if (busy || !registration) return;
     const input = { applicationId: registration.applicationId.trim().toUpperCase(), displayName: registration.displayName.trim() };
     if (!/^[A-Z0-9_-]{2,64}$/.test(input.applicationId) || !input.displayName) { setRegistrationError("請填寫有效的系統識別碼與顯示名稱。"); return; }
+    // Omitted when untouched; an emptied field clears a registered value (provider: null clears, absent keeps).
+    const ssoReturnUrl = registration.ssoReturnUrl.trim();
+    const sso: { ssoReturnUrl?: string | null } = ssoReturnUrl === registration.originalSsoReturnUrl ? {}
+      : { ssoReturnUrl: ssoReturnUrl === "" ? null : ssoReturnUrl };
     setBusy(true); setRegistrationError(null); setMessage(null);
     try {
-      await registerWorkspaceApplication(input);
+      await registerWorkspaceApplication({ ...input, ...sso });
       setRegistration(null);
-      setMessage("系統已登記並啟用，請到「使用者」為員工開放使用權。");
+      setMessage(registration.existing ? "系統設定已更新。" : "系統已登記並啟用，請到「使用者」為員工開放使用權。");
       try { await refresh(); } catch { reportError("系統已完成登記，但清單更新失敗；請重新整理此頁。"); }
     } catch (error) {
       const explanations: Record<string, string> = {
         CORE_SUPER_ADMIN_REQUIRED: "只有目前 Workspace 的超級管理員能登記系統，請確認登入權限。",
         CORE_APPLICATION_ACCESS_LOCKED: "CY Web 是固定啟用的核心帳號入口，不需要另外登記。",
         APPLICATION_REGISTRATION_CONFLICT: "這個識別碼已使用不同名稱，或系統已由中央停用；原有設定已保留。",
+        INVALID_SSO_RETURN_URL: "單一登入回跳網址格式不正確：必須是 https:// 開頭的網域名稱加固定路徑，不可含帳密、連接埠、? 查詢、# 片段、IP 或 localhost。",
+        SSO_RETURN_URL_SHARED_APPLICATION: "此系統同時登記在其他 Workspace，不能在這裡變更單一登入回跳網址。",
       };
       setRegistrationError(error instanceof ApiClientError ? explanations[error.code] ?? messageOf(error) : messageOf(error));
     } finally { setBusy(false); }
@@ -1055,18 +1061,22 @@ function ApplicationRegistryPanel({ snapshot, refresh }: { snapshot: IdentityAdm
   return <section className="cy-op-panel">
     {confirmationDialog}
     <div className="cy-op-panel-header"><div><h3>已登記的系統</h3></div>
-      <button type="button" className="cy-op-button" disabled={busy} onClick={() => { setRegistration({ applicationId: "", displayName: "" }); setRegistrationError(null); }}>＋ 登記系統</button></div>
+      <button type="button" className="cy-op-button" disabled={busy} onClick={() => { setRegistration({ applicationId: "", displayName: "", ssoReturnUrl: "", originalSsoReturnUrl: "", existing: false }); setRegistrationError(null); }}>＋ 登記系統</button></div>
     <FeedbackBanner message={message} tone={messageTone} />
-    <div className="cy-op-table-wrap"><table className="cy-op-table"><thead><tr><th>系統</th><th>狀態</th></tr></thead>
+    <div className="cy-op-table-wrap"><table className="cy-op-table"><thead><tr><th>系統</th><th>單一登入回跳網址</th><th>狀態</th><th>操作</th></tr></thead>
       <tbody>{snapshot.applications.map((app) => <tr key={app.application_id}><td title={"識別碼：" + app.application_id}>{app.display_name}</td>
-        <td><StatusChip tone={app.enabled === 1 ? "success" : "neutral"}>{app.core_access_locked === 1 ? "核心・固定啟用" : app.enabled === 1 ? "啟用" : "停用"}</StatusChip></td></tr>)}</tbody></table></div>
-    {registration ? <Dialog showCloseButton={false} open title="登記並啟用系統" size="small" dismissible={!busy} onClose={() => void close()}
+        <td>{app.core_access_locked === 1 ? "—" : app.sso_return_url ? <span style={{ overflowWrap: "anywhere" }}>{app.sso_return_url}</span> : "未登記"}</td>
+        <td><StatusChip tone={app.enabled === 1 ? "success" : "neutral"}>{app.core_access_locked === 1 ? "核心・固定啟用" : app.enabled === 1 ? "啟用" : "停用"}</StatusChip></td>
+        <td>{app.core_access_locked === 1 || app.enabled !== 1 ? null : <button type="button" className="cy-op-button" disabled={busy}
+          onClick={() => { setRegistration({ applicationId: app.application_id, displayName: app.display_name, ssoReturnUrl: app.sso_return_url ?? "", originalSsoReturnUrl: app.sso_return_url ?? "", existing: true }); setRegistrationError(null); }}>設定</button>}</td></tr>)}</tbody></table></div>
+    {registration ? <Dialog showCloseButton={false} open title={registration.existing ? "系統設定" : "登記並啟用系統"} size="small" dismissible={!busy} onClose={() => void close()}
       description="為目前 Workspace 加入系統。超級管理員可直接使用；其他員工仍須另外開放使用權。已停用的系統重新登記後會啟用，原有使用權會保留。"
-      footer={<div className="cy-dialog-action-row"><button type="button" className="cy-op-button" disabled={busy} onClick={() => void close()}>取消</button><button type="submit" form={formId} className="cy-op-button primary" disabled={busy} aria-busy={busy || undefined}>登記並啟用</button></div>}>
+      footer={<div className="cy-dialog-action-row"><button type="button" className="cy-op-button" disabled={busy} onClick={() => void close()}>取消</button><button type="submit" form={formId} className="cy-op-button primary" disabled={busy} aria-busy={busy || undefined}>{registration.existing ? "儲存" : "登記並啟用"}</button></div>}>
       <form onKeyDown={enterAdvancesFields} id={formId} onSubmit={(event) => void register(event)}>
     <FormSection>
-        <div className="cy-form-grid-full"><TextInput label="系統識別碼" description="使用該系統核准的識別碼，由英文字母、數字、底線或連字號組成。" value={registration.applicationId} maxLength={64} required disabled={busy} autoFocus onChange={(event) => setRegistration({ ...registration, applicationId: event.target.value })} /></div>
-        <div className="cy-form-grid-full"><TextInput label="顯示名稱" value={registration.displayName} maxLength={120} required disabled={busy} onChange={(event) => setRegistration({ ...registration, displayName: event.target.value })} /></div>
+        <div className="cy-form-grid-full"><TextInput label="系統識別碼" description="使用該系統核准的識別碼，由英文字母、數字、底線或連字號組成。" value={registration.applicationId} maxLength={64} required disabled={busy || registration.existing} autoFocus={!registration.existing} onChange={(event) => setRegistration({ ...registration, applicationId: event.target.value })} /></div>
+        <div className="cy-form-grid-full"><TextInput label="顯示名稱" value={registration.displayName} maxLength={120} required disabled={busy || registration.existing} onChange={(event) => setRegistration({ ...registration, displayName: event.target.value })} /></div>
+        <div className="cy-form-grid-full"><TextInput label="單一登入回跳網址" description="選填。目標系統接收單一登入的固定網址（https:// 開頭，不含連接埠、? 與 #）。未登記的系統無法從 CY Web 單一登入；清空後儲存即取消。" value={registration.ssoReturnUrl} maxLength={300} disabled={busy} autoFocus={registration.existing} placeholder="https://example.com/sso/callback" onChange={(event) => setRegistration({ ...registration, ssoReturnUrl: event.target.value })} /></div>
         {registrationError ? <p className="cy-form-grid-full cy-notice cy-notice-danger" role="alert">{registrationError}</p> : null}
       
     </FormSection>

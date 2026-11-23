@@ -23,6 +23,8 @@ export interface IdentityApplicationRow {
   application_status: string;
   enabled: number;
   core_access_locked: number;
+  /** Registered single sign-on return URL (AUTH_CONTRACT §13.1); null or absent when not registered. */
+  sso_return_url?: string | null;
 }
 
 export interface IdentityDirectAccessRow {
@@ -82,7 +84,7 @@ export function loadIdentityAdminSnapshot(): Promise<IdentityAdminSnapshot> {
   return apiRequest<IdentityAdminSnapshot>("/api/identity/admin/snapshot", { method: "GET" });
 }
 
-export function registerWorkspaceApplication(input: { applicationId: string; displayName: string }) {
+export function registerWorkspaceApplication(input: { applicationId: string; displayName: string; ssoReturnUrl?: string | null }) {
   return apiRequest<{ workspaceId: string; application: { applicationId: string; displayName: string; enabled: boolean } }>(
     "/api/identity/admin/applications", { method: "POST", json: input },
   );

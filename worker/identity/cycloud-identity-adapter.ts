@@ -67,6 +67,14 @@ export type IdentityFirstLoginCompletionResult =
   | { status: "unavailable" }
   | { status: "invalid_response" };
 
+export type IdentitySsoIssueResult =
+  | { status: "issued"; code: string; returnUrl: string }
+  | { status: "access_denied" }
+  | { status: "first_login_required" }
+  | { status: "application_unavailable" }
+  | { status: "session_invalid" }
+  | { status: "unavailable" };
+
 export type IdentityLogoutResult = { status: "logged_out" } | { status: "unavailable" };
 
 function boundedRetryAfter(response: Response): number {
@@ -320,6 +328,56 @@ export class CYCloudIdentityClient implements IdentityAdapter {
     const response = await fetchIdentityProvider(this.binding, new Request("https://identity.internal/v1/identity/logout", { method: "POST", headers }));
     if (!response || response.status >= 500) return { status: "unavailable" };
     return { status: "logged_out" };
+  }
+
+  /**
+   * SSO handoff (AUTH_CONTRACT §13.2). Presents the caller's own CY Web Session and asks for a one-time
+   * code for `targetApplicationId`. The return URL is chosen by the provider, never by the browser, so
+   * no `returnUrl` is sent. The code and the Session token are never logged.
+   */
+  async issueSsoHandoff(request: Request, targetApplicationId: string): Promise<IdentitySsoIssueResult> {
+    const token = cookieValue(request, CYWEB_IDENTITY_COOKIE);
+    if (!isSessionToken(token)) return { status: "session_invalid" };
+    const headers = forwardedHeaders(request);
+    headers.set("authorization", `Bearer ${token}`);
+    headers.set("x-identity-application", this.applicationId);
+    const response = await fetchIdentityProvider(this.binding, new Request("https://identity.internal/v1/identity/sso/handoff/issue", {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ applicationId: targetApplicationId }),
+    }));
+    if (!response) return { status: "unavailable" };
+    const payload = await response.json().catch(() => null) as { code?: unknown; returnUrl?: unknown; error?: { code?: unknown } } | null;
+    if (!response.ok) {
+      const code = String(payload?.error?.code ?? "");
+      if (code === "APPLICATION_ACCESS_DENIED") return { status: "access_denied" };
+      if (code === "FIRST_LOGIN_REQUIRED") return { status: "first_login_required" };
+      if (code === "SSO_APPLICATION_UNAVAILABLE") return { status: "application_unavailable" };
+      if (response.status === 401 || code === "SESSION_INVALID") return { status: "session_invalid" };
+      return { status: "unavailable" };
+    }
+    if (typeof payload?.code !== "string" || !/^[A-Za-z0-9_-]{43}$/.test(payload.code) || typeof payload.returnUrl !== "string") {
+      return { status: "unavailable" };
+    }
+    return { status: "issued", code: payload.code, returnUrl: payload.returnUrl };
+  }
+
+  /**
+   * Best-effort display name of an Application for the SSO confirmation screen. The only provider read that
+   * carries names is the administrator snapshot, so this returns null for non-administrators and on any failure.
+   */
+  async applicationDisplayName(request: Request, applicationId: string): Promise<string | null> {
+    const token = cookieValue(request, CYWEB_IDENTITY_COOKIE);
+    if (!isSessionToken(token)) return null;
+    const headers = forwardedHeaders(request);
+    headers.delete("content-type");
+    headers.set("authorization", `Bearer ${token}`);
+    headers.set("x-identity-application", this.applicationId);
+    const response = await fetchIdentityProvider(this.binding, new Request("https://identity.internal/v1/admin/identity/snapshot", { method: "GET", headers }));
+    if (!response?.ok) return null;
+    const payload = await response.json().catch(() => null) as { applications?: Array<{ application_id?: unknown; display_name?: unknown }> } | null;
+    const row = payload?.applications?.find(item => item.application_id === applicationId);
+    return typeof row?.display_name === "string" && row.display_name.trim() ? row.display_name.trim().slice(0, 120) : null;
   }
 
   async revokeToken(request: Request, token: string): Promise<void> {
