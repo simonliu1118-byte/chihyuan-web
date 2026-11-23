@@ -13,6 +13,7 @@ import { effectiveModules, CYWEB_MODULES, moduleCodesForRoute, type CyWebModuleC
 import { verifiedProgramCatalog } from "../shared/program-catalog";
 import type { NavigationGroup } from "./ui/foundation/navigation";
 import { programIcons } from "./runtime/modules/program-icons";
+import { webApplicationNavigation, type WebApplicationEntry } from "./runtime/navigation/web-app-navigation";
 import { AppShell } from "./ui/shell/AppShell";
 import { ThemeSwitch, ThemeToggle } from "./ui/foundation/ThemeToggle";
 import { AccountMenu } from "./ui/shell/AccountMenu";
@@ -106,13 +107,15 @@ const baseNavigation: readonly NavigationGroup[] = [
   },
 ];
 
-const programsNavigation: NavigationGroup = {
-  key: "tools", label: "工具", items: [
-    { key:"programs",label:"CY 程式",href:"#programs" },
-    ...verifiedProgramCatalog.programs.filter(program => program.platform === "web" && !!program.websiteUrl)
-      .map(program => ({ key:"web-"+program.id,label:program.navLabel ?? program.name,href:program.websiteUrl!,external:true,iconSrc:program.icon ? programIcons[program.icon] : undefined })),
-  ],
-};
+/** 工具: the program catalog page is fixed; web App entries come from the identity provider's registration. */
+function programsNavigation(webApps: readonly WebApplicationEntry[]): NavigationGroup {
+  return {
+    key: "tools", label: "工具", items: [
+      { key: "programs", label: "CY 程式", href: "#programs" },
+      ...webApplicationNavigation(webApps, verifiedProgramCatalog.programs, programIcons),
+    ],
+  };
+}
 
 const routes = new Set<AppRoute>([
   "home",
@@ -178,6 +181,15 @@ function OperationalApp({
       .catch(()=>{if(!controller.signal.aborted)setHrCorrectionAccess(false);});
     return()=>controller.abort();
   },[session.user.workspaceRole,moduleAccess]);
+  // Registered web Apps for the 工具 section: loaded once after login, no polling. A failure shows none and never breaks the nav.
+  const [webApps, setWebApps] = useState<readonly WebApplicationEntry[]>([]);
+  useEffect(() => {
+    const controller = new AbortController();
+    void apiRequest<{ applications: WebApplicationEntry[] }>("/api/sso/applications", { signal: controller.signal })
+      .then(r => { if (!controller.signal.aborted && Array.isArray(r.applications)) setWebApps(r.applications); })
+      .catch(() => { if (!controller.signal.aborted) setWebApps([]); });
+    return () => controller.abort();
+  }, []);
   const notify = useFeedback();
   const [usageReport, setUsageReport] = useState<D1UsageReport | null>(null);
   const [usageError, setUsageError] = useState<string | null>(null);
@@ -268,9 +280,9 @@ function OperationalApp({
       { ...erp, items: erpItems },
       { ...business, items: businessItems },
       { ...administration, items: adminItems },
-      programsNavigation,
+      programsNavigation(webApps),
     ];
-  }, [allowedModules, session.user.workspaceRole,hrCorrectionAccess]);
+  }, [allowedModules, session.user.workspaceRole,hrCorrectionAccess,webApps]);
 
   useEffect(() => {
     const handleHashChange = () => {

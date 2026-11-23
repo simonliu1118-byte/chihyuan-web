@@ -16,7 +16,7 @@ const STATE = "S".repeat(40);
 const RETURN_URL = "https://target.example.test/sso/callback";
 const principal = { workspaceId: "workspace-test", employeeId: "employee-test", employeeNo: "0007", displayName: "測試員工", workspaceRole: "USER", isIdentityAdmin: false, emailVerified: true, isWorkspaceSuperAdmin: false, credentialVersion: 1, employeeRevision: 1 };
 
-function makeEnv({ issue = { status: 200, body: { code: CODE, returnUrl: RETURN_URL, expiresAt: "2999-01-01T00:00:00.000Z" } }, preview = { status: 200, body: { application: { applicationId: "TARGET_APP", displayName: "目標系統", origin: "https://target.example.test" }, access: "allowed" } } } = {}) {
+function makeEnv({ issue = { status: 200, body: { code: CODE, returnUrl: RETURN_URL, expiresAt: "2999-01-01T00:00:00.000Z" } }, preview = { status: 200, body: { application: { applicationId: "TARGET_APP", displayName: "目標系統", origin: "https://target.example.test" }, access: "allowed" } }, list = { status: 200, body: { applications: [] } } } = {}) {
   const calls = [];
   const logs = [];
   const env = {
@@ -30,6 +30,7 @@ function makeEnv({ issue = { status: 200, body: { code: CODE, returnUrl: RETURN_
       if (path === "/v1/identity/session/resolve") return Response.json({ principal, session: { expiresAt: "2999-01-01T00:00:00.000Z" } });
       if (path === "/v1/identity/sso/handoff/issue") return Response.json(issue.body, { status: issue.status });
       if (path === "/v1/identity/sso/handoff/preview") return preview.raw !== undefined ? new Response(preview.raw, { status: preview.status }) : Response.json(preview.body, { status: preview.status });
+      if (path === "/v1/identity/sso/applications") return list.raw !== undefined ? new Response(list.raw, { status: list.status }) : Response.json(list.body, { status: list.status });
       if (path === "/v1/admin/identity/snapshot") throw new Error("admin snapshot must not be read for the SSO page");
       throw new Error("unexpected provider path " + path);
     } },
@@ -308,4 +309,69 @@ test("the page's own POST is accepted: no-referrer makes browsers send Origin: n
   const response = await post(env, { fields: { app: "TARGET_APP", state: STATE, csrf: body.data.csrf }, cookie: cookieHeader(`; ${SSO_CSRF_COOKIE}=${nonce}`), headers: { origin: "null", "sec-fetch-site": "same-origin" } });
   assert.equal(response.status, 303);
   assert.match(response.headers.get("location"), /code=/);
+});
+
+test("preview prefers the Chinese name and falls back to the English name (old provider without the field keeps working)", async () => {
+  const withZh = (zh) => ({ status: 200, body: { application: { applicationId: "TARGET_APP", displayName: "TargetSys", displayNameZh: zh, origin: "https://target.example.test" }, access: "allowed" } });
+  for (const [zh, expected] of [["  目標系統  ", "目標系統"], [null, "TargetSys"], ["", "TargetSys"], ["   ", "TargetSys"], [7, "TargetSys"], ["中".repeat(61), "TargetSys"], [undefined, "TargetSys"]]) {
+    const { body } = await contextOf(makeEnv({ preview: withZh(zh) }));
+    assert.equal(body.data.application.name, expected, String(zh));
+  }
+});
+
+const applicationsOf = (env, headers = { cookie: cookieHeader(), "sec-fetch-site": "same-origin" }) =>
+  handleSsoRoute(new Request(`${origin}/api/sso/applications`, { headers }), env, "req-3");
+const listCalls = env => env.calls.filter(c => c.path === "/v1/identity/sso/applications");
+
+test("application list: Chinese name preferred, English fallback, https origin only, no-store, empty body to provider", async () => {
+  const env = makeEnv({ list: { status: 200, body: { applications: [
+    { applicationId: "PRICE_APP", displayName: "PriceDesk", displayNameZh: "價格觀測室", origin: "https://price.example.test" },
+    { applicationId: "PLAIN_APP", displayName: "Plain", displayNameZh: null, origin: "https://plain.example.test" },
+    { applicationId: "BAD_ORIGIN", displayName: "Bad", displayNameZh: null, origin: "http://bad.example.test" },
+    { applicationId: "PATHY", displayName: "Pathy", displayNameZh: null, origin: "https://pathy.example.test/cb" },
+    { applicationId: "lower", displayName: "Lower", displayNameZh: null, origin: "https://lower.example.test" },
+    { applicationId: "NO_NAME", displayName: " ", displayNameZh: null, origin: "https://noname.example.test" },
+  ] } } });
+  const response = await applicationsOf(env);
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get("cache-control"), "no-store");
+  const body = await response.json();
+  assert.deepEqual(body.data.applications, [
+    { applicationId: "PRICE_APP", name: "價格觀測室", origin: "https://price.example.test" },
+    { applicationId: "PLAIN_APP", name: "Plain", origin: "https://plain.example.test" },
+  ]);
+  const [call] = listCalls(env);
+  assert.equal(call.authorization, `Bearer ${token}`);
+  assert.equal(call.app, "CYWEB_TEST");
+  assert.equal(call.body, "{}");
+  assert.ok(!JSON.stringify(body).includes(token));
+});
+
+test("application list: old provider (route 404) is an empty list; failures never leak and map to 401 / 503", async () => {
+  for (const list of [
+    { status: 404, body: { error: { code: "NOT_FOUND" } } },
+    { status: 404, raw: "<html>not found</html>" },
+  ]) {
+    const response = await applicationsOf(makeEnv({ list }));
+    assert.equal(response.status, 200);
+    assert.deepEqual((await response.json()).data.applications, []);
+  }
+  assert.equal((await applicationsOf(makeEnv({ list: { status: 401, body: { error: { code: "SESSION_INVALID" } } } }))).status, 401);
+  for (const list of [
+    { status: 503, body: { error: { code: "X" } } },
+    { status: 403, body: { error: { code: "SSO_PORTAL_REQUIRED" } } },
+    { status: 200, body: { applications: "nope" } },
+  ]) {
+    const response = await applicationsOf(makeEnv({ list }));
+    assert.equal(response.status, 503);
+    assert.equal(response.headers.get("cache-control"), "no-store");
+  }
+});
+
+test("application list: session required, same-origin only, GET only", async () => {
+  const env = makeEnv();
+  assert.equal((await applicationsOf(env, { "sec-fetch-site": "same-origin" })).status, 401);
+  assert.equal((await applicationsOf(env, { cookie: cookieHeader(), "sec-fetch-site": "cross-site" })).status, 403);
+  assert.equal(listCalls(env).length, 0);
+  assert.equal(await handleSsoRoute(new Request(`${origin}/api/sso/applications`, { method: "POST", headers: { cookie: cookieHeader() } }), env, "r"), null);
 });

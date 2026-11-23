@@ -81,12 +81,25 @@ export type IdentitySsoPreviewResult =
   | { status: "session_invalid" }
   | { status: "unavailable" };
 
+export type IdentitySsoApplication = { applicationId: string; name: string; origin: string };
+export type IdentitySsoApplicationsResult =
+  | { status: "ok"; applications: IdentitySsoApplication[] }
+  | { status: "session_invalid" }
+  | { status: "unavailable" };
+
 export type IdentityLogoutResult = { status: "logged_out" } | { status: "unavailable" };
 
 function boundedRetryAfter(response: Response): number {
   const value = Number(response.headers.get("retry-after") ?? 60);
   if (!Number.isFinite(value)) return 60;
   return Math.max(1, Math.min(Math.trunc(value), 3600));
+}
+
+/** Optional Chinese display name from the provider: trimmed string of at most 60 characters. */
+function chineseName(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return trimmed && [...trimmed].length <= 60 ? trimmed : null;
 }
 
 function isFirstLoginToken(value: unknown): value is string {
@@ -386,7 +399,7 @@ export class CYCloudIdentityClient implements IdentityAdapter {
       body: JSON.stringify({ applicationId: targetApplicationId }),
     }));
     if (!response) return { status: "unavailable" };
-    const payload = await response.json().catch(() => null) as { application?: { applicationId?: unknown; displayName?: unknown; origin?: unknown }; access?: unknown; error?: { code?: unknown } } | null;
+    const payload = await response.json().catch(() => null) as { application?: { applicationId?: unknown; displayName?: unknown; displayNameZh?: unknown; origin?: unknown }; access?: unknown; error?: { code?: unknown } } | null;
     if (!response.ok) {
       const code = String(payload?.error?.code ?? "");
       if (code === "SSO_APPLICATION_UNAVAILABLE") return { status: "application_unavailable" };
@@ -396,12 +409,53 @@ export class CYCloudIdentityClient implements IdentityAdapter {
     }
     const access = payload?.access;
     if (access !== "allowed" && access !== "denied" && access !== "first_login_required") return { status: "unavailable" };
-    const name = payload?.application?.displayName;
+    // Display-only Chinese name (contract 1.3.0) wins over the English system name; a provider without the field keeps working.
+    const name = chineseName(payload?.application?.displayNameZh) ?? payload?.application?.displayName;
     // Only an https origin (scheme + host) is accepted; it is used to choose the App icon, never to navigate.
     const rawOrigin = payload?.application?.origin;
     let origin: string | null = null;
     if (typeof rawOrigin === "string") { try { const u = new URL(rawOrigin); if (u.protocol === "https:" && u.origin === rawOrigin) origin = u.origin; } catch { origin = null; } }
     return { status: "ok", name: typeof name === "string" && name.trim() ? name.trim().slice(0, 120) : null, origin, access };
+  }
+
+  /**
+   * Read-only list of the Apps this Employee may enter (AUTH_CONTRACT §13.2.2, contract 1.3.0). Each entry is
+   * labelled with the Chinese name when set, otherwise the English name; only the https origin is accepted.
+   * A provider that predates the endpoint answers with the generic route 404, which is an empty list.
+   */
+  async listSsoApplications(request: Request): Promise<IdentitySsoApplicationsResult> {
+    const token = cookieValue(request, CYWEB_IDENTITY_COOKIE);
+    if (!isSessionToken(token)) return { status: "session_invalid" };
+    const headers = forwardedHeaders(request);
+    headers.set("authorization", `Bearer ${token}`);
+    headers.set("x-identity-application", this.applicationId);
+    const response = await fetchIdentityProvider(this.binding, new Request("https://identity.internal/v1/identity/sso/applications", {
+      method: "POST",
+      headers,
+      body: "{}",
+    }));
+    if (!response) return { status: "unavailable" };
+    const payload = await response.json().catch(() => null) as { applications?: unknown; error?: { code?: unknown } } | null;
+    if (!response.ok) {
+      const code = String(payload?.error?.code ?? "");
+      if (response.status === 401 || code === "SESSION_INVALID") return { status: "session_invalid" };
+      if (response.status === 404 && code !== "SSO_PORTAL_REQUIRED") return { status: "ok", applications: [] };
+      return { status: "unavailable" };
+    }
+    if (!Array.isArray(payload?.applications)) return { status: "unavailable" };
+    const applications: IdentitySsoApplication[] = [];
+    for (const raw of payload.applications.slice(0, 100)) {
+      const entry = raw as { applicationId?: unknown; displayName?: unknown; displayNameZh?: unknown; origin?: unknown } | null;
+      if (!entry || typeof entry.applicationId !== "string" || !/^[A-Z0-9_-]{2,64}$/.test(entry.applicationId)) continue;
+      if (typeof entry.origin !== "string") continue;
+      let origin: string;
+      try { const u = new URL(entry.origin); if (u.protocol !== "https:" || u.origin !== entry.origin) continue; origin = u.origin; } catch { continue; }
+      const english = typeof entry.displayName === "string" && entry.displayName.trim() ? entry.displayName.trim().slice(0, 120) : null;
+      const name = chineseName(entry.displayNameZh) ?? english;
+      if (!name) continue;
+      applications.push({ applicationId: entry.applicationId, name, origin });
+    }
+    return { status: "ok", applications };
   }
 
   async revokeToken(request: Request, token: string): Promise<void> {

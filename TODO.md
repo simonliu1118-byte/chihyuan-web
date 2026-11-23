@@ -3,6 +3,11 @@
 > 本檔是 CY Web 唯一的現況與待辦清單，不是永久規則來源。各版本完成內容與驗證見 `CHANGELOG.md`；規格見 `docs/architecture/README.md`。
 > 2026-11-03、2026-11-09 整理：已完成且已記入 CHANGELOG 的版本段落移除；已結案的交接與工作單移到 Git 固定快照（見 `docs/handoff/README.md`）。
 
+## V0.25.0 系統中文名稱
+
+- [x] 系統與安全新增中文名稱欄位與編輯；確認畫面優先顯示中文名稱；側邊欄「工具」網頁系統入口改由 CYID 登記清單提供。分支 `cyweb/v0.25.0-app-chinese-name`，未合併、未部署。
+- [ ] Claude 審查；部署前 CYID 0.4.2（migration 0010、contract 1.3.0）須先套用並部署，`CYID_CONSUMER_VERSION` 與契約鏡像由治理流程對齊 1.3.0。部署後超級管理員為各網頁系統登記回跳網址與中文名稱，側邊欄才會出現入口。
+
 ## V0.24.0 單一登入入口（SSO 第 2 階段）
 
 - [x] `/sso` 入口、CSRF 與登入後續行、App 回跳網址登記欄位已實作，測試見 `scripts/sso-portal.test.mjs`；分支 `cyweb/v0.24.0-sso-portal`，尚未合併、未部署。

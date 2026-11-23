@@ -8,6 +8,8 @@ import { identityClient, type IdentityRuntimeEnv } from "./auth-routes";
  *   GET  /sso?app&state          SPA shell (the page decides login / confirmation). Never issues a code.
  *   GET  /api/sso/context        same-origin read for the SPA: who is signing in, to which App (name and whether access
  *                                is allowed, from the provider's read-only preview), plus a CSRF token only when allowed/unknown.
+ *   GET  /api/sso/applications   same-origin read for the sidebar: the web Apps this Employee may enter (name, Chinese name
+ *                                preferred, and https origin only), from the provider's read-only App list. Never a return URL.
  *   POST /sso/continue           the only place a code is requested. CSRF protected, answers 303.
  *
  * `state` is opaque and passed back verbatim; nothing is stored server-side. The destination is always the
@@ -122,6 +124,20 @@ async function context(request: Request, env: SsoEnv, requestId: string, url: UR
   }, requestId, { headers: { "set-cookie": csrfCookie(nonce) } }));
 }
 
+async function applications(request: Request, env: SsoEnv, requestId: string): Promise<Response> {
+  const site = request.headers.get("sec-fetch-site");
+  if (site !== null && site !== "same-origin") return noStore(failure({ code: "SSO_REQUEST_INVALID", message: "Cross-site request refused" }, requestId, 403));
+  const provider = identityClient(env);
+  if (!provider) return noStore(failure({ code: "IDENTITY_UNAVAILABLE", message: "Identity provider is not configured" }, requestId, 503));
+  const resolution = await provider.resolve(request);
+  if (resolution.status === "unavailable") return noStore(failure({ code: "IDENTITY_UNAVAILABLE", message: "Identity provider is unavailable" }, requestId, 503));
+  if (resolution.status !== "authenticated") return noStore(failure({ code: "AUTH_REQUIRED", message: "Authentication required" }, requestId, 401));
+  const result = await provider.listSsoApplications(request);
+  if (result.status === "session_invalid") return noStore(failure({ code: "AUTH_REQUIRED", message: "Authentication required" }, requestId, 401));
+  if (result.status !== "ok") return noStore(failure({ code: "IDENTITY_UNAVAILABLE", message: "Identity provider is unavailable" }, requestId, 503));
+  return noStore(success({ applications: result.applications }, requestId));
+}
+
 async function proceed(request: Request, env: SsoEnv, url: URL): Promise<Response> {
   if (!sameOriginPost(request, url)) return errorPage(403, "此要求不是從 CY Web 發出，已拒絕。");
   const contentType = request.headers.get("content-type") ?? "";
@@ -167,6 +183,7 @@ export async function handleSsoRoute(request: Request, env: SsoEnv, requestId: s
     if (request.method !== "POST") return noStore(new Response(null, { status: 405, headers: { allow: "POST" } }));
     return proceed(request, env, url);
   }
+  if (url.pathname === "/api/sso/applications" && request.method === "GET") return applications(request, env, requestId);
   if (url.pathname === "/api/sso/context" && request.method === "GET") return context(request, env, requestId, url);
   if (url.pathname === "/sso" && (request.method === "GET" || request.method === "HEAD")) {
     if (!env.ASSETS) return errorPage(404, "頁面不存在。");
