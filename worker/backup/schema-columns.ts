@@ -1,5 +1,7 @@
 // Durable portable-backup columns; regenerated from the forward migration chain.
 export const BACKUP_COLUMNS: Record<string, string[]> = {
+  "hr_bonus_batches": ["attribution_year","category","created_at","created_by","id","paid_at","pay_date","request_key","revision","status","updated_at","updated_by","void_reason"],
+  "hr_bonus_payments": ["amount","batch_id","employee_id","id","note","result_json","source_json"],
   "hr_payroll_correction_uses": ["correction_id", "created_at", "id", "is_active", "run_id"],
   "hr_payroll_corrections": ["amount", "consent_reference", "created_at", "created_by", "employee_id", "id", "is_active", "kind", "reason", "reference", "request_key", "revision", "source_run_id", "target_month", "voided_at", "voided_by"],
   "hr_payroll_supplement_versions": ["content_hash", "created_at", "effective_date", "id", "payload_json", "source_hash", "source_text", "source_url"],

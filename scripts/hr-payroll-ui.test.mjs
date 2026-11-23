@@ -23,8 +23,10 @@ test('profile save failure retains attendance amount, effective date and reason,
  }finally{cleanup(h);}
 });
 test('monthly payroll calculation failure retains manual inputs and pending issues disable confirmation',async()=>{
- const h=new Host();let calls=0,resolve,reject;let rows=[];globalThis.hrTransport=(u,o)=>{if(o?.method){calls++;return new Promise((a,b)=>{resolve=a;reject=b;});}if(u.includes('/employees?'))return Promise.resolve({items:[{id:1,employee_no:'S1',name:'合成',hire_date:'2025-01-01'}],nextCursor:null});return Promise.resolve(rows);};
+ const h=new Host();let calls=0,resolve,reject;let rows=[];globalThis.hrTransport=(u,o)=>{if(o?.method){assert.equal(o.json.bonusAmount,undefined);calls++;return new Promise((a,b)=>{resolve=a;reject=b;});}if(u.includes('/employees?'))return Promise.resolve({items:[{id:1,employee_no:'S1',name:'合成',hire_date:'2025-01-01'}],nextCursor:null});return Promise.resolve(rows);};
  try{h.render(HrPayrollPanel);let t=await h.settle(HrPayrollPanel);await field(t,'員工').props.onChange({target:{value:'1'}});t=await h.settle(HrPayrollPanel);
+ assert.ok(!fields(t).some(r=>r.label.includes('非每月獎金')));
+ const keyed=t.props.children.filter(n=>n?.key!=null);assert.equal(new Set(keyed.map(n=>n.key)).size,keyed.length,'sibling panels must have distinct keys: duplicate keys leave orphan correction panels');
  field(t,'未滿月計薪天數（整月留空）').props.onChange({target:{value:'15'}});field(t,'計算／異動原因').props.onChange({target:{value:'合成半月'}});t=h.render(HrPayrollPanel);const form=walk(t).find(n=>n.type==='form');form.props.onSubmit(event);form.props.onSubmit(event);assert.equal(calls,1);
  reject(Error('合成計算失敗'));t=await h.settle(HrPayrollPanel);assert.equal(field(t,'未滿月計薪天數（整月留空）').props.value,'15');assert.equal(field(t,'計算／異動原因').props.value,'合成半月');assert.ok(text(t).includes('合成計算失敗'));
  walk(t).find(n=>n.type==='form').props.onSubmit(event);rows=[{id:7,employee_id:1,employee_no:'S1',name:'合成',month:'2026-11',pay_date:'2026-12-05',status:'draft',revision:1,result:{gross:15000,deductions:0,net:15000,employer:0,lines:[],ruleVersions:[],issues:['缺卡須補正']}}];resolve(rows[0]);t=await h.settle(HrPayrollPanel);assert.ok(text(t).includes('缺卡須補正'));assert.equal(button(t,'確認薪資').props.disabled,true);assert.ok(text(t).includes('待確認'));

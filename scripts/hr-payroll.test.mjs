@@ -5,6 +5,7 @@ import {compiled} from './test-support/hr-ui-fixture.mjs';
 import {payrollSources} from './test-support/hr-payroll-sources.mjs';
 const {calculatePayroll,insuranceDays,overtimePay,selectRule}=await compiled('shared/hr-payroll.ts');
 const {HrPayrollService}=await compiled('worker/hr/hr-payroll-service.ts');
+const {HrBonusService}=await compiled('worker/hr/hr-bonus-service.ts');
 const {HrAttendanceCorrectionService}=await compiled('worker/hr/hr-attendance-correction.ts');
 const {officialUrl,officialText,normalizeTax,normalizeHealth,parseCsv,syncPayrollRules}=await compiled('worker/hr/hr-payroll-import.ts');
 const {checkLeaveQuota}=await compiled('shared/hr-leave.ts');
@@ -157,7 +158,7 @@ const {handleHrRoute}=await compiled('worker/http/hr-routes.ts');
 test('authenticated ADMIN receives only explicit correction capability, never payroll, salary or employee records',async()=>{
  const f=botCenterFixture('ADMIN');try{seed(f);
  const call=async(path,method='GET',body)=>handleHrRoute(new Request('https://acceptance.test/api/business/hr'+path,{method,headers:{cookie:'cyweb_identity_session=cyid_'+'a'.repeat(64),'content-type':'application/json'},body:body===undefined?undefined:JSON.stringify(body)}),f.env,'scope-test');
- for(const path of ['/employees','/payroll/runs?month=2026-11','/payroll/profiles/1','/payroll/legal-cases/1','/payroll/corrections/1?month=2026-11','/payroll/employer-supplement?month=2026-12','/settings/payroll-rules','/employees/1/attendance?month=2026-11'])assert.equal((await call(path)).status,403,path);
+ for(const path of ['/employees','/payroll/bonuses?year=2026','/payroll/bonuses/1','/payroll/runs?month=2026-11','/payroll/profiles/1','/payroll/legal-cases/1','/payroll/corrections/1?month=2026-11','/payroll/employer-supplement?month=2026-12','/settings/payroll-rules','/employees/1/attendance?month=2026-11'])assert.equal((await call(path)).status,403,path);
  assert.equal((await call('/attendance-corrections?storeId=1&month=2026-11')).status,403);
  await new HrAttendanceCorrectionService(f.db,1,'SUPER_ADMIN').grant({memberId:1,storeId:1,revision:0,enabled:true,reason:'測試指定'},ctx);
  const capability=await (await call('/attendance-corrections/capabilities')).json();assert.equal(capability.data.payroll,false);assert.equal(capability.data.stores.length,1);
@@ -243,9 +244,10 @@ test('employer supplemental premium is one payer-month statement, never an emplo
  const f=botCenterFixture();try{seed(f);const s=new HrPayrollService(f.db);const p={...ownerBonus,healthEnabled:true,healthAtMonthEnd:true,healthFrom:'2025-01-01',healthTo:null};await s.saveProfile(1,{settings:p,effectiveDate:'2026-01-01',reason:'合成',expectedId:0},ctx);
  f.sql.prepare("INSERT INTO hr_payroll_rule_versions(kind,effective_date,valid_until,source_url,source_hash,payload_json,source_text,created_at) VALUES('health','2026-01-01','9999-12-31','https://info.nhi.gov.tw/synthetic','synthetic',?,'synthetic',?)").run(JSON.stringify({rows:[{basis:30300,worker:[470,940,1410,1880],employer:1466}]}),ctx.now);
  f.sql.prepare("INSERT INTO hr_payroll_supplement_versions(effective_date,payload_json,source_url,source_hash,content_hash,source_text,created_at) VALUES('2021-01-01',?,'https://www.nhi.gov.tw/synthetic','synthetic','synthetic','synthetic',?)").run(JSON.stringify({rate:2.11,cap:10000000,multiple:4}),ctx.now);
- let r=await s.calculate({employeeId:1,month:'2026-11',payDate:'2026-12-05',bonusAmount:100000},ctx);assert.deepEqual(r.result.issues,[]);assert.equal(r.result.net,127530);assert.equal(r.result.nhiPremium,0);
+ let r=await s.calculate({employeeId:1,month:'2026-11',payDate:'2026-12-05'},ctx);assert.deepEqual(r.result.issues,[]);assert.equal(r.result.net,32530);assert.equal(r.result.nhiPremium,0);
  r=await s.transition(r.id,{action:'confirm',revision:r.revision,reason:'合成核對'},ctx);await s.transition(r.id,{action:'pay',revision:r.revision,reason:'合成已發'},ctx);
- const statement=await employerSupplement(f.db,'2026-12','合成投保單位');assert.deepEqual(statement.statement.issues,[]);assert.equal(statement.statement.premium,2167);assert.equal(statement.statement.income,133000);assert.equal(statement.statement.basis,30300);assert.equal((await s.get(r.id)).result.net,127530);
+ const bonuses=new HrBonusService(f.db);let bonus=await bonuses.save({requestKey:'synthetic-separate-bonus',payDate:'2026-12-05',category:'年終獎金',payments:[{employeeId:1,amount:100000,note:''}]},ctx);assert.deepEqual(bonus.payments[0].result.issues,[]);bonus=await bonuses.transition(bonus.id,{action:'pay',revision:bonus.revision},ctx);assert.equal(bonus.payments[0].result.net,95000);
+ const statement=await employerSupplement(f.db,'2026-12','合成投保單位');assert.deepEqual(statement.statement.issues,[]);assert.equal(statement.statement.premium,2167);assert.equal(statement.statement.income,133000);assert.equal(statement.statement.basis,30300);assert.equal((await s.get(r.id)).result.net,32530);
  }finally{f.sql.close();}
 });
 const {HrPayrollCorrections}=await compiled('worker/hr/hr-payroll-corrections.ts');

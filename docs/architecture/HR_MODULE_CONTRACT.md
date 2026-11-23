@@ -11,6 +11,8 @@
 - 保留原狀態異動卡片，列生效日／異動內容／原因，最多最近三筆；同次多欄位異動在同一格分行。超過三筆才顯示查看全部，既有歷史視窗仍為完整表格。兩種新增視窗統一 `新增…異動｜員工編號 姓名`，不再額外佔一列重複員工姓名。
 
 ## 權限與隱私
+
+V0.26.0 員工紀錄卡新增獎金，狀態異動移到年資不計左方、寬度兩格；發放流程及資料保存依 [薪資與獎金契約](HR_PAYROLL_CONTRACT.md#v0260-獨立獎金發放)。有獎金紀錄的員工視為已有業務活動，不可刪除主檔。
 - `/api/business/hr/*` API 由 CYID Session 驗證，薪資及完整人事**僅 SUPER_ADMIN**。V0.21.0僅對兩條`attendance-corrections`路徑新增「ADMIN且具名門市授權」例外，詳見[每月薪資契約](HR_PAYROLL_CONTRACT.md)；不放行原月出勤／加班或薪資API。
 - 此模組不列入 `CYWEB_MODULES`、模組授權或權限群組。三期完成前不得開放一般使用者。
 - `national_id` 儲存在人事主檔，**一般 GET 一律移除原文並提供 `nationalIdMasked`**。明確 `POST /employees/:id/national-id/reveal` 才提供原文，並寫稽核；稽核不含原文身分證／統一證號。

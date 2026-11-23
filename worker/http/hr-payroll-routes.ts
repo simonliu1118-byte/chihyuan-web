@@ -1,4 +1,5 @@
 import {HrPayrollCorrections} from '../hr/hr-payroll-corrections';
+import {HrBonusService} from '../hr/hr-bonus-service';
 import {employerSupplement} from '../hr/hr-payroll-employer';
 import {HrPayrollLegalService} from '../hr/hr-payroll-legal-service';
 import {HrPayrollService,payrollMonth} from '../hr/hr-payroll-service';
@@ -13,6 +14,12 @@ export async function handleHrPayrollRoute(request:Request,db:D1Database,ctx:HrC
  if(!path.startsWith('/payroll')&&!path.startsWith('/settings/payroll')&&path!=='/settings/attendance-correction-grants')return null;
  const body=async()=>object(await request.json());
  try{
+  const bonuses=new HrBonusService(db),bonus=/^\/payroll\/bonuses\/(\d+)$/.exec(path);
+  if(path==='/payroll/bonuses'){
+   if(request.method==='GET')return success(await bonuses.list(Number(u.searchParams.get('year')),u.searchParams.has('employeeId')?integer(Number(u.searchParams.get('employeeId')),'employeeId',true):null,u.searchParams.has('before')?integer(Number(u.searchParams.get('before')),'before',true):null),id);
+   if(request.method==='POST')return success(await bonuses.save(await body(),ctx),id);
+  }
+  if(bonus){if(request.method==='GET')return success(await bonuses.get(+bonus[1]),id);if(request.method==='PUT')return success(await bonuses.save(await body(),ctx,+bonus[1]),id);if(request.method==='POST')return success(await bonuses.transition(+bonus[1],await body(),ctx),id);}
   const service=new HrPayrollService(db),profile=/^\/payroll\/profiles\/(\d+)$/.exec(path),run=/^\/payroll\/runs\/(\d+)$/.exec(path),review=/^\/payroll\/reviews\/(\d+)$/.exec(path);
   const legal=/^\/payroll\/legal-cases\/(\d+)$/.exec(path);if(legal){const l=new HrPayrollLegalService(db);if(request.method==='GET')return success(await l.list(+legal[1]),id);if(request.method==='POST')return success(await l.save(+legal[1],await body(),ctx),id);}
   if(path==='/payroll/employer-supplement'&&request.method==='GET')return success(await employerSupplement(db,payrollMonth(u.searchParams.get('month')),u.searchParams.get('unit')??''),id);

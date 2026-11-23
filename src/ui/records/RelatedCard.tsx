@@ -1,12 +1,12 @@
 import type { ReactNode } from "react";
 import "../../runtime/modules/customer-operational.css";
 
-export function RelatedCard({ title, count, empty, rows, summary, onAdd, onView }: {
+export function RelatedCard({ title, count, empty, rows, summary, onAdd, onView, className='' }: {
   title: string; count: number | string; empty: string; rows: readonly ReactNode[]; summary?: ReactNode;
   /** Cards for data edited elsewhere omit ＋ 新增; short lists shown in full omit 查看全部. */
-  onAdd?: () => void; onView?: () => void;
+  onAdd?: () => void; onView?: () => void; className?:string;
 }) {
-  return <article className="cy-op-panel cy-customer-related-card">
+  return <article className={`cy-op-panel cy-customer-related-card ${className}`}>
     <header className="cy-customer-related-card-header">
       <h3>{title} <span className="cy-customer-card-count">{count}</span></h3>
       {onAdd ? <button className="cy-op-button compact" type="button" onClick={onAdd}>＋ 新增</button> : null}
