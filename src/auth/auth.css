@@ -27,6 +27,7 @@
   font-size: 14px; font-weight: 700; letter-spacing: .03em;
 }
 .cy-auth-status-card .cy-auth-brand-mark { margin: 0 auto 12px; }
+.cy-auth-status-card p + .cy-auth-form, .cy-auth-status-card p + .cy-auth-primary-button, .cy-auth-status-card p + .cy-auth-link-button { margin-top: 16px; }
 
 .cy-auth-form { display: grid; gap: 14px; }
 .cy-auth-form label:not(.cy-f-check) { display: grid; gap: 6px; color: var(--cy-text); font-size: var(--cy-fs-md); font-weight: 600; }
