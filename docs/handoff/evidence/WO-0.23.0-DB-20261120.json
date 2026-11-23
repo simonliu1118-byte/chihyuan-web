@@ -85,5 +85,7 @@
     "productTables": 173,
     "schemaValidationGroups": 12
   },
-  "migrationSourceSha256": "5d8429eda47800b88b853422e7be9a9e4cd132564e076369af4d056f2265a5d8"
+  "migrationSourceSha256": "80e3c41d240b8cd260540a3d63122a820be5ea8394fdc3d21bdd90c7d5d6bca8",
+  "migrationWorkingCopySha256": "5d8429eda47800b88b853422e7be9a9e4cd132564e076369af4d056f2265a5d8",
+  "migrationSourceHashEncoding": "Git blob uses LF. Windows working copy uses CRLF; LF-normalized working copy exactly matches the committed blob and the SQL read by the offline rehearsal."
 }

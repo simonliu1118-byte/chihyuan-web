@@ -108,6 +108,7 @@ PRAGMA foreign_key_check;
 - 2026-11-23 收尾：完整來源契約驗證與建置通過（Windows 使用 `PYTHONUTF8=1`）；新增 D1 acceptance 直接核對「部分完成」及「加入新機器後」的實體 visit 日期，不只驗證 GET 投影。公開提交前已以實際環境識別值與 OAuth 憑證比對新增文字，無命中；私有備份與資料指紋未納入 Git。
 - Windows 完整 `validate:d1:local` 已輸出全部 81 migration 及 20 組 Worker＋D1 業務驗收 PASS；其後暫存目錄清理遇 `WinError 32`（Miniflare cache 的 metadata.sqlite 被子程序持有），所以該程序 exit code 為 1。這是本機 runner 清理限制，沒有把非零 exit code 記成通過；本輪 Linux Runtime CI 另驗證同一份程式。
 - 程式提交 **e2c1e41e** 的 [Runtime 45100302654](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/45100302654) 全綠，Linux 本機 D1、完整 Node、Browser／Worker TypeScript、Source Contracts、Vite build 通過；[Governance 45100302599](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/45100302599)、[Visual 45100302784](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/45100302784) 與 [Deployment contract 45100302687](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/45100302687) 通過。部署及正式 audit job skipped；沒有改動線上資源。最後文件提交只補證據，不更動已驗證的 migration／runtime。
+- 來源 read-back 已區分 Git LF blob 與 Windows CRLF 工作副本的 SHA-256，兩者的 LF 正規化內容完全一致。公開摘要的 `migrationSourceSha256` 為可從 Git 直接重算的值，另保留工作副本值供核對；私有 SQLite 演練讀取 SQL 時同樣將換行正規化，無 SQL 語意差異。
 
 ### 下一階段界線
 
