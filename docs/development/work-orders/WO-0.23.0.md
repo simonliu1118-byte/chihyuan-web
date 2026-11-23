@@ -170,3 +170,12 @@
 4. 才可透過受控流程套用 0080、部署及正式站驗收。Migration 交易失敗可回復；整庫備份還原會影響其他模組的後續異動，必須另經授權及差異核對，不自動操作。
 
 ## 9. 審查紀錄（審查者填）
+
+### 2026-11-23 審查（Claude）— 結論：通過
+
+- 範圍：PR #535 head `27d5ee6`（migration 0080、`store-equipment-routes.ts`、`shared/store-equipment.ts`、`shared/maintenance-matrix.ts`、前端三模組、`DateInput`、可攜備份升級、測試）。
+- Migration 0080：以 `defer_foreign_keys` 重建 `store_maintenance_visits`（保留原 ID、`UNIQUE(customer_code,planned_month)`、子表 FK 依表名解析），無觸發器／檢視受影響；plans 新欄位有資料庫層 CHECK；回填只填未完成的舊完成成員。`idx_maintenance_actual_month` 改為 `completion_date IS NOT NULL` 部分索引，BETWEEN 條件仍可使用。
+- API：逐台 `complete`／`undo` 驗證（屬於本月、未重複、日期≤今天、單行備註、只取消已完成者）、visit 版本守門與 `requestKey` 冪等、同批重算 visit 衍生值；移除「已完成月份不能加入機器」守門；衝突訊息已改。`planWrites` 對受影響 visit 一律升版，與登記操作互斥。
+- 保固月數：以 §2.4 全部例子及邊界（閏日、2024-01-31 起算）實算，結果符合。製造日期：年月／年月日驗證與舊資料相容。
+- 非阻擋：`retained` 欄位不再寫入（保留供備份與舊資料）；部署時 migration 先於新 Worker 約 30 秒，期間若有人以舊畫面登記，visit 與 plan 可能短暫不一致，安排在無人操作時部署。
+- 合併時：併入 main（V0.22.2）並解決 CHANGELOG／TODO／測試衝突；移除只為本次截圖而設、會在每個改到 `src/**` 的 PR 執行的 `wo-0230-visual.yml`（截圖程式保留於 `scripts/visual/`，需要時以本機執行）。

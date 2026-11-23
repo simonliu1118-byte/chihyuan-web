@@ -302,10 +302,12 @@ test('new draft references replace the previous revision and stale wakeups stop 
 
 // V0.22.0 工具：拍板、場次連結、平台選項、場次明確結束。
 test("decision command submits, validates, is idempotent and reads back the human's choice",async t=>{
- const f=await setup(t),deadline="2030-11-19T18:00:00+08:00";
+ // Keep the future/past deadline cases independent of the runner's calendar.
+ t.mock.timers.enable({apis:["Date"],now:Date.parse("2026-11-18T00:00:00Z")});
+ const f=await setup(t),deadline="2026-11-19T18:00:00+08:00";
  const input={externalRef:"synthetic-decision-1",title:"合成廣告加碼",body:"合成說明",category:"廣告預算",amount:3000,deadline,options:["加碼三天","加碼兩天"]};
  const first=await f.client.run("decision",input);
- assert.equal(first.status,"pending");assert.deepEqual(first.decision,{category:"廣告預算",amount:3000,deadline:"2030-11-19T10:00:00.000Z",options:["加碼三天","加碼兩天"],chosenOption:null,chosenOptionText:null,expired:false});
+ assert.equal(first.status,"pending");assert.deepEqual(first.decision,{category:"廣告預算",amount:3000,deadline:"2026-11-19T10:00:00.000Z",options:["加碼三天","加碼兩天"],chosenOption:null,chosenOptionText:null,expired:false});
  assert.equal(f.sql.prepare("SELECT amount FROM bot_draft_decisions").get().amount,300000,"the wire carries cents");
  const again=await f.client.run("decision",input);assert.equal(again.id,first.id);assert.equal(f.sql.prepare("SELECT count(*) n FROM bot_draft_decisions").get().n,1);
  await assert.rejects(f.client.run("decision",{...input,body:"改過的說明"}),code("DRAFT_REVISION_REQUIRED"));

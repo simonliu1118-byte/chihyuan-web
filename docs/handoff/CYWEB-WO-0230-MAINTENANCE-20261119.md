@@ -19,7 +19,7 @@
 7. `StoreOperationHistory.tsx`、`change-log-labels.ts`：逐台維護事件易讀日期／備註，製造日期中文名稱。
 8. `worker/backup/schema-columns.ts`、`portable-backup.ts`：新欄位加入可攜備份，`CURRENT_MIGRATION = "0080_store_maintenance_per_machine"`；舊版備份在 `UPGRADES` 最後依 visit 對 plan 補齊狀態、日期、備註。
 9. `scripts/store-equipment.test.mjs`、`worker/acceptance/equipment-acceptance.ts`、`scripts/validate_schema.py`：逐台單筆／多筆、雙日期、撤銷、效期、requestKey、version、舊資料回填與歷史備份驗收。
-10. `scripts/visual/wo0230.*` 與 `.github/workflows/wo-0230-visual.yml`：隔離 mock API 使用真實 React 元件的 1440×900／390×844 視覺驗收，用來檢查部分完成、逐台登記及製造日期；**截圖不是正式站登入實機**。
+10. `scripts/visual/wo0230.*` 與 `（已於合併時移除）.github/workflows/wo-0230-visual.yml`：隔離 mock API 使用真實 React 元件的 1440×900／390×844 視覺驗收，用來檢查部分完成、逐台登記及製造日期；**截圖不是正式站登入實機**。
 
 ## 二、LOCAL-CYWEB Work 必須執行的資料庫工作
 

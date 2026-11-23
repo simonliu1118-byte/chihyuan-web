@@ -426,13 +426,31 @@ test("revising after a partial receipt: only 廠商品號／廠商品名 are edi
   assert.equal(grid.nodes.some(n=>Number(n.props?.["data-order-row"])<0),false,"no blank row for adding");
   const full=mount("GENERAL",rows.slice(2));
   assert.ok(full.nodes.some(n=>n.props?.["data-order-row"]===3&&n.props["data-order-field"]==="quantityText"),"before any receipt everything stays editable");
-  const ro=mount("GENERAL",[{...base,id:2,received:0,closedAs:"OTHER",closedNote:"自行向廠商訂購"},{...base,id:4,note:"",received:0,closedAs:"SHORTAGE",closedNote:""}],{readOnly:true});
+  const closedRows=[{...base,id:2,received:4,closedAs:"OTHER",closedNote:"自行向廠商訂購"},{...base,id:4,note:"",received:0,closedAs:"SHORTAGE",closedNote:""}];
+  const ro=mount("GENERAL",closedRows,{readOnly:true});
   const notes=ro.nodes.filter(n=>n.type==="td"&&n.props["data-col"]==="note");
-  const textOf=n=>typeof n==="string"?n:Array.isArray(n)?n.map(textOf).join(""):n?.props?textOf(n.props.children):"";
+  const textOf=n=>typeof n==="string"||typeof n==="number"?String(n):Array.isArray(n)?n.map(textOf).join(""):n?.props?textOf(n.props.children):"";
   assert.match(textOf(notes[0]),/原備註自行向廠商訂購/);
   assert.equal(textOf(notes[1]),"缺貨","an empty note leaves no blank line above");
-  assert.equal(ro.nodes.filter(n=>n.type==="tr"&&n.props.className==="cy-row-struck").length,2,"已指定結案 rows are struck through");
+  assert.equal(notes[0].props.children[0].type,"span","original note stays in its own block");
+  assert.equal(notes[0].props.children[1].type,"small","closure reason starts a separate block after the original note");
+  assert.equal(ro.nodes.filter(n=>n.type==="tr"&&n.props.className==="cy-row-struck").length,1,"only a closure with zero received goods is struck through as a whole row");
+  const quantities=ro.nodes.filter(n=>n.type==="td"&&n.props["data-col"]==="quantityText");
+  assert.match(quantities[0].props.children[0].props.className,/cy-ordering-original-quantity/);
+  assert.doesNotMatch(quantities[1].props.children[0].props.className,/cy-ordering-original-quantity/);
+  const received=ro.nodes.filter(n=>n.type==="td"&&n.props["data-col"]==="received");
+  assert.equal(textOf(received[0]),"4");
+  assert.match(received[0].props.children.props.className,/cy-ordering-received/);
+  const statuses=ro.nodes.filter(n=>n.type==="td"&&n.props["data-col"]==="status");
+  assert.deepEqual(statuses.map(textOf),["部分到貨結案","未到貨結案"]);
+  assert.equal(statuses[0].props.children.props.title,"已到 4／10 箱；剩餘 6 箱指定結案；原因：自行向廠商訂購");
   assert.doesNotMatch(textOf(ro.nodes.find(n=>n.type==="td"&&n.props["data-col"]==="received")),/其他/);
+  const phone=mount("GENERAL",closedRows,{readOnly:true,compact:true});
+  const item=phone.nodes.find(n=>n.type?.name==="ListRow");
+  assert.match(textOf(item.props.trailing),/已到 4部分到貨結案/);
+  item.props.onClick();phone.flush();
+  assert.equal(textOf(phone.nodes.find(n=>n.type?.name==="Field"&&n.props.label==="已到數量")),"4");
+  assert.ok(phone.nodes.some(n=>n.type==="p"&&textOf(n).includes("剩餘 6 箱指定結案；原因：自行向廠商訂購")),"phone details expose the same closure summary without hover");
 });
 
 test("sent order view offers 結掉 on lines still waiting, never on received or closed ones", () => {
