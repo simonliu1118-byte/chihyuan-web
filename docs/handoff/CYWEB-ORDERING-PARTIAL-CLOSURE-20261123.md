@@ -1,10 +1,10 @@
-# CYWEB V0.22.2 — 叫貨明細部分到貨結案
+# CYWEB V0.22.2 Build 1 — 叫貨明細部分到貨結案
 
 ## 狀態與範圍
 
 - 日期：2026-11-23；執行：Codex；Claude 最終審查：**待審**。
 - 分支：`cyweb/fix-partial-arrival-closure`；從 `main` 的 `a15f9da9488ad62c60a8b907263b3f8571499cfe`（V0.22.1 Build 0）另開，與 WO-0.23.0／PR #535 的資料庫工作分開。
-- 版本：V0.22.2 Build 0。使用者已同意模擬圖樣式、原數量單獨劃線及原備註／結案原因分行。
+- 版本：V0.22.2 Build 1。使用者已同意模擬圖樣式、原數量單獨劃線及原備註／結案原因分行。
 - 本輪只改叫貨明細呈現，未合併、未部署，未讀寫正式 D1；無 migration、無新增 API 或查詢。正式規格見 `docs/architecture/ORDERING_MODULE.md` 的 V0.22.2 段。
 
 ## 修改檔案與行為
@@ -14,7 +14,8 @@
 | `src/ui/OrderingGrid.tsx` | 從已存的結案標記與已到量衍生兩種顯示標籤；部分到貨結案不套整列刪線，僅原數量刪線、已到量綠字。零到貨結案保留整列連續線。結案 pill 的 title 帶數量與原因；手機沿用 ListRow／BottomSheet 加上已到量與相同摘要。原有結案原因仍在原備註之下，沒有原備註時不留空行。 |
 | `src/runtime/modules/erp-item-query.css` | 使用既有 success／muted 色票，結案 pill 內距微縮以容納六字且不增加欄寬；結案原因保留換行。手機數量／狀態分兩行，避免黏成一長串。沒有改全站整列刪線。 |
 | `scripts/ordering-grid.test.mjs` | 更新舊「全部結案列都劃掉」的預期，涵蓋兩種分類、原數量刪線、實際已到量、結案摘要、原備註分塊與共用手機明細。 |
-| `VERSION`、`package.json` | 新獨立 UI 修正 Patch +1；`BUILD` 保持 0。 |
+| `scripts/grok-bot-reporter.test.mjs` | 遠端全測試發現 main 既有拍板測試把 2026-11-19 當未來日，11/23 執行因實際過期而失敗。只在該測試凍結 Date 至 11/18，保留原本未過期／過期案例與斷言；不改 BOT 正式程式。 |
+| `VERSION`、`package.json`、`BUILD` | 新獨立 UI 修正 Patch +1；首次 CI 後修正既有測試日期問題，Build +1。 |
 | `CHANGELOG.md`、`TODO.md`、`docs/architecture/ORDERING_MODULE.md`、`docs/handoff/README.md`、本交接 | 同步行為、驗證與 Claude 待審入口。 |
 
 ## 邊界與風險
@@ -30,6 +31,7 @@
 
 - 最終 `node --test scripts/ordering-grid.test.mjs scripts/ordering-page.test.mjs scripts/restock-layout.test.mjs scripts/mobile-shell-ordering.test.mjs scripts/ordering.test.mjs`：**156 項全通過**。
 - 最終 `npm run validate:source`：**通過**，包含既有 schema、資料責任邊界、業務介面及共用表單契約。
+- Build 1 `node --test scripts/grok-bot-reporter.test.mjs`：**17 項全通過**，包含拍板正常／過期案例，僅測試時間控制改動。
 - 最終 `npm run build`：**通過**，包含 browser／worker TypeScript 與 Vite build；原有 bundle >500 kB 提示仍在，不是本輪新增的大型資產。
 - `git diff --check`：**通過**。提交前 fetch 再次確認 `origin/main` 仍為上述 V0.22.1 基準。
 - 使用真正的 `OrderingGrid`、共用樣式與六筆**合成資料**，本機瀏覽器目視／DOM 量測，不連接正式資料：
@@ -46,3 +48,10 @@
 - [ ] Claude 核對本交接、正式規格與 diff，重點檢查：原數量刪線範圍、零到貨整列線、原備註／結案原因的分行、手機單一資料 owner。
 - [ ] Claude 於此記錄「通過／需修正」及意見；執行者不代填。
 - [ ] 使用者另行授權後才合併／部署。
+
+## PR #536 首輪 CI 與返修
+
+- 首輪 head `ae0fd715fcabbee72dfd91931608cc086617723a`：governance、source contracts、browser／worker TypeScript、部署契約通過；Runtime run `45105684980` 的 Full Node test suite 為 966 通過／1 失敗，尚未進入後續步驟。
+- 唯一失敗：`scripts/grok-bot-reporter.test.mjs` 的 `decision command submits, validates, is idempotent and reads back the human's choice`。實際 `expired:true`、測試預期 `false`；`git show origin/main:…` 確認固定日期與斷言本來就存在於 main。
+- 最小修正：測試起始使用 Node test 的 Date mock 固定為 2026-11-18，讓 11/19 未來日與 2020 過去日的驗證皆不隨日曆失效。正式 BOT API、到期判斷、工具與技能均未改。
+- 同一功能首次交付後的檢查返修使用 **V0.22.2 Build 1**，不另升 Patch；PR 說明同步記錄原因與最終 CI。
