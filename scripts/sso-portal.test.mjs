@@ -48,7 +48,7 @@ async function contextOf(env, app = "TARGET_APP", state = STATE) {
 function post(env, { fields, cookie, headers = {} }) {
   return handleSsoRoute(new Request(`${origin}/sso/continue`, {
     method: "POST",
-    headers: { "content-type": "application/x-www-form-urlencoded", origin, "sec-fetch-site": "same-origin", cookie, ...headers },
+    headers: Object.fromEntries(Object.entries({ "content-type": "application/x-www-form-urlencoded", origin, "sec-fetch-site": "same-origin", cookie, ...headers }).filter(([, value]) => value !== undefined)),
     body: new URLSearchParams(fields),
   }), env, "req-2");
 }
@@ -207,7 +207,8 @@ test("cross-site, missing-origin and token-less POSTs are rejected without calli
   const before = env.calls.length;
   assert.equal((await post(env, { fields, cookie, headers: { "sec-fetch-site": "cross-site" } })).status, 403);
   assert.equal((await post(env, { fields, cookie, headers: { origin: "https://evil.test" } })).status, 403);
-  assert.equal((await post(env, { fields, cookie, headers: { origin: "null" } })).status, 403);
+  assert.equal((await post(env, { fields, cookie, headers: { origin: "null", "sec-fetch-site": "cross-site" } })).status, 403);
+  assert.equal((await post(env, { fields, cookie, headers: { origin: "null", "sec-fetch-site": undefined } })).status, 403);
   assert.equal((await post(env, { fields: { ...fields, csrf: "x".repeat(43) }, cookie })).status, 403);
   assert.equal((await post(env, { fields: { app: "TARGET_APP", state: STATE }, cookie })).status, 403);
   assert.equal((await post(env, { fields, cookie: cookieHeader() })).status, 403);
@@ -299,4 +300,12 @@ test("preview origin is accepted only as a bare https origin (used to pick the A
     const { body } = await contextOf(env);
     assert.equal(body.data.application.origin, expected, String(origin));
   }
+});
+
+test("the page's own POST is accepted: no-referrer makes browsers send Origin: null with Sec-Fetch-Site same-origin", async () => {
+  const env = makeEnv();
+  const { nonce, body } = await contextOf(env);
+  const response = await post(env, { fields: { app: "TARGET_APP", state: STATE, csrf: body.data.csrf }, cookie: cookieHeader(`; ${SSO_CSRF_COOKIE}=${nonce}`), headers: { origin: "null", "sec-fetch-site": "same-origin" } });
+  assert.equal(response.status, 303);
+  assert.match(response.headers.get("location"), /code=/);
 });

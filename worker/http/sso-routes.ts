@@ -58,10 +58,17 @@ function csrfCookie(nonce: string, maxAge = CSRF_MAX_AGE_SECONDS): string {
   return `${SSO_CSRF_COOKIE}=${nonce}; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=${maxAge}`;
 }
 
+/**
+ * The /sso page is served with Referrer-Policy: no-referrer, so browsers send `Origin: null` on its own form POST.
+ * Accept: an explicit foreign Origin is always refused; with Fetch Metadata the site must be same-origin; without
+ * Fetch Metadata the Origin must equal ours. The session-bound CSRF token is still required in every case.
+ */
 function sameOriginPost(request: Request, url: URL): boolean {
   const site = request.headers.get("sec-fetch-site");
-  if (site !== null && site !== "same-origin") return false;
-  return request.headers.get("origin") === url.origin;
+  const origin = request.headers.get("origin");
+  if (origin !== null && origin !== "null" && origin !== url.origin) return false;
+  if (site !== null) return site === "same-origin";
+  return origin === url.origin;
 }
 
 function pageUrl(origin: string, app: string, state: string, result?: string): string {
