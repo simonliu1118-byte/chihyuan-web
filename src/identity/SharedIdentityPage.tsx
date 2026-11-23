@@ -1063,9 +1063,9 @@ function ApplicationRegistryPanel({ snapshot, refresh }: { snapshot: IdentityAdm
     <div className="cy-op-panel-header"><div><h3>已登記的系統</h3></div>
       <button type="button" className="cy-op-button" disabled={busy} onClick={() => { setRegistration({ applicationId: "", displayName: "", ssoReturnUrl: "", originalSsoReturnUrl: "", existing: false }); setRegistrationError(null); }}>＋ 登記系統</button></div>
     <FeedbackBanner message={message} tone={messageTone} />
-    <div className="cy-op-table-wrap"><table className="cy-op-table"><thead><tr><th>系統</th><th>登入回跳網址</th><th>狀態</th><th>操作</th></tr></thead>
+    <div className="cy-op-table-wrap"><table className="cy-op-table cy-system-registry-table"><thead><tr><th>系統</th><th>登入回跳網址</th><th>狀態</th><th>操作</th></tr></thead>
       <tbody>{snapshot.applications.map((app) => <tr key={app.application_id}><td title={"識別碼：" + app.application_id}>{app.display_name}</td>
-        <td>{app.core_access_locked === 1 ? "—" : app.sso_return_url ? <span style={{ overflowWrap: "anywhere" }}>{app.sso_return_url}</span> : "未登記"}</td>
+        <td>{app.core_access_locked === 1 ? "—" : app.sso_return_url ? <span className="cy-system-return-url">{app.sso_return_url}</span> : "未登記"}</td>
         <td><StatusChip tone={app.enabled === 1 ? "success" : "neutral"}>{app.core_access_locked === 1 ? "核心・固定啟用" : app.enabled === 1 ? "啟用" : "停用"}</StatusChip></td>
         <td>{app.core_access_locked === 1 || app.enabled !== 1 ? null : <button type="button" className="cy-op-button" disabled={busy}
           onClick={() => { setRegistration({ applicationId: app.application_id, displayName: app.display_name, ssoReturnUrl: app.sso_return_url ?? "", originalSsoReturnUrl: app.sso_return_url ?? "", existing: true }); setRegistrationError(null); }}>設定</button>}</td></tr>)}</tbody></table></div>
