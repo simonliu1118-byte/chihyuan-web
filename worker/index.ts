@@ -3,6 +3,7 @@ import { CYWEB_CRON, cywebCronTasks } from "../shared/cyweb-cron";
 import { backupService, type BackupRuntimeEnv } from "./backup/runtime";
 import { handleBackupRoute } from "./http/backup-routes";
 import { handleSettingsAuditRoute } from "./http/settings-audit-routes";
+import { handleSsoRoute } from "./http/sso-routes";
 import { handleAuthRoute, type IdentityRuntimeEnv } from "./http/auth-routes";
 import { handleIdentityManagementRoute } from "./http/identity-management-routes";
 import { handleModuleAccessRoute } from "./http/module-access-routes";
@@ -62,6 +63,9 @@ async function routeRequest(request: Request, env: Env, url: URL,ctx?:ExecutionC
   if (request.method === "GET" && url.pathname === "/api/health") {
     return health(env, requestId);
   }
+
+  const ssoResponse = await handleSsoRoute(request, env, requestId);
+  if (ssoResponse) return ssoResponse;
 
   const authResponse = await handleAuthRoute(request, env, requestId);
   if (authResponse) return authResponse;

@@ -22,7 +22,8 @@ import {
 } from "./auth-client";
 
 interface AuthGateProps {
-  children: (session: AuthSession, logout: () => Promise<void>, signingOut: boolean) => ReactNode;
+  /** `freshLogin` is true only when the password was typed in this page view (used by the SSO portal). */
+  children: (session: AuthSession, logout: () => Promise<void>, signingOut: boolean, freshLogin: boolean) => ReactNode;
 }
 
 type AuthState =
@@ -69,6 +70,7 @@ export function AuthGate({ children }: AuthGateProps) {
   const [firstLogin, setFirstLogin] = useState<FirstLoginRequirement | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
+  const [freshLogin, setFreshLogin] = useState(false);
 
   const resetFlow = useCallback((nextMode: "login" | "recover") => {
     setMode(nextMode);
@@ -144,6 +146,7 @@ export function AuthGate({ children }: AuthGateProps) {
       },
     });
     function expire(message: string) {
+      setFreshLogin(false);
       setMode("login"); setPassword(""); setNewPassword(""); setConfirmPassword("");
       setFirstLogin(null); setChallengeId(null); setOtp(""); setFlowMessage(null);
       setState({ status: "anonymous", message });
@@ -192,6 +195,7 @@ export function AuthGate({ children }: AuthGateProps) {
         saveRememberedEmployee(rememberMe ? normalizedEmployeeNo : null);
         setFirstLogin(null);
         setMode("login");
+        setFreshLogin(true);
         setState({ status: "authenticated", session: result.session });
       }
     } catch (error) {
@@ -302,6 +306,7 @@ export function AuthGate({ children }: AuthGateProps) {
     setSigningOut(true);
     try {
       await logoutCurrentSession();
+      setFreshLogin(false);
       setPassword("");
       setState({ status: "anonymous" });
     } catch (error) {
@@ -311,9 +316,9 @@ export function AuthGate({ children }: AuthGateProps) {
     }
   }
 
-  if (state.status === "authenticated") return <>{children(state.session, handleLogout, signingOut)}</>;
-  if (state.status === "checking") return <main className="cy-auth-screen" aria-busy="true"><section className="cy-auth-card cy-auth-status-card"><div className="cy-auth-brand-mark" aria-hidden="true">CY</div><h1>志遠企業管理系統</h1><p>正在確認登入狀態…</p></section></main>;
-  if (state.status === "unavailable") return <main className="cy-auth-screen"><section className="cy-auth-card cy-auth-status-card"><div className="cy-auth-brand-mark" aria-hidden="true">CY</div><h1>志遠企業管理系統</h1><p className="cy-auth-error" role="alert">{state.message}</p><button className="cy-auth-primary-button" type="button" onClick={() => void checkSession()}>重新連線</button></section></main>;
+  if (state.status === "authenticated") return <>{children(state.session, handleLogout, signingOut, freshLogin)}</>;
+  if (state.status === "checking") return <main className="cy-auth-screen" aria-busy="true"><section className="cy-auth-card cy-auth-status-card"><div className="cy-auth-heading"><div className="cy-auth-brand-mark" aria-hidden="true">CY</div><h1>志遠企業管理系統</h1></div><p>正在確認登入狀態…</p></section></main>;
+  if (state.status === "unavailable") return <main className="cy-auth-screen"><section className="cy-auth-card cy-auth-status-card"><div className="cy-auth-heading"><div className="cy-auth-brand-mark" aria-hidden="true">CY</div><h1>志遠企業管理系統</h1></div><p className="cy-auth-error" role="alert">{state.message}</p><button className="cy-auth-primary-button" type="button" onClick={() => void checkSession()}>重新連線</button></section></main>;
 
   return <main className="cy-auth-screen cy-auth-login-screen">
     <div className="cy-auth-theme-position"><ThemeToggle /></div>

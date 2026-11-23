@@ -1,6 +1,7 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import App from "./App";
+import SsoPortal from "./auth/SsoPortal";
 import { applyStoredTheme } from "./ui/foundation/ThemeToggle";
 import { installTextAutosize } from "./ui/foundation/text-autosize";
 import "./app.css";
@@ -25,6 +26,6 @@ if (!root) {
 
 createRoot(root).render(
   <StrictMode>
-    <App />
+    {window.location.pathname === "/sso" ? <SsoPortal /> : <App />}
   </StrictMode>,
 );

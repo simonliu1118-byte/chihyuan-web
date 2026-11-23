@@ -17,8 +17,8 @@
   color: var(--cy-text);
 }
 .cy-auth-status-card { text-align: center; }
-/* The CY mark sits left of the title on one line. */
-.cy-auth-heading { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
+/* The mark sits left of the title on one line; the pair is centred (user 2026-11-23). */
+.cy-auth-heading { display: flex; align-items: center; justify-content: center; gap: 12px; margin-bottom: 20px; }
 .cy-auth-heading h1, .cy-auth-status-card h1 { margin: 0; font-size: 22px; font-weight: 700; }
 .cy-auth-heading p, .cy-auth-status-card p { margin: 4px 0 0; color: var(--cy-text-muted); }
 .cy-auth-brand-mark {
@@ -26,7 +26,11 @@
   border-radius: var(--cy-radius-lg); background: var(--cy-accent); color: var(--cy-on-accent);
   font-size: 14px; font-weight: 700; letter-spacing: .03em;
 }
-.cy-auth-status-card .cy-auth-brand-mark { margin: 0 auto 12px; }
+.cy-auth-status-card .cy-auth-heading { margin-bottom: 12px; }
+.cy-auth-status-card p + .cy-auth-form, .cy-auth-status-card p + .cy-auth-primary-button, .cy-auth-status-card p + .cy-auth-link-button { margin-top: 16px; }
+.cy-auth-app-mark { width: 40px; height: 40px; flex: none; border-radius: var(--cy-radius-lg); }
+.cy-auth-body > p { margin: 0 0 16px; color: var(--cy-text-muted); text-align: center; }
+.cy-auth-body > .cy-auth-form > fieldset, .cy-auth-body .cy-auth-form { display: grid; gap: 8px; }
 
 .cy-auth-form { display: grid; gap: 14px; }
 .cy-auth-form label:not(.cy-f-check) { display: grid; gap: 6px; color: var(--cy-text); font-size: var(--cy-fs-md); font-weight: 600; }
