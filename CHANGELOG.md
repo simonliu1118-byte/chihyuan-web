@@ -1,12 +1,13 @@
 # CY Web 版本紀錄
 
-## CY Web V0.24.0 Build 1 — 單一登入入口（SSO 第 2 階段）（2026-11-23）
+## CY Web V0.24.0 Build 1 — 從 CY Web 登入前往其他系統（SSO 第 2 階段）（2026-11-23）
 
 - 新增 `/sso?app=<系統識別碼>&state=<state>` 入口：未登入時顯示原登入頁（含首次登入、忘記密碼），登入後直接繼續、不再顯示確認；已登入時每次都顯示「以 姓名（員工編號）前往 系統？」與「前往」「取消」（使用者 2026-11-18 決定）。
 - 前往一律是 POST `/sso/continue`，需 `__Host-` HttpOnly CSRF cookie 與綁定 Session 的表單 token，另檢查 `Origin` 與 `Sec-Fetch-Site` 同源；GET 不會發碼。Worker 以既有 IDENTITY Service Binding 呼叫 CYID `handoff/issue`，不送 returnUrl，303 轉到 CYID 回傳的回跳網址並附 `code`、`state`。
 - 無使用權限顯示「此帳號沒有 <系統> 的使用權限」且不轉址；首次登入未完成、系統不可用等一律不發碼。`/sso` 所有回應 `Cache-Control: no-store`、`Referrer-Policy: no-referrer`；交換碼與 Session token 不寫入 log 或回應內容（僅最終轉址 Location）。
 - 超級管理員「已登記的系統」新增「單一登入回跳網址」欄位與列表顯示，可從清單「設定」修改；未異動不送欄位，清空才送 null。提供者 `INVALID_SSO_RETURN_URL`、`SSO_RETURN_URL_SHARED_APPLICATION` 以中文顯示。
 - 確認畫面的系統名稱與可否進入由 CYID 唯讀預覽 `handoff/preview`（0.4.1／consumer contract 1.2.0）提供，一般員工也能看到名稱；無使用權限或尚未完成首次登入時，確認畫面立即顯示對應訊息、不顯示「前往」、也不發 CSRF token／cookie；剛登入自動繼續只在預覽為「可進入」時進行。CYID 尚未部署 0.4.1 時預覽回 404，頁面退回顯示系統識別碼（可否進入未知），仍可前往，由 `handoff/issue` 把關。`/sso/continue` 對 issue 的拒絕結果維持第二道防線。
+- 畫面（使用者 2026-11-23）：不使用「單一登入」字樣；未登入沿用 CY Web 登入頁。確認畫面大字「前往 <系統>」，左側為該系統圖示（以 CYID 預覽回傳的網域對照程式清單；無對應時用 CY 標），下方「以 姓名（員工編號）登入」。登入頁、確認頁與狀態頁的圖示和標題統一同一行置中。管理頁欄位改稱「登入回跳網址」。
 - 沒有 migration。測試：`scripts/sso-portal.test.mjs`。需要 CYID 0.4.0（consumer contract 1.1.0）；名稱與預覽需 CYID 0.4.1（1.2.0，向下相容）。
 
 ## CY Web V0.23.0 Build 1 — 門市定期維護逐台完成（2026-11-23）

@@ -79,7 +79,7 @@ function redirect(location: string, extra?: string): Response {
 }
 
 function errorPage(status: number, message: string): Response {
-  const html = `<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="referrer" content="no-referrer"><title>單一登入</title></head><body style="font-family:system-ui,sans-serif;margin:16px"><h1 style="font-size:1.2rem">單一登入</h1><p>${message}</p><p><a href="/">回到 CY Web 首頁</a></p></body></html>`;
+  const html = `<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="referrer" content="no-referrer"><title>CY Web</title></head><body style="font-family:system-ui,sans-serif;margin:16px"><h1 style="font-size:1.2rem">無法前往</h1><p>${message}</p><p><a href="/">回到 CY Web 首頁</a></p></body></html>`;
   return noStore(new Response(html, { status, headers: { "content-type": "text/html; charset=utf-8" } }));
 }
 
@@ -103,7 +103,7 @@ async function context(request: Request, env: SsoEnv, requestId: string, url: UR
   if (preview.status !== "ok") return noStore(failure({ code: "IDENTITY_UNAVAILABLE", message: "Identity provider is unavailable" }, requestId, 503));
 
   const user = { displayName: resolution.principal.displayName, employeeNo: resolution.principal.employeeNo };
-  const application = { id: params.app, name: preview.name };
+  const application = { id: params.app, name: preview.name, origin: preview.origin };
   // Denied / first-login: the page shows the message and offers no way forward, so no CSRF token or cookie exists.
   if (preview.access === "denied" || preview.access === "first_login_required") {
     return noStore(success({ user, application, access: preview.access, csrf: null }, requestId));
@@ -122,7 +122,7 @@ async function proceed(request: Request, env: SsoEnv, url: URL): Promise<Respons
   const form = await request.formData().catch(() => null);
   const app = form?.get("app"), state = form?.get("state"), csrf = form?.get("csrf");
   const params = validSsoParams(app, state);
-  if (!params) return errorPage(400, "單一登入要求不正確。");
+  if (!params) return errorPage(400, "要求不正確，請回到原系統重新操作。");
 
   const sessionToken = cookieValue(request, CYWEB_IDENTITY_COOKIE);
   // No Session: send the browser back to the page, which shows the login form.

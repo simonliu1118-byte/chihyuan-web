@@ -317,8 +317,8 @@ export function AuthGate({ children }: AuthGateProps) {
   }
 
   if (state.status === "authenticated") return <>{children(state.session, handleLogout, signingOut, freshLogin)}</>;
-  if (state.status === "checking") return <main className="cy-auth-screen" aria-busy="true"><section className="cy-auth-card cy-auth-status-card"><div className="cy-auth-brand-mark" aria-hidden="true">CY</div><h1>志遠企業管理系統</h1><p>正在確認登入狀態…</p></section></main>;
-  if (state.status === "unavailable") return <main className="cy-auth-screen"><section className="cy-auth-card cy-auth-status-card"><div className="cy-auth-brand-mark" aria-hidden="true">CY</div><h1>志遠企業管理系統</h1><p className="cy-auth-error" role="alert">{state.message}</p><button className="cy-auth-primary-button" type="button" onClick={() => void checkSession()}>重新連線</button></section></main>;
+  if (state.status === "checking") return <main className="cy-auth-screen" aria-busy="true"><section className="cy-auth-card cy-auth-status-card"><div className="cy-auth-heading"><div className="cy-auth-brand-mark" aria-hidden="true">CY</div><h1>志遠企業管理系統</h1></div><p>正在確認登入狀態…</p></section></main>;
+  if (state.status === "unavailable") return <main className="cy-auth-screen"><section className="cy-auth-card cy-auth-status-card"><div className="cy-auth-heading"><div className="cy-auth-brand-mark" aria-hidden="true">CY</div><h1>志遠企業管理系統</h1></div><p className="cy-auth-error" role="alert">{state.message}</p><button className="cy-auth-primary-button" type="button" onClick={() => void checkSession()}>重新連線</button></section></main>;
 
   return <main className="cy-auth-screen cy-auth-login-screen">
     <div className="cy-auth-theme-position"><ThemeToggle /></div>

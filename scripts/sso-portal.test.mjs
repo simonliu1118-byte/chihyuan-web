@@ -16,7 +16,7 @@ const STATE = "S".repeat(40);
 const RETURN_URL = "https://target.example.test/sso/callback";
 const principal = { workspaceId: "workspace-test", employeeId: "employee-test", employeeNo: "0007", displayName: "測試員工", workspaceRole: "USER", isIdentityAdmin: false, emailVerified: true, isWorkspaceSuperAdmin: false, credentialVersion: 1, employeeRevision: 1 };
 
-function makeEnv({ issue = { status: 200, body: { code: CODE, returnUrl: RETURN_URL, expiresAt: "2999-01-01T00:00:00.000Z" } }, preview = { status: 200, body: { application: { applicationId: "TARGET_APP", displayName: "目標系統" }, access: "allowed" } } } = {}) {
+function makeEnv({ issue = { status: 200, body: { code: CODE, returnUrl: RETURN_URL, expiresAt: "2999-01-01T00:00:00.000Z" } }, preview = { status: 200, body: { application: { applicationId: "TARGET_APP", displayName: "目標系統", origin: "https://target.example.test" }, access: "allowed" } } } = {}) {
   const calls = [];
   const logs = [];
   const env = {
@@ -98,7 +98,7 @@ test("context shows who signs in to which App by its preview name and sets a Hos
   const env = makeEnv();
   const { response, body } = await contextOf(env);
   assert.deepEqual(body.data.user, { displayName: "測試員工", employeeNo: "0007" });
-  assert.deepEqual(body.data.application, { id: "TARGET_APP", name: "目標系統" });
+  assert.deepEqual(body.data.application, { id: "TARGET_APP", name: "目標系統", origin: "https://target.example.test" });
   assert.equal(body.data.access, "allowed");
   assert.equal(typeof body.data.csrf, "string");
   const cookie = response.headers.get("set-cookie");
@@ -291,4 +291,12 @@ test("portal page rules: no confirmation skipped for an existing session, automa
   // The browser never supplies a return URL.
   assert.ok(!/returnUrl|redirect_uri/i.test(portal));
   assert.match(portal, /method="post" action="\/sso\/continue"/);
+});
+
+test("preview origin is accepted only as a bare https origin (used to pick the App icon)", async () => {
+  for (const [origin, expected] of [["https://target.example.test", "https://target.example.test"], ["http://target.example.test", null], ["https://target.example.test/auth/sso/callback", null], ["javascript:alert(1)", null], [42, null]]) {
+    const env = makeEnv({ preview: { status: 200, body: { application: { applicationId: "TARGET_APP", displayName: "目標系統", origin }, access: "allowed" } } });
+    const { body } = await contextOf(env);
+    assert.equal(body.data.application.origin, expected, String(origin));
+  }
 });

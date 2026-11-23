@@ -1051,8 +1051,8 @@ function ApplicationRegistryPanel({ snapshot, refresh }: { snapshot: IdentityAdm
         CORE_SUPER_ADMIN_REQUIRED: "只有目前 Workspace 的超級管理員能登記系統，請確認登入權限。",
         CORE_APPLICATION_ACCESS_LOCKED: "CY Web 是固定啟用的核心帳號入口，不需要另外登記。",
         APPLICATION_REGISTRATION_CONFLICT: "這個識別碼已使用不同名稱，或系統已由中央停用；原有設定已保留。",
-        INVALID_SSO_RETURN_URL: "單一登入回跳網址格式不正確：必須是 https:// 開頭的網域名稱加固定路徑，不可含帳密、連接埠、? 查詢、# 片段、IP 或 localhost。",
-        SSO_RETURN_URL_SHARED_APPLICATION: "此系統同時登記在其他 Workspace，不能在這裡變更單一登入回跳網址。",
+        INVALID_SSO_RETURN_URL: "登入回跳網址格式不正確：必須是 https:// 開頭的網域名稱加固定路徑，不可含帳密、連接埠、? 查詢、# 片段、IP 或 localhost。",
+        SSO_RETURN_URL_SHARED_APPLICATION: "此系統同時登記在其他 Workspace，不能在這裡變更登入回跳網址。",
       };
       setRegistrationError(error instanceof ApiClientError ? explanations[error.code] ?? messageOf(error) : messageOf(error));
     } finally { setBusy(false); }
@@ -1063,7 +1063,7 @@ function ApplicationRegistryPanel({ snapshot, refresh }: { snapshot: IdentityAdm
     <div className="cy-op-panel-header"><div><h3>已登記的系統</h3></div>
       <button type="button" className="cy-op-button" disabled={busy} onClick={() => { setRegistration({ applicationId: "", displayName: "", ssoReturnUrl: "", originalSsoReturnUrl: "", existing: false }); setRegistrationError(null); }}>＋ 登記系統</button></div>
     <FeedbackBanner message={message} tone={messageTone} />
-    <div className="cy-op-table-wrap"><table className="cy-op-table"><thead><tr><th>系統</th><th>單一登入回跳網址</th><th>狀態</th><th>操作</th></tr></thead>
+    <div className="cy-op-table-wrap"><table className="cy-op-table"><thead><tr><th>系統</th><th>登入回跳網址</th><th>狀態</th><th>操作</th></tr></thead>
       <tbody>{snapshot.applications.map((app) => <tr key={app.application_id}><td title={"識別碼：" + app.application_id}>{app.display_name}</td>
         <td>{app.core_access_locked === 1 ? "—" : app.sso_return_url ? <span style={{ overflowWrap: "anywhere" }}>{app.sso_return_url}</span> : "未登記"}</td>
         <td><StatusChip tone={app.enabled === 1 ? "success" : "neutral"}>{app.core_access_locked === 1 ? "核心・固定啟用" : app.enabled === 1 ? "啟用" : "停用"}</StatusChip></td>
@@ -1076,7 +1076,7 @@ function ApplicationRegistryPanel({ snapshot, refresh }: { snapshot: IdentityAdm
     <FormSection>
         <div className="cy-form-grid-full"><TextInput label="系統識別碼" description="使用該系統核准的識別碼，由英文字母、數字、底線或連字號組成。" value={registration.applicationId} maxLength={64} required disabled={busy || registration.existing} autoFocus={!registration.existing} onChange={(event) => setRegistration({ ...registration, applicationId: event.target.value })} /></div>
         <div className="cy-form-grid-full"><TextInput label="顯示名稱" value={registration.displayName} maxLength={120} required disabled={busy || registration.existing} onChange={(event) => setRegistration({ ...registration, displayName: event.target.value })} /></div>
-        <div className="cy-form-grid-full"><TextInput label="單一登入回跳網址" description="選填。目標系統接收單一登入的固定網址（https:// 開頭，不含連接埠、? 與 #）。未登記的系統無法從 CY Web 單一登入；清空後儲存即取消。" value={registration.ssoReturnUrl} maxLength={300} disabled={busy} autoFocus={registration.existing} placeholder="https://example.com/sso/callback" onChange={(event) => setRegistration({ ...registration, ssoReturnUrl: event.target.value })} /></div>
+        <div className="cy-form-grid-full"><TextInput label="登入回跳網址" description="選填。目標系統從 CY Web 登入後返回的固定網址（https:// 開頭，不含連接埠、? 與 #）。未登記的系統無法從 CY Web 單一登入；清空後儲存即取消。" value={registration.ssoReturnUrl} maxLength={300} disabled={busy} autoFocus={registration.existing} placeholder="https://example.com/sso/callback" onChange={(event) => setRegistration({ ...registration, ssoReturnUrl: event.target.value })} /></div>
         {registrationError ? <p className="cy-form-grid-full cy-notice cy-notice-danger" role="alert">{registrationError}</p> : null}
       
     </FormSection>

@@ -76,7 +76,7 @@ export type IdentitySsoIssueResult =
   | { status: "unavailable" };
 
 export type IdentitySsoPreviewResult =
-  | { status: "ok"; name: string | null; access: "allowed" | "denied" | "first_login_required" | "unknown" }
+  | { status: "ok"; name: string | null; origin: string | null; access: "allowed" | "denied" | "first_login_required" | "unknown" }
   | { status: "application_unavailable" }
   | { status: "session_invalid" }
   | { status: "unavailable" };
@@ -386,18 +386,22 @@ export class CYCloudIdentityClient implements IdentityAdapter {
       body: JSON.stringify({ applicationId: targetApplicationId }),
     }));
     if (!response) return { status: "unavailable" };
-    const payload = await response.json().catch(() => null) as { application?: { applicationId?: unknown; displayName?: unknown }; access?: unknown; error?: { code?: unknown } } | null;
+    const payload = await response.json().catch(() => null) as { application?: { applicationId?: unknown; displayName?: unknown; origin?: unknown }; access?: unknown; error?: { code?: unknown } } | null;
     if (!response.ok) {
       const code = String(payload?.error?.code ?? "");
       if (code === "SSO_APPLICATION_UNAVAILABLE") return { status: "application_unavailable" };
       if (response.status === 401 || code === "SESSION_INVALID") return { status: "session_invalid" };
-      if (response.status === 404 && code !== "SSO_PORTAL_REQUIRED") return { status: "ok", name: null, access: "unknown" };
+      if (response.status === 404 && code !== "SSO_PORTAL_REQUIRED") return { status: "ok", name: null, origin: null, access: "unknown" };
       return { status: "unavailable" };
     }
     const access = payload?.access;
     if (access !== "allowed" && access !== "denied" && access !== "first_login_required") return { status: "unavailable" };
     const name = payload?.application?.displayName;
-    return { status: "ok", name: typeof name === "string" && name.trim() ? name.trim().slice(0, 120) : null, access };
+    // Only an https origin (scheme + host) is accepted; it is used to choose the App icon, never to navigate.
+    const rawOrigin = payload?.application?.origin;
+    let origin: string | null = null;
+    if (typeof rawOrigin === "string") { try { const u = new URL(rawOrigin); if (u.protocol === "https:" && u.origin === rawOrigin) origin = u.origin; } catch { origin = null; } }
+    return { status: "ok", name: typeof name === "string" && name.trim() ? name.trim().slice(0, 120) : null, origin, access };
   }
 
   async revokeToken(request: Request, token: string): Promise<void> {
