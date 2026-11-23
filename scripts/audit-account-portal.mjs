@@ -41,8 +41,17 @@ export async function inspectAccountPortal({ accountId, apiToken, configuredIden
       version: payload?.data?.version, sourceCommit: payload?.data?.sourceCommit,
     };
     const fingerprint = JSON.stringify(snapshot);
-    if (observations.has(target.href) && observations.get(target.href) !== fingerprint)
+    if (observations.has(target.href) && observations.get(target.href) !== fingerprint) {
+      // Name only what changed (resource kind and field names), never values or identifiers.
+      const kind = target.origin === "https://api.cloudflare.com"
+        ? target.pathname.replace(/^\/client\/v4\/accounts\/[^/]+/, "").replace(/\/scripts\/[^/]+/, "/scripts/<name>").replace(/[0-9a-f-]{36}/gi, "<id>")
+        : "health";
+      const before = JSON.parse(observations.get(target.href) ?? "null"), after = JSON.parse(fingerprint);
+      const keys = before && after && typeof before === "object" && typeof after === "object"
+        ? [...new Set([...Object.keys(before), ...Object.keys(after)])].filter(k => JSON.stringify(before[k]) !== JSON.stringify(after[k])) : ["(shape)"];
+      console.error(`CYWEB_AUDIT_SNAPSHOT_DIFF kind=${kind} fields=${keys.join(",").slice(0, 200)}`);
       fail("CYWEB_AUDIT_SNAPSHOT_CHANGED");
+    }
     observations.set(target.href, fingerprint);
     return response;
   };
