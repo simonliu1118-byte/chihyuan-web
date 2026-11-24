@@ -34,7 +34,9 @@ test('a store change never touches status history: backdated assignment change k
  // Repro 2: 離職 10 days ago, then a backdated change that mentions 在職. As of that date the status already was 在職: no record, no reset.
  const g=fixture(t);
  await g.change({effectiveDate:day(-9),nextStatus:'terminated',terminationDate:day(-9),terminationReason:'合成離職'});
- await g.change({effectiveDate:day(-12),nextStatus:'active',storeId:g.store});
+ await assert.rejects(g.change({effectiveDate:day(-12),nextStatus:'active',storeId:g.store}),/「人事狀態」.*已經是「在職」/,'a ticked field equal to its value on that date is rejected, not skipped');
+ assert.equal(g.rows('hr_assignment_changes').length,0,'nothing is written when any ticked field is rejected');
+ await g.change({effectiveDate:day(-12),storeId:g.store});
  let row=g.sql.prepare('SELECT status,termination_date,termination_reason FROM hr_employees WHERE id=?').get(g.id);
  assert.deepEqual({...row},{status:'terminated',termination_date:day(-9),termination_reason:'合成離職'});
  assert.equal(g.rows('hr_status_changes').length,2);assert.equal(g.rows('hr_assignment_changes').length,1);
@@ -71,7 +73,8 @@ test('each changed field writes exactly one record and leaves every other field 
  await new HrRosterService(f.db).updateStaff(f.store,{employeeId:f.id,rosterSort:7,skipRosterChecks:true},ctx);
  assert.equal(f.sql.prepare('SELECT roster_sort FROM hr_employees WHERE id=?').get(f.id).roster_sort,7);
  await assert.rejects(f.change({effectiveDate:day(-1)}),/沒有任何/);
- await assert.rejects(f.change({effectiveDate:day(-1),storeId:f.store,nextStatus:'leave'}),/沒有任何/,'values equal to the value on that date create nothing');
+ await assert.rejects(f.change({effectiveDate:day(-1),storeId:f.store,nextStatus:'leave'}),/「人事狀態」.*留職停薪/,'a sent field equal to the value on that date is an error naming the field');
+ await assert.rejects(f.change({effectiveDate:day(-1),storeId:f.store}),/「門市」.*合成調任門市/);
  assert.deepEqual(f.sql.prepare('PRAGMA foreign_key_check').all(),[]);
 });
 test('a field takes the latest record by 生效日期 and id; future records stay pending',async t=>{
@@ -124,6 +127,91 @@ test('payroll unpaid-period detection reads only status records, so assignment r
  await f.change({effectiveDate:day(-20),storeId:f.store,jobTitleId:f.title});
  await f.change({effectiveDate:day(-12),employmentType:'casual',scheduleMode:'none'});
  assert.deepEqual(unpaid(),before);
+});
+const redundantError=async(promise)=>{try{await promise}catch(e){return e}throw new Error('expected rejection')};
+test('unchecked fields are simply not sent: they are neither changed nor given a record',async t=>{
+ const f=fixture(t);
+ await f.change({effectiveDate:day(-1),storeId:f.store});
+ assert.equal(f.rows('hr_status_changes').length,1);assert.equal(f.rows('hr_assignment_changes').length,1);
+ const now=await f.service.get(f.id);
+ assert.deepEqual([now.status,now.job_title_id,now.employment_type,now.schedule_mode],['active',1,'full','shift']);
+});
+test('a ticked field equal to its value as of the effective date is rejected, also when today differs',async t=>{
+ const f=fixture(t);
+ await f.change({effectiveDate:day(-5),storeId:f.store});
+ await f.change({effectiveDate:day(10),storeId:f.store2});
+ // Today the store is f.store, but on day 12 it will already be f.store2.
+ await assert.rejects(f.change({effectiveDate:day(12),storeId:f.store2}),e=>/「門市」.*合成第二門市/.test(e.message)&&e.status===422);
+ await f.change({effectiveDate:day(12),storeId:f.store});
+ // Between the two records the value is f.store, so ticking it there is rejected as well.
+ await assert.rejects(f.change({effectiveDate:day(3),storeId:f.store}),/「門市」/);
+ assert.equal(f.rows('hr_assignment_changes').length,3);
+});
+test('redundant later records: report, delete exactly those with an audit row each, or keep them',async t=>{
+ const f=fixture(t);
+ await f.change({effectiveDate:day(10),storeId:f.store});      // store 1 -> A on day 10
+ await f.change({effectiveDate:day(20),storeId:f.store2});     // A -> B on day 20
+ const second=f.rows('hr_assignment_changes')[1];
+ // Setting B on day 15 makes the day-20 record (→ B) a no-op, because B is already in force. The day-10 record is untouched.
+ const e=await redundantError(f.change({effectiveDate:day(15),storeId:f.store2}));
+ assert.equal(e.status,409);assert.equal(e.extra.code,'HR_REDUNDANT_LATER_CHANGES');
+ assert.deepEqual(e.extra.details.items,[{id:'a'+second.id,field:'store_id',fieldLabel:'門市',effectiveDate:day(20),previous:String(f.store2),next:String(f.store2),previousLabel:'合成第二門市',nextLabel:'合成第二門市'}]);
+ assert.equal(f.rows('hr_assignment_changes').length,2,'nothing written on 409');
+ // A list that does not cover exactly the reported records is not accepted either.
+ await assert.rejects(f.change({effectiveDate:day(15),storeId:f.store2,deleteRedundantIds:[]}),/較晚生效/);
+ await assert.rejects(f.change({effectiveDate:day(15),storeId:f.store2,deleteRedundantIds:['a'+second.id,'a99999']}),/較晚生效/);
+ await assert.rejects(f.change({effectiveDate:day(15),storeId:f.store2,deleteRedundantIds:['a'+second.id],keepRedundant:true}),/不能同時/);
+ const auditCount=action=>f.sql.prepare('SELECT count(*) n FROM audit_events WHERE action=?').get(action).n;
+ // Delete path.
+ await f.change({effectiveDate:day(15),storeId:f.store2,deleteRedundantIds:['a'+second.id]});
+ assert.deepEqual(f.rows('hr_assignment_changes').map(r=>[r.effective_date,r.next_value]),[[day(10),String(f.store)],[day(15),String(f.store2)]]);
+ assert.equal(auditCount('hr_employee.assignment_change_deleted'),1);
+ const deleted=JSON.parse(f.sql.prepare("SELECT before_json b FROM audit_events WHERE action='hr_employee.assignment_change_deleted'").get().b);
+ assert.deepEqual([deleted.id,deleted.effective_date,deleted.next_value,deleted.previous_value],[second.id,day(20),String(f.store2),String(f.store)],'the audit keeps the deleted row as stored');
+ assert.equal((await f.service.get(f.id)).store_id,1,'all remaining records are in the future');
+ assert.deepEqual(f.sql.prepare('PRAGMA foreign_key_check').all(),[]);
+ // Keep path on a fresh employee: the record stays and is shown as having no change.
+ const g=fixture(t);
+ await g.change({effectiveDate:day(10),storeId:g.store});
+ await g.change({effectiveDate:day(20),storeId:g.store2});
+ await g.change({effectiveDate:day(15),storeId:g.store2,keepRedundant:true});
+ assert.equal(g.rows('hr_assignment_changes').length,3);
+ assert.equal(g.sql.prepare("SELECT count(*) n FROM audit_events WHERE action='hr_employee.assignment_change_deleted'").get().n,0);
+ const shown=(await g.service.get(g.id)).assignmentChanges;
+ assert.deepEqual(shown.map(r=>[r.effective_date,r.no_effect]),[[day(20),true],[day(15),false],[day(10),false]]);
+});
+test('status records follow the same redundancy rule and the cached status ignores deleted records',async t=>{
+ const f=fixture(t);
+ await f.change({effectiveDate:day(-10),nextStatus:'leave'});
+ await f.change({effectiveDate:day(-3),nextStatus:'terminated',terminationDate:day(-3),terminationReason:'合成離職'});
+ const last=f.rows('hr_status_changes')[2];
+ // Another 離職 earlier makes the later 離職 record a no-op; deleting it makes the new record the one that decides today.
+ const e=await redundantError(f.change({effectiveDate:day(-6),nextStatus:'terminated',terminationDate:day(-6),terminationReason:'合成較早離職'}));
+ assert.equal(e.status,409);assert.deepEqual(e.extra.details.items.map(x=>[x.id,x.field,x.previousLabel,x.nextLabel]),[['s'+last.id,'status','離職','離職']]);
+ await f.change({effectiveDate:day(-6),nextStatus:'terminated',terminationDate:day(-6),terminationReason:'合成較早離職',deleteRedundantIds:['s'+last.id]});
+ assert.deepEqual(f.rows('hr_status_changes').map(r=>r.next_status),['active','leave','terminated']);
+ assert.equal(f.sql.prepare("SELECT count(*) n FROM audit_events WHERE action='hr_employee.status_change_deleted'").get().n,1);
+ const row=f.sql.prepare('SELECT status,termination_date,termination_reason FROM hr_employees WHERE id=?').get(f.id);
+ assert.deepEqual({...row},{status:'terminated',termination_date:day(-6),termination_reason:'合成較早離職'});
+ // The 建檔 record is never reported or flagged, however it compares to what follows.
+ const shown=(await f.service.get(f.id)).statusChanges;
+ assert.deepEqual(shown.map(r=>r.no_effect),[false,false,false]);
+});
+test('the previous value shown comes from the preceding record, not from what was stored at write time',async t=>{
+ const f=fixture(t);
+ await f.change({effectiveDate:day(-2),storeId:f.store2});     // stored previous = base store
+ await f.change({effectiveDate:day(-8),storeId:f.store});      // back-dated: now sits before it
+ const stored=f.rows('hr_assignment_changes');
+ assert.equal(stored[0].previous_value,'1','stored value is left as it was written (audit)');
+ const shown=(await f.service.get(f.id)).assignmentChanges;
+ assert.deepEqual(shown.map(r=>[r.effective_date,r.previous_value,r.next_value]),[[day(-2),String(f.store),String(f.store2)],[day(-8),'1',String(f.store)]]);
+ assert.equal(shown[0].stored_previous_value,'1');
+ assert.deepEqual(shown.map(r=>r.no_effect),[false,false]);
+ // Status ledger: 建檔 keeps its baseline, a back-dated 留停 inserted before a later 離職 becomes that record's previous.
+ await f.change({effectiveDate:day(-1),nextStatus:'terminated',terminationDate:day(-1),terminationReason:'合成離職'});
+ await f.change({effectiveDate:day(-5),nextStatus:'leave'});
+ const status=(await f.service.get(f.id)).statusChanges;
+ assert.deepEqual(status.map(r=>[r.next_status,r.previous_status,r.stored_previous_status]),[['terminated','leave','active'],['leave','active','active'],['active','active','active']]);
 });
 test('stale forms and concurrent submissions are rejected without leaving records',async t=>{
  const f=fixture(t),before=await f.service.get(f.id);

@@ -2,6 +2,8 @@ export interface ApiErrorDetail {
   code: string;
   message: string;
   fields?: Record<string, string>;
+  /** Optional machine-readable payload for rejections the UI can act on (never secrets). */
+  details?: unknown;
 }
 
 export interface ApiSuccess<T> {
