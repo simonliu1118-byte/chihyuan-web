@@ -2,7 +2,8 @@ import { isValidTaiwanId } from "../../shared/national-id";
 import type { HrStatus } from "../../shared/hr";
 
 export class HrValidationError extends Error {
-  constructor(readonly field: string, message: string, readonly status = 422) { super(message); }
+  /** `extra` lets a rejection carry a machine-readable code and details the form can act on (e.g. a list of records to confirm). */
+  constructor(readonly field: string, message: string, readonly status = 422, readonly extra?: { code: string; details: unknown }) { super(message); }
 }
 export function object(value: unknown): Record<string, unknown> {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new HrValidationError("body", "資料格式不正確");

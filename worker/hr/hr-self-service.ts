@@ -21,7 +21,7 @@ export class HrSelfService {
  }
  async profile(id:number,today:string){
   const e=await new HrService(this.db).get(id);
-  const names=await this.db.prepare("SELECT s.name AS store_name,j.name AS job_title FROM hr_employees e LEFT JOIN hr_stores s ON s.id=e.store_id LEFT JOIN hr_job_titles j ON j.id=e.job_title_id WHERE e.id=?").bind(id)
+  const names=await this.db.prepare("SELECT s.name AS store_name,j.name AS job_title FROM hr_employee_current e LEFT JOIN hr_stores s ON s.id=e.store_id LEFT JOIN hr_job_titles j ON j.id=e.job_title_id WHERE e.id=?").bind(id)
    .first<{store_name:string|null;job_title:string|null}>();
   const salaries=(e.salaryRecords as Row[]??[]).map(r=>({effectiveDate:String(r.effective_date),paymentType:r.payment_type as "monthly"|"hourly",baseAmount:Number(r.base_amount),
    allowances:((r.allowances as Row[])??[]).map(a=>({name:String(a.item_name??""),amount:Number(a.amount),regular:a.is_regular===1}))}));

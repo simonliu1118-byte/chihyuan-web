@@ -2,7 +2,7 @@ import {salaryAmendmentDraft} from './hr-salary-draft';
 import {useLatestRequest} from '../../ui/foundation/useLatestRequest';
 import { DateInput } from "../../ui/forms/DateInput";
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { apiRequest } from "../../api/client";
+import { apiRequest, ApiClientError } from "../../api/client";
 import { taipeiToday } from "../../../shared/erp-query-history";
 import type { HrPaymentType, HrStatus } from "../../../shared/hr";
 import type { AnnualLeavePeriod } from "../../../shared/hr-annual-leave";
@@ -44,7 +44,14 @@ interface EmployeeRow { id: number; employee_no: string; name: string; status: H
 interface ContactRow { name: string; relationship: string | null; phone: string }
 interface EducationRow { school: string; department: string | null; start_month: string | null; end_month: string | null }
 interface WorkRow { company: string; job_title: string | null; start_month: string | null; end_month: string | null; salary: string | null; leave_reason: string | null }
-interface StatusChangeRow { id: number; effective_date: string; next_status: HrStatus; reason: string }
+// previous_* is computed by the server from the preceding record of the same field; no_effect marks a record whose value equals the one already in force.
+interface StatusChangeRow { id: number; effective_date: string; next_status: HrStatus; previous_status: HrStatus; reason: string; created_at: string; recorded_date: string; no_effect?: boolean }
+interface AssignmentChangeRow { id: number; field: AssignmentField; effective_date: string; previous_value: string | null; next_value: string; reason: string; created_at: string; recorded_date: string; no_effect?: boolean }
+type AssignmentField = "store_id" | "job_title_id" | "employment_type" | "schedule_mode";
+/** One personnel change as shown to the user: exactly one field, its old and new value. */
+interface PersonnelChange { key: string; effective_date: string; recorded_date: string; created_at: string; field: "status" | AssignmentField; previous: string | null; next: string; reason: string; noEffect: boolean }
+const FIELD_LABELS: Record<PersonnelChange["field"], string> = { status: "人事狀態", store_id: "門市", job_title_id: "職稱", employment_type: "僱用型態", schedule_mode: "排班方式" };
+const TYPE_LABELS: Record<string, string> = { full: "正職", half: "半職", casual: "兼職", shift: "班別", hours: "時段或時數", none: "不排班" };
 interface SalaryRow { id: number; effective_date: string; payment_type: HrPaymentType; base_amount: number; reason: string;
   allowances: { item_name: string; amount: number; is_regular: number;item_type_id:number }[] }
 interface ExclusionRow { id: number; start_date: string; end_date: string; reason: string }
@@ -57,7 +64,7 @@ export interface EmployeeDetail extends EmployeeRow {
   note: string | null; revision: number;
   store_id:number|null;job_title_id:number|null;roster_sort:number;employment_type:"full"|"half"|"casual";skip_roster_checks:number;schedule_mode:"shift"|"hours"|"none";
   contacts: ContactRow[]; education: EducationRow[]; workHistory: WorkRow[];
-  statusChanges: StatusChangeRow[]; salaryRecords: SalaryRow[]; seniorityExclusions: ExclusionRow[];
+  statusChanges: StatusChangeRow[]; assignmentChanges: AssignmentChangeRow[]; salaryRecords: SalaryRow[]; seniorityExclusions: ExclusionRow[];
 }
 /** A live CYID account; memberId is the local CY Web record when one exists. */
 export interface MemberOption { employeeId: string; employeeNo: string; name: string; memberId: number | null }
@@ -74,6 +81,12 @@ export interface Draft {
   education: { school: string; department: string; startMonth: string; endMonth: string }[];
   workHistory: { company: string; jobTitle: string; startMonth: string; endMonth: string; salary: string; leaveReason: string }[];
 }
+const STATUS_KEYS = ["nextStatus", "storeId", "jobTitleId", "employmentType", "scheduleMode"] as const;
+type StatusKey = typeof STATUS_KEYS[number];
+const STATUS_KEY_FIELD: Record<StatusKey, PersonnelChange["field"]> = { nextStatus: "status", storeId: "store_id", jobTitleId: "job_title_id", employmentType: "employment_type", scheduleMode: "schedule_mode" };
+const STATUS_KEY_SHORT: Record<StatusKey, string> = { nextStatus: "狀態", storeId: "門市", jobTitleId: "職稱", employmentType: "僱用型態", scheduleMode: "排班方式" };
+/** A later record the server says would change nothing once the new one is saved. */
+interface RedundantItem { id: string; field: PersonnelChange["field"]; fieldLabel: string; effectiveDate: string; previousLabel: string; nextLabel: string }
 type ActionKind = "status" | "salary" | "exclusion";
 type BrowseKind = "leave" | "salary" | "status" | "exclusion";
 
@@ -146,6 +159,11 @@ export function HrOperationalPage() {
   const [form, setForm] = useState<Record<string, string>>({});
   const [allowances, setAllowances] = useState<{ itemTypeId: string; amount: string; isRegular: boolean }[]>([]);
   const [actionEmployeeId,setActionEmployeeId]=useState<number|null>(null);
+  // 狀態異動: only ticked fields are sent. statusCurrent supplies the value shown for unticked (locked) fields.
+  const [statusChecked,setStatusChecked]=useState<Partial<Record<StatusKey,boolean>>>({});
+  const [statusCurrent,setStatusCurrent]=useState<EmployeeDetail|null>(null);
+  const [redundant,setRedundant]=useState<RedundantItem[]|null>(null);
+  const [deleteRedundant,setDeleteRedundant]=useState(true);
   const [salaryRefresh,setSalaryRefresh]=useState(0);
   const actionWriting=useRef(false);
   const [actionReady,setActionReady]=useState(false),[actionLoading,setActionLoading]=useState(false),[actionError,setActionError]=useState(""),[actionName,setActionName]=useState(""),[actionSalaryBefore,setActionSalaryBefore]=useState<SalaryRow|null>(null);
@@ -256,11 +274,81 @@ export function HrOperationalPage() {
     finally { setBusy(false); }
   }
 
+  function shownValue(field:PersonnelChange["field"],value:string|null){
+    if(value===null||value==="")return "—";
+    if(field==="status")return statusLabels[value as HrStatus]??value;
+    if(field==="store_id")return stores.find(x=>String(x.id)===value)?.name??value;
+    if(field==="job_title_id")return jobTitles.find(x=>String(x.id)===value)?.name??value;
+    return TYPE_LABELS[value]??value;
+  }
+  /** Status and assignment ledgers merged, newest effective date first. */
+  function personnelChanges(employee:EmployeeDetail):PersonnelChange[]{
+    return [
+      ...employee.statusChanges.map(r=>({key:"s"+r.id,effective_date:r.effective_date,recorded_date:r.recorded_date,created_at:r.created_at,field:"status" as const,previous:r.previous_status,next:r.next_status,reason:r.reason,noEffect:r.no_effect===true})),
+      ...(employee.assignmentChanges??[]).map(r=>({key:"a"+r.id,effective_date:r.effective_date,recorded_date:r.recorded_date,created_at:r.created_at,field:r.field,previous:r.previous_value,next:r.next_value,reason:r.reason,noEffect:r.no_effect===true})),
+    ].sort((a,b)=>b.effective_date.localeCompare(a.effective_date)||b.created_at.localeCompare(a.created_at)||b.key.localeCompare(a.key));
+  }
+  const changeContent=(row:PersonnelChange)=>row.noEffect?<>{FIELD_LABELS[row.field]}：{shownValue(row.field,row.next)}（無變化）</>:row.previous===row.next?<>{FIELD_LABELS[row.field]}：{shownValue(row.field,row.next)}</>
+    :<>{FIELD_LABELS[row.field]}：{shownValue(row.field,row.previous)} → {shownValue(row.field,row.next)}</>;
+  function statusTable(rows:PersonnelChange[]){return <div className="cy-op-table-wrap"><table className="cy-op-table cy-hr-status-table" aria-label="狀態異動"><thead><tr><th>生效／異動日期</th><th>異動內容</th><th>原因</th></tr></thead><tbody>{rows.map(row=><tr key={row.key}><td>{date(row.effective_date)}{row.effective_date>taipeiToday()?<small>待生效</small>:null}<small>異動 {date(row.recorded_date)}</small></td><td>{changeContent(row)}</td><td>{row.reason}</td></tr>)}</tbody></table></div>}
+
+  function statusSummary(){
+    const ticked=STATUS_KEYS.filter(key=>statusChecked[key]);
+    return ticked.length?`會存成 ${ticked.length} 筆異動（${ticked.map(key=>STATUS_KEY_SHORT[key]).join("、")}）`:"請勾選要異動的欄位";
+  }
+  /** Any edit invalidates a pending 「一併刪除」 question: the server asks again for the new combination. */
+  function editStatus(patch:Record<string,string>){setForm(current=>({...current,...patch}));setRedundant(null);}
+  function statusForm(){
+    const current=statusCurrent?.id===actionEmployeeId?statusCurrent:detail?.id===actionEmployeeId?detail:null;
+    const currentOf=(key:StatusKey):string=>{
+      if(!current)return "";
+      return key==="nextStatus"?current.status:key==="storeId"?String(current.store_id??""):key==="jobTitleId"?String(current.job_title_id??""):key==="employmentType"?current.employment_type:current.schedule_mode;
+    };
+    const optionsOf=(key:StatusKey):[string,string][]=>{
+      const base:[string,string][]=key==="nextStatus"?(Object.keys(statusLabels) as HrStatus[]).map(k=>[k,statusLabels[k]])
+        :key==="storeId"?stores.map(x=>[String(x.id),x.name]):key==="jobTitleId"?jobTitles.map(x=>[String(x.id),x.name])
+        :key==="employmentType"?[["full","正職"],["half","半職"],["casual","兼職"]]:[["shift","班別"],["hours","時段或時數"],["none","不排班"]];
+      const now=currentOf(key);
+      return now&&!base.some(([value])=>value===now)?[...base,[now,shownValue(STATUS_KEY_FIELD[key],now)]]:base;
+    };
+    const control=(key:StatusKey)=>{
+      const on=!!statusChecked[key],now=currentOf(key);
+      return <tr key={key}>
+        <th scope="row"><CheckField label={FIELD_LABELS[STATUS_KEY_FIELD[key]]} checked={on} disabled={busy}
+          onChange={e=>{setStatusChecked(c=>({...c,[key]:e.target.checked}));editStatus({[key]:""});}}/></th>
+        <td><div className="cy-hr-change-cell">
+          <Field label={FIELD_LABELS[STATUS_KEY_FIELD[key]]} presentation="cell"><select className="cy-sheet-input" disabled={!on||busy} value={on?form[key]??"":now} onChange={e=>editStatus({[key]:e.target.value})}>
+            {on?<option value="">請選擇…</option>:null}{optionsOf(key).map(([value,label])=><option key={value} value={value}>{label}</option>)}
+          </select></Field>
+          {on&&now?<span className="cy-hr-change-now">目前：{shownValue(STATUS_KEY_FIELD[key],now)}</span>:null}
+        </div></td></tr>;
+    };
+    return <EntryTable label="狀態異動" className="cy-hr-change-table"><tbody>
+      <tr><th scope="row"><EntryHeading required>生效日期</EntryHeading></th><td><Field label="生效日期" presentation="cell" required><DateInput density="regular" max="9999-12-31" className="cy-sheet-input" value={form.effectiveDate??""} onChange={v=>editStatus({effectiveDate:v})}/></Field></td></tr>
+      {STATUS_KEYS.map(control)}
+      {statusChecked.nextStatus&&form.nextStatus==="terminated"?<>
+        <tr><th scope="row"><EntryHeading required>離職日</EntryHeading></th><td><Field label="離職日" presentation="cell" required><DateInput density="regular" max="9999-12-31" className="cy-sheet-input" value={form.terminationDate??""} onChange={v=>editStatus({terminationDate:v})}/></Field></td></tr>
+        <tr><th scope="row"><EntryHeading required>離職原因</EntryHeading></th><td><Field label="離職原因" presentation="cell" required><input className="cy-sheet-input" value={form.terminationReason??""} onChange={e=>editStatus({terminationReason:e.target.value})}/></Field></td></tr>
+      </>:null}
+      <tr><th scope="row"><EntryHeading required>原因</EntryHeading></th><td><Field label="原因" presentation="cell" required><input className="cy-sheet-input" value={form.reason??""} onChange={e=>setForm({...form,reason:e.target.value})}/></Field></td></tr>
+    </tbody></EntryTable>;
+  }
+
   async function openAction(kind: ActionKind,employeeId?:number) {
     const targetId=employeeId??detail?.id;if(!targetId)return;
     const request=actionRequest.begin();setActionReady(kind!=='salary');setActionEmployeeId(targetId);setActionName(detail?.id===targetId?detail.employee_no+' '+detail.name:'');setActionError('');setActionSalaryBefore(null);
-    setForm(kind==='status'?{effectiveDate:taipeiToday(),nextStatus:'active'}:kind==='salary'?{effectiveDate:taipeiToday(),paymentType:'monthly'}:{});
+    setForm(kind==='status'?{effectiveDate:taipeiToday(),nextStatus:'',storeId:'',jobTitleId:'',employmentType:'',scheduleMode:''}:kind==='salary'?{effectiveDate:taipeiToday(),paymentType:'monthly'}:{});
+    setStatusChecked({});setRedundant(null);setDeleteRedundant(true);setStatusCurrent(kind==='status'&&detail?.id===targetId?detail:null);
     setAllowances([]);setAction(kind);
+    if(kind==='status'&&detail?.id!==targetId){
+      // Locked fields show the employee's current values, so they are read first.
+      setActionReady(false);setActionLoading(true);
+      try{
+       const employee=await apiRequest<EmployeeDetail>(`${ROOT}/employees/${targetId}`);
+       if(!request.current())return;
+       setStatusCurrent(employee);setActionName(employee.employee_no+' '+employee.name);setActionReady(true);
+      }catch(error){if(request.current())setActionError(errorText(error))}finally{if(request.current())setActionLoading(false)}
+    }
     if(kind==='salary'){
       setActionLoading(true);
       try{
@@ -284,6 +372,20 @@ export function HrOperationalPage() {
     const targetId=actionEmployeeId;
     const endpoint = action === "status" ? "status-changes" : action === "salary" ? "salary-records" : "seniority-exclusions";
     const body: Record<string, unknown> = { ...form };
+    if(action==="status"){
+      // Only ticked fields are sent; each becomes its own record on the effective date.
+      const ticked=STATUS_KEYS.filter(key=>statusChecked[key]);
+      for(const key of STATUS_KEYS)delete body[key];
+      if(!ticked.length){actionWriting.current=false;setActionError("請至少勾選一個要異動的欄位。");return;}
+      for(const key of ticked){
+        if(!form[key]){actionWriting.current=false;setActionError(`請選擇「${STATUS_KEY_SHORT[key]}」的新值。`);return;}
+        body[key]=key==="storeId"||key==="jobTitleId"?Number(form[key]):form[key];
+      }
+      if(body.nextStatus!=="terminated"){delete body.terminationDate;delete body.terminationReason;}
+      if(redundant?.length){if(deleteRedundant)body.deleteRedundantIds=redundant.map(item=>item.id);else body.keepRedundant=true;}
+      const known=statusCurrent?.id===targetId?statusCurrent:detail?.id===targetId?detail:null;
+      if(known)body.expectedRevision=known.revision;
+    }
     if (action === "salary") {
       body.baseAmount = Number(form.baseAmount);
       body.allowances = allowances.filter(row => row.itemTypeId && row.amount)
@@ -296,7 +398,14 @@ export function HrOperationalPage() {
       await Promise.all([...(detail?.id===targetId?[loadDetail(targetId)]:[]),loadList()]);
       if(action==="salary")setSalaryRefresh(n=>n+1);
       setMessage(action === "status" ? "已新增狀態異動。" : action === "salary" ? "已新增薪資異動。" : "已新增年資不計期間。");
-    } catch (error) { setActionError(errorText(error));reportError(errorText(error)); }
+    } catch (error) {
+      if(action==="status"&&error instanceof ApiClientError&&error.code==="HR_REDUNDANT_LATER_CHANGES"){
+        // Not a failure: the form stays open and asks what to do with the records that would become pointless.
+        const items=(error.details as {items?:RedundantItem[]}|undefined)?.items;
+        if(Array.isArray(items)&&items.length){setRedundant(items);setDeleteRedundant(true);return;}
+      }
+      setActionError(errorText(error));reportError(errorText(error));
+    }
     finally { actionWriting.current=false;setBusy(false); }
   }
 
@@ -417,9 +526,9 @@ export function HrOperationalPage() {
                   summary={currentSalary ? <strong>目前 {salaryText(currentSalary)}</strong> : null}
                   rows={detail.salaryRecords.slice(0, 3).map(row => <span key={row.id}>{date(row.effective_date)}　{salaryText(row)}　{row.reason}</span>)}
                   onAdd={() => void openAction("salary")} onView={() => setBrowse("salary")} />
-                <RelatedCard title="狀態異動" count={detail.statusChanges.length} empty="尚無狀態異動。"
-                  rows={detail.statusChanges.slice(0, 3).map(row => <span key={row.id}>{date(row.effective_date)}　{statusLabels[row.next_status]}　{row.reason}</span>)}
-                  onAdd={() => void openAction("status")} onView={() => setBrowse("status")} />
+                <RelatedCard title="狀態異動" count={personnelChanges(detail).length} empty="尚無狀態異動。"
+                  rows={personnelChanges(detail).length?[statusTable(personnelChanges(detail).slice(0,3))]:[]}
+                  onAdd={() => void openAction("status")} onView={personnelChanges(detail).length>3?() => setBrowse("status"):undefined} />
                 <RelatedCard title="年資不計期間" count={detail.seniorityExclusions.length} empty="沒有年資不計期間。"
                   rows={detail.seniorityExclusions.slice(0, 3).map(row => <span key={row.id}>{date(row.start_date)}～{date(row.end_date)}　{row.reason}</span>)}
                   onAdd={() => void openAction("exclusion")} onView={() => setBrowse("exclusion")} />
@@ -433,10 +542,10 @@ export function HrOperationalPage() {
     {detail && browse ? <Dialog open size="large" onClose={() => setBrowse(null)}
       title={`${browse === "leave" ? "特休" : browse === "salary" ? "薪資異動" : browse === "status" ? "狀態異動" : "年資不計期間"} — ${detail.employee_no} ${detail.name}`}>
       <div className="cy-op-table-wrap"><table className="cy-op-table cy-rt" aria-label="人事歷史紀錄">
-       <thead><tr>{(browse==='leave'?['年資','應給日數','年度起訖']:browse==='salary'?['生效日','計薪／本薪','津貼','原因']:browse==='status'?['生效日','狀態','原因']:['起日','迄日','原因','操作']).map(label=><th key={label}>{label}</th>)}</tr></thead><tbody>
+       <thead><tr>{(browse==='leave'?['年資','應給日數','年度起訖']:browse==='salary'?['生效日','計薪／本薪','津貼','原因']:browse==='status'?['生效日期','異動日期','異動內容','原因']:['起日','迄日','原因','操作']).map(label=><th key={label}>{label}</th>)}</tr></thead><tbody>
         {browse==='leave'?[...leave].reverse().map(row=><tr key={row.periodStart}><td data-label="年資" data-priority="title">{row.serviceYearsLabel}</td><td data-label="應給">{row.days} 日</td><td data-label="年度">{date(row.periodStart)}～{date(row.periodEnd)}</td></tr>):null}
         {browse==='salary'?detail.salaryRecords.map(row=><tr key={row.id}><td data-label="生效日" data-priority="title">{date(row.effective_date)}</td><td data-label="計薪／本薪">{salaryText(row)}</td><td data-label="津貼">{row.allowances.map(a=>a.item_name+' '+money(a.amount)+(a.is_regular?'':'（非經常性）')).join('、')||'—'}</td><td data-label="原因">{row.reason}</td></tr>):null}
-        {browse==='status'?detail.statusChanges.map(row=><tr key={row.id}><td data-label="生效日" data-priority="title">{date(row.effective_date)}</td><td data-label="狀態">{statusLabels[row.next_status]}</td><td data-label="原因">{row.reason}</td></tr>):null}
+        {browse==='status'?personnelChanges(detail).map(row=><tr key={row.key}><td data-label="生效日期" data-priority="title">{date(row.effective_date)}{row.effective_date>taipeiToday()?'（待生效）':''}</td><td data-label="異動日期">{date(row.recorded_date)}</td><td data-label="異動內容">{changeContent(row)}</td><td data-label="原因">{row.reason}</td></tr>):null}
         {browse==='exclusion'?detail.seniorityExclusions.map(row=><tr key={row.id}><td data-label="起日" data-priority="title">{date(row.start_date)}</td><td data-label="迄日">{date(row.end_date)}</td><td data-label="原因">{row.reason}</td><td data-label="操作"><button type="button" className="cy-op-button compact soft" disabled={busy} onClick={()=>void removeExclusion(row)}>刪除</button></td></tr>):null}
        </tbody></table></div>
 
@@ -461,12 +570,12 @@ export function HrOperationalPage() {
   </div>:tab==="roster"?<HrRosterPanel/>:tab==="attendance"?<HrAttendancePanel/>:tab==="leave"?<HrLeavePanel initialEmployeeId={initialLeaveEmployeeId}/>:<HrSalaryPanel refreshToken={salaryRefresh} onRaise={(id)=>void openAction("salary",id)}/>}
     {action&&actionEmployeeId!==null?<Dialog showCloseButton={false} open
       size={action==="salary"?"large":"medium"} dismissible={!busy&&!actionLoading}
-      title={action==="status"?"新增狀態異動":action==="salary"?"新增薪資異動":"新增年資不計期間"}
+      title={(action==="status"?"新增狀態異動":action==="salary"?"新增薪資異動":"新增年資不計期間")+(actionName?"｜"+actionName:"")}
       onClose={()=>{actionRequest.invalidate();setAction(null);setActionEmployeeId(null)}}>
       {actionLoading?<Loading/>:<form className="cy-op-form" onKeyDown={enterAdvancesFields} onSubmit={e=>void submitAction(e)}>
        {action==="salary"?<>
         <EntryTable label="調薪資料">
-         <thead><tr><th colSpan={4}>員工：{actionName}</th></tr><tr><th><EntryHeading required>生效日</EntryHeading></th><th>計薪方式</th>
+         <thead><tr><th><EntryHeading required>生效日</EntryHeading></th><th>計薪方式</th>
           <th><EntryHeading required>本薪</EntryHeading></th><th><EntryHeading required>原因</EntryHeading></th></tr></thead>
          <tbody><tr><td colSpan={4} data-label="目前設定">{actionSalaryBefore?"目前："+salaryText(actionSalaryBefore):"尚無已生效薪資設定"}。本視窗為薪資設定異動，非當月實發。</td></tr><tr>
           <td><Field label="生效日" presentation="cell" required><DateInput density="regular" max="9999-12-31" className="cy-sheet-input" value={form.effectiveDate??""} onChange={v=>setForm({...form,effectiveDate:v})}/></Field></td>
@@ -494,23 +603,20 @@ export function HrOperationalPage() {
           onRemove={index=>setAllowances(current=>current.filter((_,i)=>i!==index))}/>
         {!salaryItems.length?<p className="cy-op-empty">尚未設定津貼項目（請先到人事設定新增）。</p>:null}
         {!minimumWageSet?<p className="cy-notice cy-notice-warning">尚未設定最低工資，無法比對；仍可存檔。</p>:null}
-       </>:<EntryFields columns={3} label={action==="status"?"狀態異動":"年資不計期間"} rows={[
-        ...(action==="exclusion"?[
-          {label:"起日",required:true,content:<DateInput density="regular" max="9999-12-31" className="cy-sheet-input" value={form.startDate??""} onChange={v=>setForm({...form,startDate:v})}/>},
-          {label:"迄日",required:true,content:<DateInput density="regular" max="9999-12-31" className="cy-sheet-input" value={form.endDate??""} onChange={v=>setForm({...form,endDate:v})}/>}
-        ]:[{label:"生效日",required:true,content:<DateInput density="regular" max="9999-12-31" className="cy-sheet-input" value={form.effectiveDate??""} onChange={v=>setForm({...form,effectiveDate:v})}/>}]),
-        ...(action==="status"?[{label:"新狀態",content:<select className="cy-sheet-input" value={form.nextStatus??"active"} onChange={e=>setForm({...form,nextStatus:e.target.value})}>
-          {(Object.keys(statusLabels) as HrStatus[]).map(key=><option key={key} value={key}>{statusLabels[key]}</option>)}</select>}]:[]),
-        ...(action==="status"&&form.nextStatus==="terminated"?[
-          {label:"離職日",required:true,content:<DateInput density="regular" max="9999-12-31" className="cy-sheet-input" value={form.terminationDate??""} onChange={v=>setForm({...form,terminationDate:v})}/>},
-          {label:"離職原因",required:true,content:<input className="cy-sheet-input" value={form.terminationReason??""} onChange={e=>setForm({...form,terminationReason:e.target.value})}/>}
-        ]:[]),
+       </>:action==="status"?statusForm():<EntryFields columns={3} label="年資不計期間" rows={[
+        {label:"起日",required:true,content:<DateInput density="regular" max="9999-12-31" className="cy-sheet-input" value={form.startDate??""} onChange={v=>setForm({...form,startDate:v})}/>},
+        {label:"迄日",required:true,content:<DateInput density="regular" max="9999-12-31" className="cy-sheet-input" value={form.endDate??""} onChange={v=>setForm({...form,endDate:v})}/>},
         {label:"原因",required:true,content:<input className="cy-sheet-input" value={form.reason??""} onChange={e=>setForm({...form,reason:e.target.value})}/>}
        ]}/>}
        {actionError?<><p role="alert" className="cy-notice cy-notice-danger">{actionError}</p>{!actionReady?<button type="button" className="cy-op-button soft" onClick={()=>void openAction(action,actionEmployeeId)}>重新讀取目前設定</button>:null}</>:null}
+       {action==="status"&&redundant?.length?<div role="alert" className="cy-notice cy-notice-warning cy-hr-redundant">
+        <div>{redundant.map(item=><p key={item.id}>已有「{date(item.effectiveDate)} {item.fieldLabel}：{item.previousLabel} → {item.nextLabel}」，存檔後那筆會變成沒有變化。</p>)}</div>
+        <CheckField label={redundant.length>1?"一併刪除這些筆":"一併刪除該筆"} checked={deleteRedundant} onChange={e=>setDeleteRedundant(e.target.checked)}/>
+       </div>:null}
        <div className="cy-op-form-footer">
+        {action==="status"?<span className="cy-hr-change-summary">{statusSummary()}</span>:null}
         <button type="button" className="cy-op-button" disabled={busy} onClick={()=>{actionRequest.invalidate();setAction(null);setActionEmployeeId(null)}}>取消</button>
-        <button className="cy-op-button primary" disabled={busy||!actionReady} aria-busy={busy||undefined}>新增</button>
+        <button className="cy-op-button primary" disabled={busy||!actionReady} aria-busy={busy||undefined}>{action==="status"?"儲存":"新增"}</button>
        </div>
       </form>}
     </Dialog>:null}

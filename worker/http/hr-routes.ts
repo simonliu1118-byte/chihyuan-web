@@ -145,7 +145,7 @@ export async function handleHrRoute(request:Request,env:IdentityRuntimeEnv & HrF
   }
   return failure({code:"METHOD_NOT_ALLOWED",message:"不支援此操作"},requestId,405);
  }catch(e){
-   if(e instanceof HrValidationError)return bad(e.message,requestId,e.status);
+   if(e instanceof HrValidationError)return e.extra?failure({code:e.extra.code,message:e.message,details:e.extra.details},requestId,e.status):bad(e.message,requestId,e.status);
    if(e instanceof Error && /UNIQUE constraint failed/.test(e.message))return bad("員工編號、使用者綁定或設定生效日已存在",requestId,409,"HR_DUPLICATE");
    // Never return SQL, names, IDs or other HR details in unexpected errors.
    return failure({code:"HR_UNAVAILABLE",message:"人事資料處理失敗，請稍後重試"},requestId,500);

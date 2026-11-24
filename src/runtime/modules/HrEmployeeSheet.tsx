@@ -23,7 +23,7 @@ export function HrEmployeeSheet({value,detail,editing,creating,busy,members,stor
    value={String(value[key]??"")} onChange={e=>patch({[key]:e.target.value} as Partial<Draft>)}>
      <option value="">請選擇</option>{options}
    </select>;
- const cell=(label:string,view:ReactNode,edit?:ReactElement,required=false,span?:number)=>({label,view,edit,required,span});
+ const cell=(label:string,view:ReactNode,edit?:ReactElement,required=false,span?:number)=>({label,view,edit:!creating&&["門市","職稱","僱用型態","排班方式","人事狀態"].includes(label)?undefined:edit,required,span});
  /** Every row shares one six-column grid, so the cell lines line up (user 2026-11-10). */
  const grid="repeat(6,minmax(0,1fr))";
  const contact=value.contacts[0]??{name:"",relationship:"",phone:""};
@@ -77,11 +77,11 @@ export function HrEmployeeSheet({value,detail,editing,creating,busy,members,stor
   {columns:grid,cells:[
     cell("緊急聯絡人姓名",shownContact.name,<input className="cy-sheet-input" aria-label="緊急聯絡人姓名" disabled={busy} value={contact.name} onChange={e=>setContact("name",e.target.value)}/>,true),
     cell("關係",shownContact.relationship,<input className="cy-sheet-input" aria-label="緊急聯絡人關係" disabled={busy} value={contact.relationship} onChange={e=>setContact("relationship",e.target.value)}/>),
-    cell("緊急聯絡人電話",shownContact.phone?<PhoneText value={shownContact.phone} kind="auto"/>:"",<PhoneInput className="cy-sheet-input" kind="auto" aria-label="緊急聯絡人電話" disabled={busy} value={contact.phone} onChange={v=>setContact("phone",v)}/>,true,creating?1:4),
+    cell("緊急聯絡人電話",shownContact.phone?<PhoneText value={shownContact.phone} kind="auto"/>:"",<PhoneInput className="cy-sheet-input" kind="auto" aria-label="緊急聯絡人電話" disabled={busy} value={contact.phone} onChange={v=>setContact("phone",v)}/>,true,1),
     // 班表排序／不檢查排班規則 live only in 排班 → 門市人員設定 (user 2026-11-09).
-    ...(creating?[cell("人事狀態",value.status==="active"?"在職":"試用",
+    ...[cell("人事狀態",({probation:"試用",active:"在職",leave:"留職停薪",terminated:"離職"})[value.status],
      <select className="cy-sheet-input" disabled={busy} value={value.status} onChange={e=>patch({status:e.target.value as Draft["status"]})}>
-      <option value="probation">試用</option><option value="active">在職</option></select>,true,3)]:[])
+      <option value="probation">試用</option><option value="active">在職</option></select>,true,3)]
   ]},
   {columns:grid,cells:[cell("備註",value.note,<textarea className="cy-sheet-input" value={value.note} disabled={busy}
     onChange={e=>patch({note:e.target.value})}/>,false,6)]}

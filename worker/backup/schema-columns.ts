@@ -333,6 +333,17 @@ export const BACKUP_COLUMNS: Record<string, string[]> = {
     "period_end",
     "period_start"
   ],
+  "hr_assignment_changes": [
+    "created_at",
+    "effective_date",
+    "employee_id",
+    "field",
+    "handled_by",
+    "id",
+    "next_value",
+    "previous_value",
+    "reason"
+  ],
   "hr_attendance_days": [
     "employee_id",
     "id",
