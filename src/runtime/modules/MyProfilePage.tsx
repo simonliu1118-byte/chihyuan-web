@@ -21,7 +21,7 @@ interface Profile {
   mailing_address:string|null;registered_address:string|null;hire_date:string;seniority_start_date:string|null;employment_type:string;
   nationalIdMasked:string|null;store_name:string|null;job_title:string|null};
  contacts:{name:string;relationship:string|null;phone:string}[];
- education:{school:string;department:string|null;start_month:string|null;end_month:string|null}[];
+ education:{school:string;department:string|null;start_month:string|null;end_month:string|null;note?:string|null}[];
  statusChanges:{effective_date:string;previous_status:string;next_status:string}[];
  salaries:{effectiveDate:string;paymentType:"monthly"|"hourly";baseAmount:number;allowances:{name:string;amount:number;regular:boolean}[]}[];
  insurance:null|{effectiveDate:string;laborEnabled:boolean;employmentInsurance:boolean;laborBasis:number;healthEnabled:boolean;healthBasis:number;dependents:number;
@@ -44,7 +44,7 @@ type Line=Profile["payslips"][number]["lines"][number];
 const STATUS:Record<string,string>={probation:"試用",active:"在職",leave:"留職停薪",terminated:"離職"};
 const EMPLOYMENT:Record<string,string>={full:"正職",half:"半職",casual:"兼職"};
 const WEEK="日一二三四五六";
-const money=(n:number)=>n.toLocaleString("zh-TW");
+const money=(n:number)=>(n||0).toLocaleString("zh-TW");
 const noop=()=>undefined;
 /** 480 minutes is one leave day, matching the HR leave ledger. */
 function duration(minutes:number):string{
@@ -110,8 +110,7 @@ function LeaveTab({since}:{since:string}){
   {error?<p role="alert" className="cy-op-notice danger">{error}</p>:null}
   <section className="cy-op-panel">
    <div className="cy-my-profile-head"><h2>假期</h2>
-    <span className="cy-my-profile-nav"><button type="button" className="cy-op-button" disabled={year<=+since.slice(0,4)} onClick={()=>setYear(year-1)}>上一年</button><strong>{year} 年</strong>
-     <button type="button" className="cy-op-button" disabled={year>=+today.slice(0,4)} onClick={()=>setYear(year+1)}>下一年</button></span></div>
+    <MonthPicker precision="year" value={String(year)} min={since.slice(0,4)} max={today.slice(0,4)} onChange={v=>setYear(Number(v))}/></div>
    {!leave?<Loading/>:<>
     {rows<Balance>(thisYear?"剩餘假期":"已用假期",[col("假別",r=>r.name,"8em"),col("剩餘",r=>r.remaining,"9em"),col("已用",r=>r.used,"9em"),col("說明",r=><span className={r.warn?"cy-my-profile-warn":undefined}>{r.note}</span>)],balances,(r,i)=>r.name+i)}
     {rows<Leave["records"][number]>("請假紀錄",[col("日期",r=>day(r.workDate),"8em"),col("假別",r=>r.type,"8em"),col("時間",r=>r.wholeDay?"全天":(r.startTime??"")+"～"+(r.endTime??""),"10em"),col("時數",r=>duration(r.minutes))],
@@ -192,8 +191,8 @@ function ProfileTab({profile,account}:{profile:Profile;account:AccountCells}){
     {columns:grid,cells:[{label:"戶籍地址",view:e.registered_address,span:6}]},
    ]}/>
    {rows<Profile["contacts"][number]>("緊急聯絡人",[col("姓名",c=>c.name),col("關係",c=>c.relationship,"8em"),col("電話",c=>c.phone,"12em")],profile.contacts,(c,i)=>c.name+i)}
-   {rows<Profile["education"][number]>("學歷",[col("學校",c=>c.school),col("科系",c=>c.department),col("期間",c=>[c.start_month,c.end_month].filter(Boolean).join("～"),"12em")],profile.education,(c,i)=>c.school+i)}
-   {rows<Profile["statusChanges"][number]>("異動紀錄",[col("生效日",c=>formatDate(c.effective_date),"9em"),col("異動",c=>c.previous_status===c.next_status?"建檔（"+(STATUS[c.next_status]??c.next_status)+"）":(STATUS[c.previous_status]??c.previous_status)+" → "+(STATUS[c.next_status]??c.next_status))],profile.statusChanges,(c,i)=>c.effective_date+i)}
+   {rows<Profile["education"][number]>("學歷",[col("學校",c=>c.school),col("科系",c=>c.department),col("期間",c=>[c.start_month,c.end_month].filter(Boolean).join("～"),"12em"),col("備註",c=>c.note)],profile.education,(c,i)=>c.school+i)}
+   {rows<Profile["statusChanges"][number]>("異動紀錄",[col("生效日",c=>formatDate(c.effective_date),"9em"),col("異動",c=>(STATUS[c.previous_status]??c.previous_status)+" → "+(STATUS[c.next_status]??c.next_status))],profile.statusChanges,(c,i)=>c.effective_date+i)}
   </section>
  </div>;
 }

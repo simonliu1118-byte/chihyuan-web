@@ -5,24 +5,29 @@
 .hr-roster-toolbar select{max-width:210px}
 .hr-roster-print-title{text-align:center;margin:10px 0 8px;font-weight:700}
 .hr-roster-scroll{max-width:100%;overflow-x:auto;overscroll-behavior-inline:contain;border:1px solid var(--cy-border)}
-.hr-roster-table{border-collapse:collapse;table-layout:fixed;min-width:100%;width:max-content;font-variant-numeric:tabular-nums}
-.hr-roster-table th,.hr-roster-table td{border:1px solid var(--cy-border);padding:2px;text-align:center;min-width:30px;font-size:11px;position:relative}
-.hr-roster-table th:first-child,.hr-roster-table td:first-child{min-width:62px;background:var(--cy-surface);position:sticky;left:0;z-index:2}
-.hr-roster-table th:nth-child(2){min-width:80px;position:sticky;left:62px;z-index:2;background:var(--cy-surface)}
-.hr-roster-table thead th{background:var(--cy-surface)}
-/* The weekday row starts at date 1 (職稱／姓名 span both header rows): its first two cells are date columns, not the frozen name columns. */
-.hr-roster-table thead tr+tr th:first-child,.hr-roster-table thead tr+tr th:nth-child(2){min-width:30px;position:relative;left:auto;z-index:auto}
-.hr-roster-table th small{display:block;font-size:8px;max-width:35px;overflow-wrap:anywhere}
-.hr-roster-table .hr-holiday{background:#e7eaed;color:#25313d}
-.hr-roster-table .hr-cycle{border-left:3px double #465461}
+/* 固定版面：每個日期欄等寬（職稱、姓名、備註固定寬），31 天整月在內容寬度 1440 視窗內不需橫向捲動；更窄的視窗只在表格區內捲動。 */
+.hr-roster-table{--cy-roster-holiday:color-mix(in srgb,var(--cy-text) 9%,var(--cy-surface));border-collapse:collapse;table-layout:fixed;width:100%;min-width:1100px;font-variant-numeric:tabular-nums;font-size:var(--cy-fs-md)}
+.hr-roster-table col.hr-col-title{width:58px}.hr-roster-table col.hr-col-name{width:74px}.hr-roster-table col.hr-col-note{width:84px}
+.hr-roster-table th,.hr-roster-table td{border:1px solid var(--cy-border);padding:0 1px;text-align:center;min-width:0;height:40px;font-size:14px;line-height:1.25;position:relative;overflow:hidden;overflow-wrap:anywhere}
+.hr-roster-table th:first-child,.hr-roster-table td:first-child{background:var(--cy-surface);position:sticky;left:0;z-index:2}
+.hr-roster-table th:nth-child(2){position:sticky;left:58px;z-index:2;background:var(--cy-surface)}
+.hr-roster-table thead th{background:var(--cy-surface-muted);font-weight:600;height:34px}
+.hr-roster-table thead tr+tr th:first-child,.hr-roster-table thead tr+tr th:nth-child(2){position:relative;left:auto;z-index:auto}
+.hr-roster-table th small{display:block;font-size:12px;font-weight:400;overflow-wrap:anywhere;line-height:1.15}
+.hr-roster-table .hr-staffing td{font-size:13px;line-height:1.2;white-space:normal}
+/* 國定假日／週末底色：表頭、每位員工與每日人力同一欄同一色。 */
+.hr-roster-table .hr-holiday{background:var(--cy-roster-holiday);color:var(--cy-text)}
+.hr-roster-table thead .hr-holiday{background:color-mix(in srgb,var(--cy-roster-holiday) 80%,var(--cy-surface-muted))}
+/* 雙週變形工時分界：表頭、每列員工、每日人力同一條雙線，貫穿整個表身。 */
+.hr-roster-table .hr-cycle{border-left:3px double var(--cy-text-muted)}
 .hr-roster-table .hr-invalid{outline:2px solid #c62828;outline-offset:-2px}
-.hr-roster-table .hr-sixth:after{content:"連六";font-size:7px;color:#a44800;position:absolute;right:0;top:0}
-.hr-roster-table .hr-group-start th,.hr-roster-table .hr-group-start td{border-top:6px solid var(--cy-surface)}
-.hr-roster-table .hr-staffing{font-weight:700;background:var(--cy-surface)}
-.hr-roster-cell{display:block;background:transparent;color:inherit;border:0;width:100%;min-height:28px;font:inherit;cursor:pointer}
-.hr-roster-cell small{display:block;font-size:8px}
+.hr-roster-table .hr-sixth:after{content:"連六";font-size:10px;color:#a44800;position:absolute;right:1px;top:0}
+.hr-roster-table .hr-staffing th,.hr-roster-table .hr-staffing td{font-weight:700;background:var(--cy-surface-muted)}
+.hr-roster-table .hr-staffing td.hr-holiday{background:var(--cy-roster-holiday)}
+.hr-roster-cell{display:block;background:transparent;color:inherit;border:0;width:100%;min-height:38px;font:inherit;cursor:pointer}
+.hr-roster-cell small{display:block;font-size:12px;line-height:1.1}
 .hr-roster-cell:focus-visible{outline:2px solid var(--cy-accent)}
-.hr-cell-choices{display:flex;flex-wrap:wrap;gap:6px}
+.hr-cell-choices{display:flex;flex-wrap:wrap;gap:6px;padding:6px 8px}
 .hr-attendance-table{width:100%}.hr-attendance-clock{width:78px}
 /* Edited right in the table cell (shared cy-sheet-input), no boxed inputs inside the table (user rule). */
 .hr-attendance-table td.hr-sheet-cell,.hr-attendance-table td.hr-overtime-cell{padding:0}
@@ -39,18 +44,29 @@
  .cy-hr-phase2a,.cy-hr-phase2a *{visibility:visible!important}
  .cy-hr-phase2a{position:absolute!important;left:0!important;top:0!important;width:100%!important;overflow:visible!important}
  .hr-roster-scroll{border:0!important;overflow:visible!important}
- .hr-roster-table{width:100%!important;min-width:0!important;table-layout:fixed!important;border:2px solid #333}
- .hr-roster-table th,.hr-roster-table td{font-size:7px!important;min-width:0!important;padding:1px!important;position:static!important;border:1px solid #777}
- .hr-roster-table th:first-child,.hr-roster-table td:first-child,.hr-roster-table th:nth-child(2){width:16mm!important;min-width:0!important;position:static!important}
+ .hr-roster-table{width:100%!important;min-width:0!important;table-layout:fixed!important;border:2px solid #333;font-size:13px}
+ .hr-roster-table th,.hr-roster-table td{font-size:13px!important;min-width:0!important;height:auto!important;padding:2px 1px!important;position:static!important;border:1px solid #777}
+ .hr-roster-table th small{font-size:10px!important;max-width:none}
+ .hr-roster-table th:first-child,.hr-roster-table td:first-child{width:18mm!important;min-width:0!important;position:static!important}
+ .hr-roster-table th:nth-child(2){width:20mm!important;min-width:0!important;position:static!important}
  .hr-roster-table thead tr+tr th:first-child,.hr-roster-table thead tr+tr th:nth-child(2){width:auto!important}
  .hr-roster-table tr{break-inside:avoid}
- .hr-roster-table .hr-holiday{background:#e6e6e6!important;print-color-adjust:exact;-webkit-print-color-adjust:exact}
+ .hr-roster-table .hr-holiday{background:#e6e6e6!important;color:#000!important;print-color-adjust:exact;-webkit-print-color-adjust:exact}
  .hr-roster-table .hr-cycle{border-left:3px double #333!important}
- .hr-roster-table .hr-group-start th,.hr-roster-table .hr-group-start td{border-top:4px solid white!important}
- .hr-roster-print-title{font-size:15px;margin:0 0 4mm}
+ .hr-roster-print-title{font-size:18px;margin:0 0 4mm}
  .print-only{display:inline!important}
  .no-print,.hr-roster-cell,.hr-roster-toolbar,button,textarea{display:none!important;visibility:hidden!important}
 }
 
 td.hr-sheet-cell{padding:0!important}
 td.hr-sheet-cell>textarea.cy-sheet-input{min-height:64px}
+
+/* 手機卡片：出勤表格內直接編輯的欄位，標籤與內容左緣對齊、有與其他欄一致的內距。 */
+@media(max-width:820px){
+ .hr-attendance-table td.hr-sheet-cell,.hr-attendance-table td.hr-overtime-cell{padding:6px 10px!important}
+ .hr-attendance-table td.hr-sheet-cell .cy-sheet-input,.hr-attendance-table td.hr-overtime-cell .cy-sheet-input{padding-left:0;padding-right:0}
+}
+
+/* 門市人員設定：每格內容垂直置中、靠左；手機卡片同樣置中對齊。 */
+.cy-hr-staff-form .cy-entry-table :is(td,th){vertical-align:middle;text-align:left}
+@media(max-width:820px){.cy-hr-staff-form .cy-entry-table td{align-items:center}}

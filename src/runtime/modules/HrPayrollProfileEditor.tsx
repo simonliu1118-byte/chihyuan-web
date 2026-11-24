@@ -55,7 +55,7 @@ export function ProfileEditor({employeeId,month,onClose,onSaved}:{employeeId:num
   {error?<p className="cy-op-notice danger" role="alert">{error}</p>:null}
   {!ready&&!loading?<button type="button" className="cy-op-button" onClick={()=>setReadVersion(n=>n+1)}>重新讀取設定</button>:null}
   
-  <form className="cy-op-form" onKeyDown={enterAdvancesFields} onSubmit={e=>void submit(e)}>
+  <form className="cy-op-form cy-hr-profile-form" onKeyDown={enterAdvancesFields} onSubmit={e=>void submit(e)}>
    <EntryFields label="生效設定" columns={2} rows={[{label:'生效日',required:true,content:<DateInput className="cy-sheet-input" disabled={busy||loading} value={at} onChange={v=>{setAt(v);setDirty(true);}}/>},{label:'設定原因',required:true,content:<input className="cy-sheet-input" disabled={busy||loading} value={reason} onChange={e=>{setReason(e.target.value);setDirty(true);}}/>}]}/>
    <EntryFields label="計薪與投保資料" columns={3} rows={controls}/>
    <button className="cy-op-button primary" disabled={busy||loading||!ready}>新增生效設定</button>

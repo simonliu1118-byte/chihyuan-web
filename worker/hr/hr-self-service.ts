@@ -41,8 +41,8 @@ export class HrSelfService {
    employee:{...pick(e,["employee_no","name","status","gender","birth_date","mobile","phone","mailing_address","registered_address","hire_date","seniority_start_date","employment_type","nationalIdMasked"]),
     store_name:text(names?.store_name),job_title:text(names?.job_title)},
    contacts:((e.contacts as Row[])??[]).map(c=>pick(c,["name","relationship","phone"])),
-   education:((e.education as Row[])??[]).map(c=>pick(c,["school","department","start_month","end_month"])),
-   statusChanges:((e.statusChanges as Row[])??[]).map(c=>pick(c,["effective_date","previous_status","next_status"])),
+   education:((e.education as Row[])??[]).map(c=>pick(c,["school","department","start_month","end_month","note"])),
+   statusChanges:((e.statusChanges as Row[])??[]).filter(c=>c.is_creation!==true).map(c=>pick(c,["effective_date","previous_status","next_status"])),
    salaries,insurance,payslips
   };
  }

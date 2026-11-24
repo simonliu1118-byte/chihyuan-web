@@ -22,3 +22,11 @@
 .cy-hr-leave .cy-md-list h3{padding:12px 14px 0}
 
 .cy-hr-leave-md[data-pane="list"]{grid-template-columns:minmax(0,1fr)}
+/* 請假頁垂直節奏：區塊標題、表格、按鈕之間固定間距（標準 12／20px）。 */
+.cy-hr-leave .cy-op-panel>h3{margin:0 0 10px;padding-top:2px}
+.cy-hr-leave .cy-md-detail h4{margin:22px 0 10px}
+.cy-hr-leave .cy-md-detail .cy-data-toolbar{margin-bottom:10px}
+.cy-hr-leave .cy-md-detail .cy-op-table-wrap+.cy-op-empty,.cy-hr-leave .cy-md-detail .cy-op-empty{margin:10px 0 0}
+.cy-hr-leave .cy-md-detail .cy-op-table-wrap+.cy-hr-leave-grant,.cy-hr-leave .cy-md-detail .cy-op-empty+.cy-hr-leave-grant{margin-top:12px}
+.cy-hr-leave .cy-md-detail>p{margin:0 0 10px}
+.cy-hr-leave .cy-md-list{padding:12px 12px 14px}

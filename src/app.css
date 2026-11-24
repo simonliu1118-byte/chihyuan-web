@@ -439,8 +439,9 @@ tr.cy-row-struck > td::after { content: ""; position: absolute; top: 50%; left: 
   padding: 5px 8px; border-bottom: 1px solid var(--cy-border); border-right: 1px solid var(--cy-border); vertical-align: middle;
 }
 .cy-op-table:not(:where(.cy-ordering-page,.cy-store-page,.cy-store-stocktake) *) tr > :last-child { border-right: 0; }
-.cy-op-table:not(:where(.cy-ordering-page,.cy-store-page,.cy-store-stocktake) *) tbody tr:last-child > td { border-bottom: 0; }
+.cy-op-table:not(:where(.cy-ordering-page,.cy-store-page,.cy-store-stocktake) *) tbody:last-of-type > tr:last-child > td { border-bottom: 0; }
 .cy-op-table:not(:where(.cy-ordering-page,.cy-store-page,.cy-store-stocktake) *) th { padding-block: 5px; }
+.cy-op-panel > h3 + :is(.cy-data-toolbar, .cy-op-table-wrap) { margin-top: 10px; }
 .cy-op-total { margin-top: 12px; font-size: var(--cy-fs-lg); font-weight: 700; text-align: right; font-variant-numeric: tabular-nums; }
 
 /* ---------- Tabs (one style for every module) ---------- */

@@ -1,3 +1,4 @@
+import {MonthPicker} from "../../ui/forms/MonthPicker";
 import {useEffect,useRef,useState,type FormEvent} from 'react';
 import {apiRequest} from '../../api/client';
 import {BONUS_CATEGORIES,type BonusBatch,type BonusHistoryRow} from '../../../shared/hr-bonus';
@@ -14,7 +15,7 @@ import {useNavigationGuard,useUnsavedChangesGuard} from '../../ui/foundation/use
 import {taipeiToday} from '../../../shared/erp-query-history';
 
 const ROOT='/api/business/hr/payroll/bonuses';
-const money=(n:number)=>n.toLocaleString('zh-TW'),date=(s:string)=>s.replaceAll('-','/');
+const money=(n:number)=>(n||0).toLocaleString('zh-TW'),date=(s:string)=>s.replaceAll('-','/');
 const status={draft:'草稿',paid:'已發放',void:'已作廢'};
 interface Person {id:number;employee_no:string;name:string}
 interface Page {items:BonusHistoryRow[];nextCursor:number|null}
@@ -40,7 +41,7 @@ function BonusEditor({initial,employee,onSaved,onClose}:{initial:BonusBatch|null
  const total=rows.reduce((n,r)=>n+Number(r.amount||0),0),hasIssues=!!batch?.payments.some(p=>p.result.issues.length);
  return <Dialog open size="large" title={`${employee?'獎金發放｜'+employee.employee_no+' '+employee.name:'獎金發放'}${batch?' — '+status[batch.status]:''}`} showCloseButton={false} dismissible={!busy} onClose={()=>void navigation.canLeave().then(ok=>{if(ok)onClose();})}>
   {error?<p className="cy-op-notice danger" role="alert">{error}</p>:null}
-  <form className="cy-op-form" onKeyDown={enterAdvancesFields} onSubmit={e=>void save(e)}>
+  <form className="cy-op-form cy-hr-bonus-editor" onKeyDown={enterAdvancesFields} onSubmit={e=>void save(e)}>
    <EntryFields label="獎金發放資料" columns={3} rows={[
     {label:'發放日期',required:true,content:<DateInput className="cy-sheet-input" disabled={busy||!editable} value={payDate} onChange={v=>change(()=>setPayDate(v))}/>},
     {label:'獎金項目',required:true,content:<select className="cy-sheet-input" disabled={busy||!editable} value={category} onChange={e=>change(()=>setCategory(e.target.value))}>{BONUS_CATEGORIES.map(c=><option key={c}>{c}</option>)}</select>},
@@ -75,10 +76,10 @@ function BonusRecords({employee}:{employee?:Person}){
  useEffect(()=>{setPage({items:[],nextCursor:null});setEditor(undefined);setHistory(false);void load();},[employee?.id,year]);
  async function open(id:number){setBusy(true);try{setEditor(await apiRequest<BonusBatch>(ROOT+'/'+id));}catch(e){setError(e instanceof Error?e.message:'讀取獎金失敗');}finally{setBusy(false);}}
  const filtered=page.items.filter(p=>(p.employee_no+' '+p.name+' '+p.category+' '+p.note).includes(search.trim()));
- const table=<><div className="cy-op-table-wrap"><table className="cy-op-table cy-rt" aria-label="獎金發放紀錄"><thead><tr>{['發放日期',...(!employee?['員工']:[]),'獎金項目','金額','實領','備註','狀態','操作'].map(h=><th key={h}>{h}</th>)}</tr></thead><tbody>{filtered.map(p=><tr key={p.id}><td data-label="發放日期">{date(p.pay_date)}</td>{!employee?<td data-label="員工">{p.employee_no} {p.name}</td>:null}<td data-label="獎金項目">{p.category}{p.attribution_year?'（'+p.attribution_year+'）':''}</td><td data-label="金額">{money(p.amount)}</td><td data-label="實領">{p.result.issues.length?'待確認':money(p.result.net)}</td><td data-label="備註">{p.note||'—'}</td><td data-label="狀態">{status[p.status]}</td><td data-label="操作"><button type="button" className="cy-op-button compact" disabled={busy} onClick={()=>void open(p.batch_id)}>{p.status==='draft'?'修改':'查看'}</button></td></tr>)}</tbody></table></div>{page.nextCursor?<button type="button" className="cy-op-button" onClick={()=>void load(true)}>載入更多</button>:null}</>;
+ const table=<><div className="cy-op-table-wrap"><table className="cy-op-table cy-rt" aria-label="獎金發放紀錄"><thead><tr>{['發放日期',...(!employee?['員工']:[]),'獎金項目','金額','實領','備註','狀態','操作'].map(h=><th key={h}>{h}</th>)}</tr></thead><tbody>{filtered.map(p=><tr key={p.id}><td data-label="發放日期">{date(p.pay_date)}</td>{!employee?<td data-label="員工">{p.employee_no} {p.name}</td>:null}<td data-label="獎金項目">{p.category}{p.attribution_year?'（'+p.attribution_year+'）':''}</td><td data-label="金額">{money(p.amount)}</td><td data-label="實領">{p.result.issues.length?'待確認':money(p.result.net)}</td><td data-label="備註">{p.note||'—'}</td><td data-label="狀態">{status[p.status]}</td><td data-label="操作"><button type="button" className="cy-op-button compact" disabled={busy} onClick={()=>void open(p.batch_id)}>{p.status==='draft'?'修改':'查看'}</button></td></tr>)}</tbody></table></div>{!filtered.length?<p className="cy-op-empty">{search.trim()?"沒有符合的獎金發放紀錄。":"這一年尚無獎金發放紀錄。"}</p>:null}{page.nextCursor?<button type="button" className="cy-op-button" onClick={()=>void load(true)}>載入更多</button>:null}</>;
  return <>
   {employee?<RelatedCard title="獎金" count={page.items.length+(page.nextCursor?'+':'')} empty="尚無獎金發放紀錄。" rows={page.items.slice(0,3).map(p=><span key={p.id}>{date(p.pay_date)}　{p.category}　{money(p.amount)}{p.status!=='paid'?'（'+status[p.status]+'）':''}</span>)} onAdd={()=>setEditor(null)} onView={()=>setHistory(true)} summary={error?<span role="alert">{error}</span>:undefined}/>:<section className="cy-op-module" aria-label="獎金發放">
-   <DataViewToolbar searchValue={search} onSearchChange={setSearch} searchLabel="搜尋獎金" searchPlaceholder="員工編號、姓名、獎金項目、備註" beforeSearch={<><button className="cy-op-button" type="button" onClick={()=>setYear(String(+year-1))}>上一年</button><strong>{year} 年</strong><button className="cy-op-button" type="button" onClick={()=>setYear(String(+year+1))}>下一年</button></>} actions={<button className="cy-op-button primary" type="button" onClick={()=>setEditor(null)}>統一發放獎金</button>}/>
+   <DataViewToolbar searchValue={search} onSearchChange={setSearch} searchLabel="搜尋獎金" searchPlaceholder="員工編號、姓名、獎金項目、備註" beforeSearch={<MonthPicker precision="year" value={year} onChange={setYear}/>} actions={<button className="cy-op-button primary" type="button" onClick={()=>setEditor(null)}>統一發放獎金</button>}/>
    {error?<p className="cy-op-notice danger" role="alert">{error}</p>:null}{table}
   </section>}
   {history&&employee?<Dialog open size="large" title={`獎金紀錄｜${employee.employee_no} ${employee.name}`} onClose={()=>setHistory(false)}>{table}</Dialog>:null}

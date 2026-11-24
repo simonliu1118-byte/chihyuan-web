@@ -44,6 +44,8 @@ export function RecordSheet({ label, editing, rows }: { label: string; editing: 
 export interface RowColumn<T> {
   label: string;
   width?: string;
+  /** Physical grid columns this column covers when the table is given `grid`. */
+  span?: number;
   required?: boolean;
   mono?: boolean;
   view: (row: T) => ReactNode;
@@ -55,7 +57,7 @@ export interface RowColumn<T> {
  * one. At `max` rows ＋ is no longer offered. While viewing, a section with no rows still shows its
  * header and one row of dashes (user 2026-11-03), unless `hideWhenEmpty`.
  */
-export function RecordRows<T>({ title, editing, columns, rows, rowKey, max, busy = false, hideWhenEmpty = false, onInsert, onRemove, className = "" }: {
+export function RecordRows<T>({ title, editing, columns, rows, rowKey, max, busy = false, hideWhenEmpty = false, grid, onInsert, onRemove, className = "" }: {
   title: string;
   editing: boolean;
   columns: RowColumn<T>[];
@@ -64,6 +66,8 @@ export function RecordRows<T>({ title, editing, columns, rows, rowKey, max, busy
   max?: number;
   busy?: boolean;
   hideWhenEmpty?: boolean;
+  /** Shared column widths (one per physical column) so tables stacked on one sheet line up; columns then use `span`. */
+  grid?: string[];
   onInsert: (after: number) => void;
   onRemove: (index: number) => void;
   className?: string;
@@ -75,16 +79,16 @@ export function RecordRows<T>({ title, editing, columns, rows, rowKey, max, busy
   return <section className={"cy-sheet-rows " + className} aria-label={title}>
     <h3 className="cy-sheet-rows-title">{title}</h3>
     <div className="cy-sheet-rows-scroll"><table className={"cy-sheet-table" + (editing ? " editing" : "")}>
-      <colgroup><col className="cy-sheet-seq" />{columns.map(column => <col key={column.label} style={column.width ? { width: column.width } : undefined} />)}
+      <colgroup><col className="cy-sheet-seq" />{grid ? grid.map((width, i) => <col key={i} style={{ width }} />) : columns.map(column => <col key={column.label} style={column.width ? { width: column.width } : undefined} />)}
         {editing ? <col className="cy-sheet-ops" /> : null}</colgroup>
       <thead><tr><th scope="col" className="cy-sheet-seq">項次</th>
-        {columns.map(column => <th scope="col" key={column.label}>{column.label}
+        {columns.map(column => <th scope="col" key={column.label} colSpan={grid ? column.span : undefined}>{column.label}
           {editing && column.required ? <span className="cy-field-required" aria-hidden="true">＊</span> : null}</th>)}
         {editing ? <th scope="col" className="cy-sheet-ops">操作</th> : null}</tr></thead>
       <tbody>
         {rows.map((row, index) => <tr key={rowKey(row, index)}>
           <td className="cy-sheet-seq">{index + 1}</td>
-          {columns.map(column => <td key={column.label} data-label={column.label} className={column.mono ? "mono" : undefined}>
+          {columns.map(column => <td key={column.label} data-label={column.label} colSpan={grid ? column.span : undefined} className={column.mono ? "mono" : undefined}>
             {editing ? <Field label={column.label} required={column.required} presentation="cell">{column.edit(row, index)}</Field>
               : <span className="cy-sheet-value">{isEmpty(column.view(row)) ? "—" : column.view(row)}</span>}
           </td>)}
@@ -93,9 +97,9 @@ export function RecordRows<T>({ title, editing, columns, rows, rowKey, max, busy
               disabled={busy} onClick={() => onRemove(index)} /></td> : null}
         </tr>)}
         {editing && rows.length === 0 ? <tr className="cy-sheet-empty"><td className="cy-sheet-seq" />
-          {columns.map(column => <td key={column.label} />)}<td className="cy-sheet-ops">{add(-1)}</td></tr> : null}
+          {columns.map(column => <td key={column.label} colSpan={grid ? column.span : undefined} />)}<td className="cy-sheet-ops">{add(-1)}</td></tr> : null}
         {!editing && rows.length === 0 ? <tr className="cy-sheet-empty"><td className="cy-sheet-seq" />
-          {columns.map(column => <td key={column.label} data-label={column.label}><span className="cy-sheet-value">—</span></td>)}</tr> : null}
+          {columns.map(column => <td key={column.label} data-label={column.label} colSpan={grid ? column.span : undefined}><span className="cy-sheet-value">—</span></td>)}</tr> : null}
       </tbody>
     </table></div>
   </section>;

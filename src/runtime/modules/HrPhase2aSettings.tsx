@@ -1,3 +1,4 @@
+import {MonthPicker} from "../../ui/forms/MonthPicker";
 import {useLatestRequest} from '../../ui/foundation/useLatestRequest';
 import {TimeInput} from '../../ui/forms/TimeInput';
 import {useUnsavedChangesGuard} from '../../ui/foundation/useUnsavedChangesGuard';
@@ -107,11 +108,7 @@ export function HrHolidaySettings(){
  const thisYear=Number(taipeiToday().slice(0,4));
  return <SettingsPane title="國定假日" hint="人工維護；依年份切換。" actionLabel="＋ 新增國定假日" onAction={open} actionDisabled={busy} error={error}>
   {confirmationDialog}
-  <span className="cy-hrs-year" role="group" aria-label="年份">
-   <button type="button" aria-label="上一年" disabled={busy||year<=thisYear-1} onClick={()=>setYear(y=>y-1)}>‹</button>
-   <strong>{year}</strong>
-   <button type="button" aria-label="下一年" disabled={busy||year>=thisYear+1} onClick={()=>setYear(y=>y+1)}>›</button>
-  </span>
+  <MonthPicker precision="year" label="年份" value={String(year)} min={String(thisYear-1)} max={String(thisYear+1)} disabled={busy} onChange={v=>setYear(Number(v))}/>
   <SettingsTable label="國定假日設定" head={<><th>日期</th><th>名稱</th><th/></>} empty={loaded&&!holidays.length?year+" 年尚無國定假日。":undefined}>
    {holidays.map(h=><tr key={h.date}><td>{h.date.replaceAll("-","/")}</td><td>{h.name}</td><td className="cy-hrs-actions"><button key="del" type="button" className="cy-op-button compact" disabled={busy} onClick={()=>void remove(h.date)}>刪除</button></td></tr>)}
   </SettingsTable>

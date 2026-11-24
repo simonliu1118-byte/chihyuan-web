@@ -16,7 +16,7 @@ interface SalaryRecord {id:number;effective_date:string;payment_type:HrPaymentTy
  created_by_name:string|null;allowances:Allowance[]}
 interface SalaryEmployee {id:number;employeeNo:string;name:string;storeId:number|null;storeName:string|null;
  jobTitle:string|null;status:HrStatus;salaryRecords:SalaryRecord[]}
-const money=(value:number)=>"$"+value.toLocaleString("zh-TW");
+const money=(value:number)=>"$"+(value||0).toLocaleString("zh-TW");
 const total=(row:SalaryRecord)=>row.base_amount+row.allowances.reduce((sum,x)=>sum+x.amount,0);
 const allowanceTotal=(row:SalaryRecord)=>row.allowances.reduce((sum,x)=>sum+x.amount,0);
 const todaySalary=(row:SalaryEmployee,today:string)=>row.salaryRecords.find(s=>s.effective_date<=today)??null;

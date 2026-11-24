@@ -44,11 +44,11 @@ const statusTone = (status: HrStatus) => status === "active" ? "success" as cons
 // Rows come back from the HR API as stored (snake_case); only the fields this page reads are typed.
 interface EmployeeRow { id: number; employee_no: string; name: string; status: HrStatus; store_name?: string | null }
 interface ContactRow { name: string; relationship: string | null; phone: string }
-interface EducationRow { school: string; department: string | null; start_month: string | null; end_month: string | null }
+interface EducationRow { school: string; department: string | null; start_month: string | null; end_month: string | null; note?: string | null }
 interface WorkRow { company: string; job_title: string | null; start_month: string | null; end_month: string | null; salary: string | null; leave_reason: string | null }
 // previous_* is computed by the server from the preceding record of the same field; no_effect marks a record whose value equals the one already in force.
-interface StatusChangeRow { id: number; effective_date: string; next_status: HrStatus; previous_status: HrStatus; reason: string; created_at: string; recorded_date: string; no_effect?: boolean }
-interface AssignmentChangeRow { id: number; field: AssignmentField; effective_date: string; previous_value: string | null; next_value: string; reason: string; created_at: string; recorded_date: string; no_effect?: boolean }
+interface StatusChangeRow { id: number; effective_date: string; next_status: HrStatus; previous_status: HrStatus; reason: string; created_at: string; recorded_date: string; no_effect?: boolean; is_creation?: boolean }
+interface AssignmentChangeRow { id: number; field: AssignmentField; effective_date: string; previous_value: string | null; next_value: string; reason: string; created_at: string; recorded_date: string; no_effect?: boolean; is_creation?: boolean }
 type AssignmentField = "store_id" | "job_title_id" | "employment_type" | "schedule_mode";
 /** One personnel change as shown to the user: exactly one field, its old and new value. */
 interface PersonnelChange { key: string; effective_date: string; recorded_date: string; created_at: string; field: "status" | AssignmentField; previous: string | null; next: string; reason: string; noEffect: boolean }
@@ -80,7 +80,7 @@ export interface Draft {
   hireDate: string; seniorityStartDate: string; note: string; status: HrStatus;
   storeId:string;jobTitleId:string;rosterSort:string;employmentType:"full"|"half"|"casual";skipRosterChecks:boolean;scheduleMode:"shift"|"hours"|"none";
   contacts: { name: string; relationship: string; phone: string }[];
-  education: { school: string; department: string; startMonth: string; endMonth: string }[];
+  education: { school: string; department: string; startMonth: string; endMonth: string; note: string }[];
   workHistory: { company: string; jobTitle: string; startMonth: string; endMonth: string; salary: string; leaveReason: string }[];
 }
 const STATUS_KEYS = ["nextStatus", "storeId", "jobTitleId", "employmentType", "scheduleMode"] as const;
@@ -92,7 +92,7 @@ interface RedundantItem { id: string; field: PersonnelChange["field"]; fieldLabe
 type ActionKind = "status" | "salary" | "exclusion";
 type BrowseKind = "leave" | "salary" | "status" | "exclusion";
 
-const money = (value: number) => `${value.toLocaleString("zh-TW")} 元`;
+const money = (value: number) => `${(value||0).toLocaleString("zh-TW")} 元`;
 const date = (value: string | null | undefined) => value ? formatDate(value) : "—";
 // Months are stored as YYYY/MM; <input type="month"> works in YYYY-MM.
 const toMonthInput = (value: string | null) => value ? value.replace("/", "-") : "";
@@ -125,7 +125,7 @@ function draftFrom(detail: EmployeeDetail): Draft {
     // One emergency contact, kept in the sheet (user 2026-11-10).
     contacts: [detail.contacts[0] ? { name: detail.contacts[0].name, relationship: detail.contacts[0].relationship ?? "", phone: detail.contacts[0].phone } : { name: "", relationship: "", phone: "" }],
     education: detail.education.map(row => ({ school: row.school, department: row.department ?? "",
-      startMonth: toMonthInput(row.start_month), endMonth: toMonthInput(row.end_month) })),
+      startMonth: toMonthInput(row.start_month), endMonth: toMonthInput(row.end_month), note: row.note ?? "" })),
     workHistory: detail.workHistory.map(row => ({ company: row.company, jobTitle: row.job_title ?? "",
       startMonth: toMonthInput(row.start_month), endMonth: toMonthInput(row.end_month), salary: row.salary ?? "", leaveReason: row.leave_reason ?? "" })),
   };
@@ -306,16 +306,16 @@ export function HrOperationalPage() {
     if(field==="job_title_id")return jobTitles.find(x=>String(x.id)===value)?.name??value;
     return TYPE_LABELS[value]??value;
   }
-  /** Status and assignment ledgers merged, newest effective date first. */
+  /** Status and assignment ledgers merged, newest effective date first. 建檔 records are the employee's 建檔資料, not a change, so they are left out (they still serve as the first change's previous value on the server). */
   function personnelChanges(employee:EmployeeDetail):PersonnelChange[]{
     return [
-      ...employee.statusChanges.map(r=>({key:"s"+r.id,effective_date:r.effective_date,recorded_date:r.recorded_date,created_at:r.created_at,field:"status" as const,previous:r.previous_status,next:r.next_status,reason:r.reason,noEffect:r.no_effect===true})),
-      ...(employee.assignmentChanges??[]).map(r=>({key:"a"+r.id,effective_date:r.effective_date,recorded_date:r.recorded_date,created_at:r.created_at,field:r.field,previous:r.previous_value,next:r.next_value,reason:r.reason,noEffect:r.no_effect===true})),
+      ...employee.statusChanges.filter(r=>r.is_creation!==true).map(r=>({key:"s"+r.id,effective_date:r.effective_date,recorded_date:r.recorded_date,created_at:r.created_at,field:"status" as const,previous:r.previous_status,next:r.next_status,reason:r.reason,noEffect:r.no_effect===true})),
+      ...(employee.assignmentChanges??[]).filter(r=>r.is_creation!==true).map(r=>({key:"a"+r.id,effective_date:r.effective_date,recorded_date:r.recorded_date,created_at:r.created_at,field:r.field,previous:r.previous_value,next:r.next_value,reason:r.reason,noEffect:r.no_effect===true})),
     ].sort((a,b)=>b.effective_date.localeCompare(a.effective_date)||b.created_at.localeCompare(a.created_at)||b.key.localeCompare(a.key));
   }
   const changeContent=(row:PersonnelChange)=>row.noEffect?<>{FIELD_LABELS[row.field]}：{shownValue(row.field,row.next)}（無變化）</>:row.previous===null||row.previous===row.next?<>{FIELD_LABELS[row.field]}：{shownValue(row.field,row.next)}</>
     :<>{FIELD_LABELS[row.field]}：{shownValue(row.field,row.previous)} → {shownValue(row.field,row.next)}</>;
-  function statusTable(rows:PersonnelChange[]){return <div className="cy-op-table-wrap"><table className="cy-op-table cy-hr-status-table" aria-label="狀態異動"><thead><tr><th>生效／異動日期</th><th>異動內容</th><th>原因</th></tr></thead><tbody>{rows.map(row=><tr key={row.key}><td>{date(row.effective_date)}{row.effective_date>taipeiToday()?<small>待生效</small>:null}<small>異動 {date(row.recorded_date)}</small></td><td>{changeContent(row)}</td><td>{row.reason}</td></tr>)}</tbody></table></div>}
+  function statusTable(rows:PersonnelChange[]){return <div className="cy-op-table-wrap"><table className="cy-op-table cy-hr-status-table cy-rt" aria-label="狀態異動"><colgroup><col className="date"/><col className="date"/><col className="content"/><col/></colgroup><thead><tr><th>生效日期</th><th>異動日期</th><th>異動內容</th><th>原因</th></tr></thead><tbody>{rows.map(row=><tr key={row.key}><td data-label="生效日期" data-priority="title" className="nowrap">{date(row.effective_date)}{row.effective_date>taipeiToday()?<small className="cy-hr-pending">待生效</small>:null}</td><td data-label="異動日期" className="nowrap" data-priority="wide">{date(row.recorded_date)}</td><td data-label="異動內容" data-priority="wide">{changeContent(row)}</td><td data-label="原因" data-priority="wide">{row.reason}</td></tr>)}</tbody></table></div>}
 
   function statusSummary(){
     const ticked=STATUS_KEYS.filter(key=>statusChecked[key]);
@@ -560,8 +560,8 @@ export function HrOperationalPage() {
       <div className="cy-op-table-wrap"><table className="cy-op-table cy-rt" aria-label="人事歷史紀錄">
        <thead><tr>{(browse==='leave'?['年資','應給日數','年度起訖']:browse==='salary'?['生效日','計薪／本薪','津貼','原因']:browse==='status'?['生效日期','異動日期','異動內容','原因']:['起日','迄日','原因','操作']).map(label=><th key={label}>{label}</th>)}</tr></thead><tbody>
         {browse==='leave'?[...leave].reverse().map(row=><tr key={row.periodStart}><td data-label="年資" data-priority="title">{row.serviceYearsLabel}</td><td data-label="應給">{row.days} 日</td><td data-label="年度">{date(row.periodStart)}～{date(row.periodEnd)}</td></tr>):null}
-        {browse==='salary'?detail.salaryRecords.map(row=><tr key={row.id}><td data-label="生效日" data-priority="title">{date(row.effective_date)}</td><td data-label="計薪／本薪">{salaryText(row)}</td><td data-label="津貼">{row.allowances.map(a=>a.item_name+' '+money(a.amount)+(a.is_regular?'':'（非經常性）')).join('、')||'—'}</td><td data-label="原因">{row.reason}</td></tr>):null}
-        {browse==='status'?personnelChanges(detail).map(row=><tr key={row.key}><td data-label="生效日期" data-priority="title">{date(row.effective_date)}{row.effective_date>taipeiToday()?'（待生效）':''}</td><td data-label="異動日期">{date(row.recorded_date)}</td><td data-label="異動內容">{changeContent(row)}</td><td data-label="原因">{row.reason}</td></tr>):null}
+        {browse==='salary'?detail.salaryRecords.map(row=><tr key={row.id}><td data-label="生效日" data-priority="title">{date(row.effective_date)}</td><td data-label="計薪／本薪">{salaryText(row)}</td><td data-label="津貼">{row.allowances.map(a=>a.item_name+' '+money(a.amount)+(a.is_regular?'':'（非經常性）')).join('、')||'—'}</td><td data-label="原因" data-priority="wide">{row.reason}</td></tr>):null}
+        {browse==='status'?personnelChanges(detail).map(row=><tr key={row.key}><td data-label="生效日期" data-priority="title" className="nowrap">{date(row.effective_date)}{row.effective_date>taipeiToday()?<small className="cy-hr-pending">待生效</small>:null}</td><td data-label="異動日期" className="nowrap" data-priority="wide">{date(row.recorded_date)}</td><td data-label="異動內容" data-priority="wide">{changeContent(row)}</td><td data-label="原因" data-priority="wide">{row.reason}</td></tr>):null}
         {browse==='exclusion'?detail.seniorityExclusions.map(row=><tr key={row.id}><td data-label="起日" data-priority="title">{date(row.start_date)}</td><td data-label="迄日">{date(row.end_date)}</td><td data-label="原因">{row.reason}</td><td data-label="操作"><button type="button" className="cy-op-button compact soft" disabled={busy} onClick={()=>void removeExclusion(row)}>刪除</button></td></tr>):null}
        </tbody></table></div>
 
@@ -591,10 +591,11 @@ export function HrOperationalPage() {
       onClose={()=>{actionRequest.invalidate();setAction(null);setActionEmployeeId(null)}}>
       {actionLoading?<Loading/>:<form className="cy-op-form" onKeyDown={enterAdvancesFields} onSubmit={e=>void submitAction(e)}>
        {action==="salary"?<>
+        <p className="cy-notice cy-hr-salary-current" role="note">{actionSalaryBefore?"目前："+salaryText(actionSalaryBefore):"尚無已生效薪資設定"}。本視窗為薪資設定異動，非當月實發。</p>
         <EntryTable label="調薪資料">
          <thead><tr><th><EntryHeading required>生效日</EntryHeading></th><th>計薪方式</th>
           <th><EntryHeading required>本薪</EntryHeading></th><th><EntryHeading required>原因</EntryHeading></th></tr></thead>
-         <tbody><tr><td colSpan={4} data-label="目前設定">{actionSalaryBefore?"目前："+salaryText(actionSalaryBefore):"尚無已生效薪資設定"}。本視窗為薪資設定異動，非當月實發。</td></tr><tr>
+         <tbody><tr>
           <td><Field label="生效日" presentation="cell" required><DateInput density="regular" max="9999-12-31" className="cy-sheet-input" value={form.effectiveDate??""} onChange={v=>setForm({...form,effectiveDate:v})}/></Field></td>
           <td><Field label="計薪方式" presentation="cell"><select className="cy-sheet-input" value={form.paymentType??"monthly"} onChange={e=>setForm({...form,paymentType:e.target.value})}>
            <option value="monthly">月薪</option><option value="hourly">時薪</option></select></Field></td>
@@ -602,7 +603,10 @@ export function HrOperationalPage() {
           <td><Field label="異動原因" presentation="cell" required><input className="cy-sheet-input" value={form.reason??""} onChange={e=>setForm({...form,reason:e.target.value})}/></Field></td>
          </tr></tbody>
         </EntryTable>
-        <RecordRows title="津貼" editing busy={busy} rows={allowances} rowKey={(_,index)=>index}
+        {allowances.length===0?<section className="cy-sheet-rows" aria-label="津貼"><h3 className="cy-sheet-rows-title">津貼</h3>
+          <p className="cy-op-empty cy-hr-allowance-empty">{salaryItems.length?"目前沒有津貼。":"尚未設定津貼項目（請先到人事設定新增）。"}</p>
+          {salaryItems.length?<button type="button" className="cy-op-button" disabled={busy} onClick={()=>setAllowances([{itemTypeId:String(salaryItems[0].id),amount:"",isRegular:true}])}>＋ 新增津貼</button>:null}</section>
+         :<RecordRows title="津貼" editing busy={busy} rows={allowances} rowKey={(_,index)=>index}
           columns={[
            {label:"項目",view:row=>salaryItems.find(item=>String(item.id)===row.itemTypeId)?.name??"",
             edit:(row,index)=><select className="cy-sheet-input" aria-label="津貼項目" disabled={busy} value={row.itemTypeId}
@@ -617,10 +621,9 @@ export function HrOperationalPage() {
           ]}
           onInsert={index=>setAllowances(current=>[...current.slice(0,index+1),
             {itemTypeId:String(salaryItems[0]?.id??""),amount:"",isRegular:true},...current.slice(index+1)])}
-          onRemove={index=>setAllowances(current=>current.filter((_,i)=>i!==index))}/>
-        {!salaryItems.length?<p className="cy-op-empty">尚未設定津貼項目（請先到人事設定新增）。</p>:null}
+          onRemove={index=>setAllowances(current=>current.filter((_,i)=>i!==index))}/>}
         {!minimumWageSet?<p className="cy-notice cy-notice-warning">尚未設定最低工資，無法比對；仍可存檔。</p>:null}
-       </>:action==="status"?statusForm():<EntryFields columns={3} label="年資不計期間" rows={[
+       </>:action==="status"?statusForm():<EntryFields columns={2} label="年資不計期間" rows={[
         {label:"起日",required:true,content:<DateInput density="regular" max="9999-12-31" className="cy-sheet-input" value={form.startDate??""} onChange={v=>setForm({...form,startDate:v})}/>},
         {label:"迄日",required:true,content:<DateInput density="regular" max="9999-12-31" className="cy-sheet-input" value={form.endDate??""} onChange={v=>setForm({...form,endDate:v})}/>},
         {label:"原因",required:true,content:<input className="cy-sheet-input" value={form.reason??""} onChange={e=>setForm({...form,reason:e.target.value})}/>}

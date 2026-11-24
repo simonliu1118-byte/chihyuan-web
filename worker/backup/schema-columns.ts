@@ -386,6 +386,7 @@ export const BACKUP_COLUMNS: Record<string, string[]> = {
     "employee_id",
     "end_month",
     "id",
+    "note",
     "school",
     "sort_order",
     "start_month"

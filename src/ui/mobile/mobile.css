@@ -79,6 +79,9 @@
     title = line 1 left, data-rt=end = line 1 right, data-rt=meta = line 2 left (mobile-only cell), data-rt=action = line 2 right. */
  .cy-rt.cy-rt-list tbody>tr{grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"t e" "m a";column-gap:12px;row-gap:2px;margin:0;padding:10px 12px;border:0;border-top:1px solid var(--cy-border);border-radius:0;background:none}
  .cy-rt.cy-rt-list tbody>tr:first-child{border-top:0}
+ /* No hover tint on touch cards: a tapped row would stay grey. */
+ .cy-rt.cy-rt-list tbody>tr:hover>td{background:none}
+ .cy-rt tbody>tr:hover>td:not([data-priority=title]){background:none}
  .cy-rt.cy-rt-list tbody>tr>td{padding:0}
  .cy-rt.cy-rt-list tbody>tr>td::before{display:none}
  .cy-rt.cy-rt-list tbody>tr>td[data-priority=title]{grid-area:t;padding:0;background:none;font-weight:600}

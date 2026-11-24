@@ -16,7 +16,9 @@ import {FLOW_LABEL,FLOW_ORDER,FLOW_TONE,calcSkipped,calcTargets,calculateAll,con
 import './hr-payroll-flow.css';
 
 const ROOT='/api/business/hr';
-const money=(v:number)=>'$'+v.toLocaleString('zh-TW');
+const money=(v:number)=>'$'+(v||0).toLocaleString('zh-TW');
+/** A deduction: −1,234, and a plain 0 (never −0) when there is none. */
+const minus=(v:number)=>v?'−'+money(v).slice(1):'0';
 const MONTH=/^20\d\d-(0[1-9]|1[0-2])$/;
 interface Batch {title:string;outcome:BatchOutcome;note?:string}
 
@@ -144,7 +146,7 @@ export function HrPayrollMonthly({initialMonth,initialEmployeeId=null,refreshTok
        return <tr key={r.employeeId} className={r.employeeId===selected?'is-selected':''} onClick={()=>void select(r.employeeId)}>
         <td data-label="員工" data-priority="title"><button type="button" className="cy-pay-row-button" aria-current={r.employeeId===selected?'true':undefined} onClick={e=>{e.stopPropagation();void select(r.employeeId);}}><strong>{r.name}</strong> <span className="cy-pay-muted">{r.employeeNo}</span></button></td>
         <td data-label="應發" data-priority="hide" className="num">{run?money(run.gross):'—'}</td>
-        <td data-label="扣項" data-priority="hide" className="num">{run?'−'+money(run.deductions).slice(1):'—'}</td>
+        <td data-label="扣項" data-priority="hide" className="num">{run?minus(run.deductions):'—'}</td>
         <td data-label="實領" data-priority="hide" className="num"><strong className={run?.issues.length?'cy-pay-muted':''}>{net}</strong></td>
         <td data-rt="meta">{!run?(r.hasSalary?'尚未計算':'尚未設定薪資'):'實領 '+net}</td>
         <td data-label="狀態" data-rt="end"><StatusChip tone={FLOW_TONE[st]}>{st==='pending'?'待補 '+pending:FLOW_LABEL[st]}</StatusChip>{needs?<small className="cy-pay-stale">需重新計算</small>:null}</td>

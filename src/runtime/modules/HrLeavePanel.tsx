@@ -1,3 +1,4 @@
+import {MonthPicker} from "../../ui/forms/MonthPicker";
 import {DataViewToolbar} from '../../ui/data/DataViewToolbar';
 import {StatusChip} from '../../ui/primitives/StatusChip';
 import {useLatestRequest} from '../../ui/foundation/useLatestRequest';
@@ -28,7 +29,7 @@ const source=(c:Credit)=>c.kind==="overtime"?"加班 "+ymd(c.issuedOn):c.kind===
 const quota=(minutes:number,code:string,types:LeaveTypeOption[])=>{
  const type=types.find(x=>x.code===code),limit=type?.quota_days;
  const period={calendar_year:"年",month:"月",event:"次",two_years:"兩年"}[type?.quota_period??""]??"";
- return hrs(minutes)+(limit!=null?" / "+(limit*8)+(period?"／"+period:""):"");
+ return hrs(minutes)+(limit!=null?" / "+(limit*8)+(period?" "+period:""):"");
 };
 export function HrLeavePanel({initialEmployeeId}:{initialEmployeeId?:number|null}={}){
  const [year,setYear]=useState(Number(taipeiToday().slice(0,4))),[store,setStore]=useState(""),[stores,setStores]=useState<{id:number;name:string}[]>([]);
@@ -82,7 +83,7 @@ export function HrLeavePanel({initialEmployeeId}:{initialEmployeeId?:number|null
  const owed=detail?.comp.advances.filter(a=>a.outstandingMinutes>0)??[];
  return <section className="cy-op-module cy-hr-leave">
   <DataViewToolbar searchValue={search} onSearchChange={setSearch} searchLabel="搜尋請假員工" searchPlaceholder="員工編號、姓名"
-   beforeSearch={<><button type="button" className="cy-op-button" disabled={mutationBusy} onClick={()=>{setDetail(null);setYear(y=>y-1)}}>上一年</button><strong>{year} 年</strong><button type="button" className="cy-op-button" disabled={mutationBusy} onClick={()=>{setDetail(null);setYear(y=>y+1)}}>下一年</button></>}
+   beforeSearch={<MonthPicker precision="year" value={String(year)} disabled={mutationBusy} onChange={v=>{setDetail(null);setYear(Number(v))}}/>}
    filters={<select aria-label="請假門市" disabled={mutationBusy} className="cy-op-input" value={store} onChange={e=>{setPerson(null);setDetail(null);setStore(e.target.value)}}><option value="">全部門市</option>{stores.map(x=><option key={x.id} value={x.id}>{x.name}</option>)}</select>}
    activeFilterCount={Number(Boolean(store))} resultSummary={`顯示 ${shownPeople.length}／${summary?.employees.length??0} 人`}
    actions={<button type="button" className="cy-op-button primary" disabled={mutationBusy||!people.length} onClick={()=>setRequest({person:person??people[0],choose:true})}>＋ 請假</button>}/>
@@ -99,7 +100,7 @@ export function HrLeavePanel({initialEmployeeId}:{initialEmployeeId?:number|null
       <td data-label="特休剩餘">{amount(e.annualRemainingMinutes,e.employmentType!=="full")}</td>
       <td data-label="補休餘額">{hrs(e.comp.balanceMinutes)} 小時{e.comp.advanceMinutes?<small className="hr-leave-advance">預支 {hrs(e.comp.advanceMinutes)}</small>:null}</td>
      </tr>)}</tbody></table></div>
-    {loading?<p>資料讀取中…</p>:summary&&!summary.employees.length?<p>沒有員工。</p>:null}
+    {loading?<p className="cy-op-empty">資料讀取中…</p>:summary&&!summary.employees.length?<p className="cy-op-empty">沒有員工。</p>:null}
    </div>
    {person?<div className="cy-op-panel cy-md-detail">
      <button type="button" className="cy-op-button quiet cy-md-back" onClick={()=>setPerson(null)}>← 請假總表</button>
@@ -139,7 +140,8 @@ export function HrLeavePanel({initialEmployeeId}:{initialEmployeeId?:number|null
       <td data-label="操作">{x.remainingMinutes>0?<button type="button" disabled={mutationBusy} className="cy-op-button compact" onClick={()=>void act(()=>apiRequest('/api/business/hr/comp-time/'+(x.kind==='overtime'?'overtime/'+x.id:'grant/'+(x.id-100000000))+'/extend',{method:'POST'}),'延期失敗')}>再延一個月</button>:null}
        {x.kind==='overtime'&&x.expired&&x.remainingMinutes>0?<button type="button" disabled={mutationBusy} className="cy-op-button compact" onClick={()=>void act(()=>apiRequest('/api/business/hr/comp-time/overtime/'+x.id+'/settle',{method:'POST'}),'結清失敗')}>轉加班費</button>:null}</td>
      </tr>)}</tbody></table></div>
-     <button type="button" className="cy-op-button" onClick={()=>{setGrantKind("holiday");setHolidayDate(owed[0]?.holidayDate??"");setGrantHours(partTime?"4":"8");setMutationError('');setGrantOpen(true)}}>＋ 給予補休</button>
+     {detail&&!detail.comp.credits.some(x=>x.remainingMinutes>0||!x.expired)?<p className="cy-op-empty">目前沒有補休時數。</p>:null}
+     <button type="button" className="cy-op-button cy-hr-leave-grant" onClick={()=>{setGrantKind("holiday");setHolidayDate(owed[0]?.holidayDate??"");setGrantHours(partTime?"4":"8");setMutationError('');setGrantOpen(true)}}>＋ 給予補休</button>
    </div>:null}
   </div>
   <Dialog showCloseButton={false} dismissible={!mutationBusy} open={grantOpen} title="給予補休" onClose={()=>setGrantOpen(false)} size="small">

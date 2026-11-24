@@ -24,11 +24,15 @@
   flex: 0 0 auto;
 }
 
+/* Search stays a compact box (about 240–280px); it never stretches across the toolbar on desktop. */
 .cy-data-search {
-  flex: 1 1 320px;
-  max-width: 520px;
+  flex: 1 1 260px;
+  max-width: 280px;
+  min-width: 0;
 }
 
+
+.cy-data-filters select { min-width: 120px; }
 
 .cy-data-result-summary,
 .cy-data-pagination-label {

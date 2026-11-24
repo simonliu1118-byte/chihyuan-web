@@ -76,7 +76,7 @@ export function HrAttendancePanel({initialEmployeeId,initialMonth}:{initialEmplo
  return <section className="cy-op-module cy-hr-phase2a" aria-label="出勤輸入">
   <DataViewToolbar searchValue={search} onSearchChange={setSearch} searchLabel="搜尋出勤日期或異常" searchPlaceholder="日期、排定或異常"
    beforeSearch={<MonthPicker value={month} disabled={busy} onChange={target=>void switchMonth(target)}/>}
-   filters={<select aria-label="出勤員工" disabled={busy} className="cy-op-input" value={selected} onChange={e=>void switchEmployee(Number(e.target.value))}>{employees.map(e=><option key={e.id} value={e.id}>{e.employee_no} {e.name}</option>)}</select>}
+   filters={<select aria-label="出勤員工" disabled={busy} className="cy-op-input" value={selected} onChange={e=>void switchEmployee(Number(e.target.value))}>{employees.length?employees.map(e=><option key={e.id} value={e.id}>{e.employee_no} {e.name}</option>):<option value="">無員工</option>}</select>}
    resultSummary={`顯示 ${shownDays.length}／${data?.days.length??0} 天；合計為整月`}
    actions={<>
     {employeeCursor?<button type="button" className="cy-op-button" disabled={employeeLoading||busy} onClick={()=>void loadEmployees(employeeCursor)}>載入更多員工</button>:null}
@@ -101,6 +101,7 @@ export function HrAttendancePanel({initialEmployeeId,initialMonth}:{initialEmplo
     <td data-label="遲到分鐘">{row.lateMinutes||"—"}</td><td data-label="早退分鐘">{row.earlyMinutes||"—"}</td><td data-label="異常">{row.anomalies.join("、")||"—"}</td>
     <td data-label="備註" className="hr-sheet-cell"><input disabled={busy} className="cy-sheet-input" aria-label={row.date+" 備註"} value={punch?.note??""} onChange={e=>change(row,"note",e.target.value)}/></td>
    </tr>})}</tbody></table></div>
+  {!shownDays.length?<p className="cy-op-empty">{employees.length?"沒有符合的日期。":"沒有員工，無出勤資料。"}</p>:null}
   {data?<div className="cy-op-panel hr-attendance-totals"><strong>當月合計</strong><span>工時 {formatWorkedMinutes(data.totals.workedMinutes)}</span><span>遲到 {data.totals.lateCount} 次／{data.totals.lateMinutes} 分鐘</span><span>缺卡 {data.totals.missingCard}</span><span>曠職 {data.totals.absent}</span><span>延長工時 {hrs(data.totals.overtimeMinutes)}h</span>{data.overtimeWarnings.map(x=><span key={x} className="cy-notice cy-notice-warning">{x}（僅警示）</span>)}</div>:null}
   <Dialog open={exceptions!==null} title="出勤異常清單" onClose={()=>setExceptions(null)} size="large">
    <EntryFields columns={2} label="異常清單篩選" rows={[{label:'員工',content:<select className="cy-sheet-input" value={filter} onChange={e=>setFilter(e.target.value)}><option value="">全部</option>{employees.map(x=><option key={x.id} value={x.id}>{x.name}</option>)}</select>}]}/>

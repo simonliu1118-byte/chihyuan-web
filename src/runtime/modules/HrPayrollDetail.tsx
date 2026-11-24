@@ -10,7 +10,8 @@ import {ProfileEditor} from './HrPayrollProfileEditor';
 import {FLOW_LABEL,FLOW_TONE,calcPayload,classifyIssue,flowStatus,monthLabel,monthSummary,needsRecalc,rowIssues,shortIssue,slashDate,type IssueAction,type MonthRow,type ReviewKind} from './hr-payroll-flow';
 
 const ROOT='/api/business/hr';
-const money=(v:number)=>'$'+v.toLocaleString('zh-TW');
+const money=(v:number)=>'$'+(v||0).toLocaleString('zh-TW');
+const minus=(v:number)=>v?'−'+money(v).slice(1):'0';
 const ruleLabels:Record<string,string>={labor:'勞保／就保',pension:'勞退',health:'健保',tax:'薪資扣繳'};
 const reviewLabels:Record<string,string>={absence:'確認曠班',holiday_shifted:'假日已合法調移',regular_emergency:'例假緊急出勤'};
 interface RunFull {id:number;employee_id:number;month:string;pay_date:string;status:string;revision:number;result:PayrollResult}
@@ -140,9 +141,9 @@ export function HrPayrollDetail(props:PayrollDetailProps){
     <dl className="cy-pay-facts">
      <div><dt>本薪</dt><dd>{money(summary.base)}</dd></div>
      <div><dt>津貼及其他應發</dt><dd>{money(summary.allowances)}</dd></div>
-     <div><dt>勞保・健保・勞退自提</dt><dd>−{money(summary.insurance).slice(1)}</dd></div>
-     <div><dt>扣繳</dt><dd>−{money(summary.withheld).slice(1)}</dd></div>
-     {summary.otherDeductions?<div><dt>請假、遲到等其他扣項</dt><dd>−{money(summary.otherDeductions).slice(1)}</dd></div>:null}
+     <div><dt>勞保・健保・勞退自提</dt><dd>{minus(summary.insurance)}</dd></div>
+     <div><dt>扣繳</dt><dd>{minus(summary.withheld)}</dd></div>
+     {summary.otherDeductions?<div><dt>請假、遲到等其他扣項</dt><dd>{minus(summary.otherDeductions)}</dd></div>:null}
      <div className="total"><dt>實領</dt><dd>{summary.netPending?'待確認':money(summary.net)}</dd></div>
      {summary.employer?<div><dt>公司負擔（不扣員工）</dt><dd>{money(summary.employer)}</dd></div>:null}
     </dl>
