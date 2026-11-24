@@ -69,7 +69,7 @@ export function HrPhase2aSettings(){
   <form onKeyDown={enterAdvancesFields} className="cy-op-form" onSubmit={e=>void save(e)}>
    <EntryTable label={kindLabels[kind]+'設定'}><thead><tr>{columns.map(c=><th key={c.key}><EntryHeading required={c.required}>{c.label}</EntryHeading></th>)}<th>操作</th></tr></thead><tbody>
     {shown.map((row,i)=>{const editing=value.name!==undefined&&(row?row.id===id:id===null);return <tr key={row?.id??'new'}>{columns.map(c=><td key={c.key}>{editing?<Field label={c.label} required={c.required} presentation="cell">{cell(c.key,c.type)}</Field>:stored(row!,c.key)}</td>)}
-     <td>{editing?<><button className="cy-op-button primary" disabled={busy}>儲存</button><button type="button" className="cy-op-button" disabled={busy} onClick={()=>{setId(null);setValue({})}}>取消</button></>:<button type="button" disabled={busy||value.name!==undefined} className="cy-op-button" onClick={()=>edit(row!)}>修改</button>}</td></tr>})}
+     <td>{editing?<><button key="save" type="submit" className="cy-op-button primary" disabled={busy}>儲存</button><button key="cancel" type="button" className="cy-op-button" disabled={busy} onClick={()=>{setId(null);setValue({})}}>取消</button></>:<button key="edit" type="button" disabled={busy||value.name!==undefined} className="cy-op-button" onClick={()=>edit(row!)}>修改</button>}</td></tr>})}
    </tbody></EntryTable>
   </form>
   <button type="button" className="cy-op-button" disabled={busy||value.name!==undefined} onClick={()=>edit()}>＋ 新增{kindLabels[kind]}</button>
