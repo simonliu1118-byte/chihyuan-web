@@ -2,7 +2,7 @@ import {salaryAmendmentDraft} from './hr-salary-draft';
 import {useLatestRequest} from '../../ui/foundation/useLatestRequest';
 import { DateInput } from "../../ui/forms/DateInput";
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { apiRequest } from "../../api/client";
+import { apiRequest, ApiClientError } from "../../api/client";
 import { taipeiToday } from "../../../shared/erp-query-history";
 import type { HrPaymentType, HrStatus } from "../../../shared/hr";
 import type { AnnualLeavePeriod } from "../../../shared/hr-annual-leave";
@@ -44,11 +44,12 @@ interface EmployeeRow { id: number; employee_no: string; name: string; status: H
 interface ContactRow { name: string; relationship: string | null; phone: string }
 interface EducationRow { school: string; department: string | null; start_month: string | null; end_month: string | null }
 interface WorkRow { company: string; job_title: string | null; start_month: string | null; end_month: string | null; salary: string | null; leave_reason: string | null }
-interface StatusChangeRow { id: number; effective_date: string; next_status: HrStatus; previous_status: HrStatus; reason: string; created_at: string; recorded_date: string }
-interface AssignmentChangeRow { id: number; field: AssignmentField; effective_date: string; previous_value: string | null; next_value: string; reason: string; created_at: string; recorded_date: string }
+// previous_* is computed by the server from the preceding record of the same field; no_effect marks a record whose value equals the one already in force.
+interface StatusChangeRow { id: number; effective_date: string; next_status: HrStatus; previous_status: HrStatus; reason: string; created_at: string; recorded_date: string; no_effect?: boolean }
+interface AssignmentChangeRow { id: number; field: AssignmentField; effective_date: string; previous_value: string | null; next_value: string; reason: string; created_at: string; recorded_date: string; no_effect?: boolean }
 type AssignmentField = "store_id" | "job_title_id" | "employment_type" | "schedule_mode";
 /** One personnel change as shown to the user: exactly one field, its old and new value. */
-interface PersonnelChange { key: string; effective_date: string; recorded_date: string; created_at: string; field: "status" | AssignmentField; previous: string | null; next: string; reason: string }
+interface PersonnelChange { key: string; effective_date: string; recorded_date: string; created_at: string; field: "status" | AssignmentField; previous: string | null; next: string; reason: string; noEffect: boolean }
 const FIELD_LABELS: Record<PersonnelChange["field"], string> = { status: "人事狀態", store_id: "門市", job_title_id: "職稱", employment_type: "僱用型態", schedule_mode: "排班方式" };
 const TYPE_LABELS: Record<string, string> = { full: "正職", half: "半職", casual: "兼職", shift: "班別", hours: "時段或時數", none: "不排班" };
 interface SalaryRow { id: number; effective_date: string; payment_type: HrPaymentType; base_amount: number; reason: string;
@@ -80,6 +81,12 @@ export interface Draft {
   education: { school: string; department: string; startMonth: string; endMonth: string }[];
   workHistory: { company: string; jobTitle: string; startMonth: string; endMonth: string; salary: string; leaveReason: string }[];
 }
+const STATUS_KEYS = ["nextStatus", "storeId", "jobTitleId", "employmentType", "scheduleMode"] as const;
+type StatusKey = typeof STATUS_KEYS[number];
+const STATUS_KEY_FIELD: Record<StatusKey, PersonnelChange["field"]> = { nextStatus: "status", storeId: "store_id", jobTitleId: "job_title_id", employmentType: "employment_type", scheduleMode: "schedule_mode" };
+const STATUS_KEY_SHORT: Record<StatusKey, string> = { nextStatus: "狀態", storeId: "門市", jobTitleId: "職稱", employmentType: "僱用型態", scheduleMode: "排班方式" };
+/** A later record the server says would change nothing once the new one is saved. */
+interface RedundantItem { id: string; field: PersonnelChange["field"]; fieldLabel: string; effectiveDate: string; previousLabel: string; nextLabel: string }
 type ActionKind = "status" | "salary" | "exclusion";
 type BrowseKind = "leave" | "salary" | "status" | "exclusion";
 
@@ -152,6 +159,11 @@ export function HrOperationalPage() {
   const [form, setForm] = useState<Record<string, string>>({});
   const [allowances, setAllowances] = useState<{ itemTypeId: string; amount: string; isRegular: boolean }[]>([]);
   const [actionEmployeeId,setActionEmployeeId]=useState<number|null>(null);
+  // 狀態異動: only ticked fields are sent. statusCurrent supplies the value shown for unticked (locked) fields.
+  const [statusChecked,setStatusChecked]=useState<Partial<Record<StatusKey,boolean>>>({});
+  const [statusCurrent,setStatusCurrent]=useState<EmployeeDetail|null>(null);
+  const [redundant,setRedundant]=useState<RedundantItem[]|null>(null);
+  const [deleteRedundant,setDeleteRedundant]=useState(true);
   const [salaryRefresh,setSalaryRefresh]=useState(0);
   const actionWriting=useRef(false);
   const [actionReady,setActionReady]=useState(false),[actionLoading,setActionLoading]=useState(false),[actionError,setActionError]=useState(""),[actionName,setActionName]=useState(""),[actionSalaryBefore,setActionSalaryBefore]=useState<SalaryRow|null>(null);
@@ -272,19 +284,71 @@ export function HrOperationalPage() {
   /** Status and assignment ledgers merged, newest effective date first. */
   function personnelChanges(employee:EmployeeDetail):PersonnelChange[]{
     return [
-      ...employee.statusChanges.map(r=>({key:"s"+r.id,effective_date:r.effective_date,recorded_date:r.recorded_date,created_at:r.created_at,field:"status" as const,previous:r.previous_status,next:r.next_status,reason:r.reason})),
-      ...(employee.assignmentChanges??[]).map(r=>({key:"a"+r.id,effective_date:r.effective_date,recorded_date:r.recorded_date,created_at:r.created_at,field:r.field,previous:r.previous_value,next:r.next_value,reason:r.reason})),
+      ...employee.statusChanges.map(r=>({key:"s"+r.id,effective_date:r.effective_date,recorded_date:r.recorded_date,created_at:r.created_at,field:"status" as const,previous:r.previous_status,next:r.next_status,reason:r.reason,noEffect:r.no_effect===true})),
+      ...(employee.assignmentChanges??[]).map(r=>({key:"a"+r.id,effective_date:r.effective_date,recorded_date:r.recorded_date,created_at:r.created_at,field:r.field,previous:r.previous_value,next:r.next_value,reason:r.reason,noEffect:r.no_effect===true})),
     ].sort((a,b)=>b.effective_date.localeCompare(a.effective_date)||b.created_at.localeCompare(a.created_at)||b.key.localeCompare(a.key));
   }
-  const changeContent=(row:PersonnelChange)=>row.previous===row.next?<>{FIELD_LABELS[row.field]}：{shownValue(row.field,row.next)}</>
+  const changeContent=(row:PersonnelChange)=>row.noEffect?<>{FIELD_LABELS[row.field]}：{shownValue(row.field,row.next)}（無變化）</>:row.previous===row.next?<>{FIELD_LABELS[row.field]}：{shownValue(row.field,row.next)}</>
     :<>{FIELD_LABELS[row.field]}：{shownValue(row.field,row.previous)} → {shownValue(row.field,row.next)}</>;
   function statusTable(rows:PersonnelChange[]){return <div className="cy-op-table-wrap"><table className="cy-op-table cy-hr-status-table" aria-label="狀態異動"><thead><tr><th>生效／異動日期</th><th>異動內容</th><th>原因</th></tr></thead><tbody>{rows.map(row=><tr key={row.key}><td>{date(row.effective_date)}{row.effective_date>taipeiToday()?<small>待生效</small>:null}<small>異動 {date(row.recorded_date)}</small></td><td>{changeContent(row)}</td><td>{row.reason}</td></tr>)}</tbody></table></div>}
+
+  function statusSummary(){
+    const ticked=STATUS_KEYS.filter(key=>statusChecked[key]);
+    return ticked.length?`會存成 ${ticked.length} 筆異動（${ticked.map(key=>STATUS_KEY_SHORT[key]).join("、")}）`:"請勾選要異動的欄位";
+  }
+  /** Any edit invalidates a pending 「一併刪除」 question: the server asks again for the new combination. */
+  function editStatus(patch:Record<string,string>){setForm(current=>({...current,...patch}));setRedundant(null);}
+  function statusForm(){
+    const current=statusCurrent?.id===actionEmployeeId?statusCurrent:detail?.id===actionEmployeeId?detail:null;
+    const currentOf=(key:StatusKey):string=>{
+      if(!current)return "";
+      return key==="nextStatus"?current.status:key==="storeId"?String(current.store_id??""):key==="jobTitleId"?String(current.job_title_id??""):key==="employmentType"?current.employment_type:current.schedule_mode;
+    };
+    const optionsOf=(key:StatusKey):[string,string][]=>{
+      const base:[string,string][]=key==="nextStatus"?(Object.keys(statusLabels) as HrStatus[]).map(k=>[k,statusLabels[k]])
+        :key==="storeId"?stores.map(x=>[String(x.id),x.name]):key==="jobTitleId"?jobTitles.map(x=>[String(x.id),x.name])
+        :key==="employmentType"?[["full","正職"],["half","半職"],["casual","兼職"]]:[["shift","班別"],["hours","時段或時數"],["none","不排班"]];
+      const now=currentOf(key);
+      return now&&!base.some(([value])=>value===now)?[...base,[now,shownValue(STATUS_KEY_FIELD[key],now)]]:base;
+    };
+    const control=(key:StatusKey)=>{
+      const on=!!statusChecked[key],now=currentOf(key);
+      return <tr key={key}>
+        <th scope="row"><CheckField label={FIELD_LABELS[STATUS_KEY_FIELD[key]]} checked={on} disabled={busy}
+          onChange={e=>{setStatusChecked(c=>({...c,[key]:e.target.checked}));editStatus({[key]:""});}}/></th>
+        <td><div className="cy-hr-change-cell">
+          <Field label={FIELD_LABELS[STATUS_KEY_FIELD[key]]} presentation="cell"><select className="cy-sheet-input" disabled={!on||busy} value={on?form[key]??"":now} onChange={e=>editStatus({[key]:e.target.value})}>
+            {on?<option value="">請選擇…</option>:null}{optionsOf(key).map(([value,label])=><option key={value} value={value}>{label}</option>)}
+          </select></Field>
+          {on&&now?<span className="cy-hr-change-now">目前：{shownValue(STATUS_KEY_FIELD[key],now)}</span>:null}
+        </div></td></tr>;
+    };
+    return <EntryTable label="狀態異動" className="cy-hr-change-table"><tbody>
+      <tr><th scope="row"><EntryHeading required>生效日期</EntryHeading></th><td><Field label="生效日期" presentation="cell" required><DateInput density="regular" max="9999-12-31" className="cy-sheet-input" value={form.effectiveDate??""} onChange={v=>editStatus({effectiveDate:v})}/></Field></td></tr>
+      {STATUS_KEYS.map(control)}
+      {statusChecked.nextStatus&&form.nextStatus==="terminated"?<>
+        <tr><th scope="row"><EntryHeading required>離職日</EntryHeading></th><td><Field label="離職日" presentation="cell" required><DateInput density="regular" max="9999-12-31" className="cy-sheet-input" value={form.terminationDate??""} onChange={v=>editStatus({terminationDate:v})}/></Field></td></tr>
+        <tr><th scope="row"><EntryHeading required>離職原因</EntryHeading></th><td><Field label="離職原因" presentation="cell" required><input className="cy-sheet-input" value={form.terminationReason??""} onChange={e=>editStatus({terminationReason:e.target.value})}/></Field></td></tr>
+      </>:null}
+      <tr><th scope="row"><EntryHeading required>原因</EntryHeading></th><td><Field label="原因" presentation="cell" required><input className="cy-sheet-input" value={form.reason??""} onChange={e=>setForm({...form,reason:e.target.value})}/></Field></td></tr>
+    </tbody></EntryTable>;
+  }
 
   async function openAction(kind: ActionKind,employeeId?:number) {
     const targetId=employeeId??detail?.id;if(!targetId)return;
     const request=actionRequest.begin();setActionReady(kind!=='salary');setActionEmployeeId(targetId);setActionName(detail?.id===targetId?detail.employee_no+' '+detail.name:'');setActionError('');setActionSalaryBefore(null);
     setForm(kind==='status'?{effectiveDate:taipeiToday(),nextStatus:'',storeId:'',jobTitleId:'',employmentType:'',scheduleMode:''}:kind==='salary'?{effectiveDate:taipeiToday(),paymentType:'monthly'}:{});
+    setStatusChecked({});setRedundant(null);setDeleteRedundant(true);setStatusCurrent(kind==='status'&&detail?.id===targetId?detail:null);
     setAllowances([]);setAction(kind);
+    if(kind==='status'&&detail?.id!==targetId){
+      // Locked fields show the employee's current values, so they are read first.
+      setActionReady(false);setActionLoading(true);
+      try{
+       const employee=await apiRequest<EmployeeDetail>(`${ROOT}/employees/${targetId}`);
+       if(!request.current())return;
+       setStatusCurrent(employee);setActionName(employee.employee_no+' '+employee.name);setActionReady(true);
+      }catch(error){if(request.current())setActionError(errorText(error))}finally{if(request.current())setActionLoading(false)}
+    }
     if(kind==='salary'){
       setActionLoading(true);
       try{
@@ -309,12 +373,18 @@ export function HrOperationalPage() {
     const endpoint = action === "status" ? "status-changes" : action === "salary" ? "salary-records" : "seniority-exclusions";
     const body: Record<string, unknown> = { ...form };
     if(action==="status"){
-      // Only fields the user chose to change are sent; each becomes its own record on the effective date.
-      for(const key of ["nextStatus","storeId","jobTitleId","employmentType","scheduleMode"])if(!body[key])delete body[key];
-      for(const key of ["storeId","jobTitleId"])if(body[key]!==undefined)body[key]=Number(body[key]);
-      if(!["nextStatus","storeId","jobTitleId","employmentType","scheduleMode"].some(key=>body[key]!==undefined)){actionWriting.current=false;setActionError("請至少選擇一個要變更的欄位。");return;}
+      // Only ticked fields are sent; each becomes its own record on the effective date.
+      const ticked=STATUS_KEYS.filter(key=>statusChecked[key]);
+      for(const key of STATUS_KEYS)delete body[key];
+      if(!ticked.length){actionWriting.current=false;setActionError("請至少勾選一個要異動的欄位。");return;}
+      for(const key of ticked){
+        if(!form[key]){actionWriting.current=false;setActionError(`請選擇「${STATUS_KEY_SHORT[key]}」的新值。`);return;}
+        body[key]=key==="storeId"||key==="jobTitleId"?Number(form[key]):form[key];
+      }
       if(body.nextStatus!=="terminated"){delete body.terminationDate;delete body.terminationReason;}
-      if(detail?.id===targetId)body.expectedRevision=detail.revision;
+      if(redundant?.length){if(deleteRedundant)body.deleteRedundantIds=redundant.map(item=>item.id);else body.keepRedundant=true;}
+      const known=statusCurrent?.id===targetId?statusCurrent:detail?.id===targetId?detail:null;
+      if(known)body.expectedRevision=known.revision;
     }
     if (action === "salary") {
       body.baseAmount = Number(form.baseAmount);
@@ -328,7 +398,14 @@ export function HrOperationalPage() {
       await Promise.all([...(detail?.id===targetId?[loadDetail(targetId)]:[]),loadList()]);
       if(action==="salary")setSalaryRefresh(n=>n+1);
       setMessage(action === "status" ? "已新增狀態異動。" : action === "salary" ? "已新增薪資異動。" : "已新增年資不計期間。");
-    } catch (error) { setActionError(errorText(error));reportError(errorText(error)); }
+    } catch (error) {
+      if(action==="status"&&error instanceof ApiClientError&&error.code==="HR_REDUNDANT_LATER_CHANGES"){
+        // Not a failure: the form stays open and asks what to do with the records that would become pointless.
+        const items=(error.details as {items?:RedundantItem[]}|undefined)?.items;
+        if(Array.isArray(items)&&items.length){setRedundant(items);setDeleteRedundant(true);return;}
+      }
+      setActionError(errorText(error));reportError(errorText(error));
+    }
     finally { actionWriting.current=false;setBusy(false); }
   }
 
@@ -526,34 +603,20 @@ export function HrOperationalPage() {
           onRemove={index=>setAllowances(current=>current.filter((_,i)=>i!==index))}/>
         {!salaryItems.length?<p className="cy-op-empty">尚未設定津貼項目（請先到人事設定新增）。</p>:null}
         {!minimumWageSet?<p className="cy-notice cy-notice-warning">尚未設定最低工資，無法比對；仍可存檔。</p>:null}
-       </>:<EntryFields columns={3} label={action==="status"?"狀態異動":"年資不計期間"} rows={[
-        ...(action==="exclusion"?[
-          {label:"起日",required:true,content:<DateInput density="regular" max="9999-12-31" className="cy-sheet-input" value={form.startDate??""} onChange={v=>setForm({...form,startDate:v})}/>},
-          {label:"迄日",required:true,content:<DateInput density="regular" max="9999-12-31" className="cy-sheet-input" value={form.endDate??""} onChange={v=>setForm({...form,endDate:v})}/>}
-        ]:[{label:"生效日",required:true,content:<DateInput density="regular" max="9999-12-31" className="cy-sheet-input" value={form.effectiveDate??""} onChange={v=>setForm({...form,effectiveDate:v})}/>}]),
-        ...(action==="status"?(()=>{
-          const keep=(current:string)=><option value="">不變更{current?`（目前：${current}）`:""}</option>;
-          const known=detail?.id===actionEmployeeId;
-          const select=(key:"nextStatus"|"storeId"|"jobTitleId"|"employmentType"|"scheduleMode",current:string,options:[string,string][])=>
-            <select className="cy-sheet-input" value={form[key]??""} onChange={e=>setForm({...form,[key]:e.target.value})}>{keep(known?current:"")}{options.map(([value,label])=><option key={value} value={value}>{label}</option>)}</select>;
-          return [
-            {label:"人事狀態",content:select("nextStatus",shownValue("status",detail?.status??null),(Object.keys(statusLabels) as HrStatus[]).map(key=>[key,statusLabels[key]]))},
-            {label:"門市",content:select("storeId",shownValue("store_id",String(detail?.store_id??"")),stores.map(x=>[String(x.id),x.name]))},
-            {label:"職稱",content:select("jobTitleId",shownValue("job_title_id",String(detail?.job_title_id??"")),jobTitles.map(x=>[String(x.id),x.name]))},
-            {label:"僱用型態",content:select("employmentType",shownValue("employment_type",detail?.employment_type??null),[["full","正職"],["half","半職"],["casual","兼職"]])},
-            {label:"排班方式",content:select("scheduleMode",shownValue("schedule_mode",detail?.schedule_mode??null),[["shift","班別"],["hours","時段或時數"],["none","不排班"]])},
-          ];
-        })():[]),
-        ...(action==="status"&&form.nextStatus==="terminated"?[
-          {label:"離職日",required:true,content:<DateInput density="regular" max="9999-12-31" className="cy-sheet-input" value={form.terminationDate??""} onChange={v=>setForm({...form,terminationDate:v})}/>},
-          {label:"離職原因",required:true,content:<input className="cy-sheet-input" value={form.terminationReason??""} onChange={e=>setForm({...form,terminationReason:e.target.value})}/>}
-        ]:[]),
+       </>:action==="status"?statusForm():<EntryFields columns={3} label="年資不計期間" rows={[
+        {label:"起日",required:true,content:<DateInput density="regular" max="9999-12-31" className="cy-sheet-input" value={form.startDate??""} onChange={v=>setForm({...form,startDate:v})}/>},
+        {label:"迄日",required:true,content:<DateInput density="regular" max="9999-12-31" className="cy-sheet-input" value={form.endDate??""} onChange={v=>setForm({...form,endDate:v})}/>},
         {label:"原因",required:true,content:<input className="cy-sheet-input" value={form.reason??""} onChange={e=>setForm({...form,reason:e.target.value})}/>}
        ]}/>}
        {actionError?<><p role="alert" className="cy-notice cy-notice-danger">{actionError}</p>{!actionReady?<button type="button" className="cy-op-button soft" onClick={()=>void openAction(action,actionEmployeeId)}>重新讀取目前設定</button>:null}</>:null}
+       {action==="status"&&redundant?.length?<div role="alert" className="cy-notice cy-notice-warning cy-hr-redundant">
+        <div>{redundant.map(item=><p key={item.id}>已有「{date(item.effectiveDate)} {item.fieldLabel}：{item.previousLabel} → {item.nextLabel}」，存檔後那筆會變成沒有變化。</p>)}</div>
+        <CheckField label={redundant.length>1?"一併刪除這些筆":"一併刪除該筆"} checked={deleteRedundant} onChange={e=>setDeleteRedundant(e.target.checked)}/>
+       </div>:null}
        <div className="cy-op-form-footer">
+        {action==="status"?<span className="cy-hr-change-summary">{statusSummary()}</span>:null}
         <button type="button" className="cy-op-button" disabled={busy} onClick={()=>{actionRequest.invalidate();setAction(null);setActionEmployeeId(null)}}>取消</button>
-        <button className="cy-op-button primary" disabled={busy||!actionReady} aria-busy={busy||undefined}>新增</button>
+        <button className="cy-op-button primary" disabled={busy||!actionReady} aria-busy={busy||undefined}>{action==="status"?"儲存":"新增"}</button>
        </div>
       </form>}
     </Dialog>:null}

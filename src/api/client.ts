@@ -12,6 +12,7 @@ export class ApiClientError extends Error {
   readonly code: string;
   readonly requestId: string | null;
   readonly fields: Record<string, string> | undefined;
+  readonly details: unknown;
 
   constructor(options: {
     message: string;
@@ -19,12 +20,14 @@ export class ApiClientError extends Error {
     code: string;
     requestId?: string | null;
     fields?: Record<string, string>;
+    details?: unknown;
   }) {
     super(localizeApiError(options.code, options.message));
     this.name = "ApiClientError";
     this.status = options.status;
     this.code = options.code;
     this.requestId = options.requestId ?? null;
+    this.details = options.details;
     this.fields = options.fields && Object.fromEntries(Object.entries(options.fields).map(([key, message]) => [key, chineseMessage(message, "此欄位內容不符合要求，請檢查後重新輸入。") ]));
   }
 }
@@ -104,6 +107,7 @@ export async function apiRequest<T>(
       message: envelope.error.message,
       requestId: envelope.requestId,
       fields: envelope.error.fields,
+      details: envelope.error.details,
     });
   }
 

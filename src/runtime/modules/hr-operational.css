@@ -77,3 +77,14 @@
 .cy-hr-status-table td{vertical-align:top;overflow-wrap:anywhere;white-space:pre-wrap}
 .cy-hr-status-table td:first-child{white-space:nowrap;overflow-wrap:normal}
 .cy-hr-status-table td:first-child small{display:block;color:var(--cy-text-muted)}
+/* 狀態異動：勾選才異動；沒勾的欄位鎖住並顯示目前值 */
+.cy-hr-change-table th .cy-f-check{font-weight:600;white-space:nowrap;width:auto}
+.cy-hr-change-cell{display:flex;align-items:center;flex-wrap:wrap;gap:4px 10px;min-width:0}
+.cy-hr-change-cell .cy-f-cell{flex:1 1 140px;max-width:240px}
+@media (min-width:821px){.cy-hr-change-table th[scope=row]{width:9em}}
+.cy-hr-change-cell{padding-right:8px}
+.cy-hr-change-now{color:var(--cy-text-muted);font-size:var(--cy-fs-sm);white-space:nowrap}
+.cy-hr-change-summary{margin-right:auto;color:var(--cy-text-muted);font-size:var(--cy-fs-sm)}
+.cy-hr-redundant{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.cy-hr-redundant p{margin:0}
+.cy-hr-redundant .cy-f-check{white-space:nowrap;width:auto}

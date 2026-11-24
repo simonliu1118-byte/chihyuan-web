@@ -6,12 +6,13 @@
 - **一筆異動紀錄只異動一個欄位**：欄位、生效日期、新值。生效日當天只改該欄位，不牽動其他欄位。同一視窗改兩個欄位就是兩筆同生效日期的紀錄。每筆另有**異動日期**（紀錄寫入當天，台北日期，由 `created_at` 推得，非使用者輸入）；畫面同時顯示生效日期與異動日期。
 - 儲存：人事狀態仍存 `hr_status_changes`（維持純狀態，不加欄位）；門市、職稱、僱用型態、排班方式存新表 `hr_assignment_changes(employee_id, field, effective_date, previous_value, next_value, reason, handled_by, created_at)`，一欄一筆。`hr_employees` 的四個任用欄位是建檔基準值，不隨異動覆蓋。
 - 每個欄位的當前值 = 該欄位自己的紀錄中、生效日 ≤ 台北今日者，以 `effective_date DESC, id DESC` 取最新；沒有則用建檔基準。未來生效日的紀錄保持待生效，到日自動生效（唯讀 view `hr_employee_current` 於讀取時投影，不靠排程、GET 不寫入）。五欄（含人事狀態）各自獨立投影；狀態判定的排序規則沿用原本的生效日與 id，不改。
-- status-changes 請求：`effectiveDate`、`reason` 與任意子集的 `nextStatus`、`storeId`、`jobTitleId`、`employmentType`、`scheduleMode`、選填 `expectedRevision`。每個值與「該欄位在生效日當天的值」不同才寫一筆（`previous` 即生效日當天的值）；全部相同則回 422，不寫入。舊只送狀態的呼叫仍相容。
+- status-changes 請求：`effectiveDate`、`reason` 與任意子集的 `nextStatus`、`storeId`、`jobTitleId`、`employmentType`、`scheduleMode`、選填 `expectedRevision`。請求只含使用者勾選的欄位。送出的欄位其值若等於「該欄位在生效日當天的值」，整筆回 422 並指名該欄位（例如「門市」在 2026-12-01 已經是「高雄」），不再默默略過，也不寫入任何紀錄；一個欄位都沒送同樣回 422。舊只送狀態的呼叫仍相容。
+- 較晚紀錄變成沒有變化：存某欄位 F 的新值 V 於 D 後，F 在 D 之後（生效日 > D）、且因此新值與其前一個值相同的既有紀錄稱為「沒有變化」。原本就沒有變化的紀錄不計。若有，且請求的 `deleteRedundantIds` 未恰好涵蓋這些紀錄、也未帶 `keepRedundant:true`，回 409，錯誤碼 `HR_REDUNDANT_LATER_CHANGES`，`error.details.items` 列出 `id`（`s<id>` 為狀態、`a<id>` 為任用）、`field`、`fieldLabel`、`effectiveDate`、`previous`、`next` 與顯示用 `previousLabel`、`nextLabel`，不寫入。帶 `deleteRedundantIds` 時，刪除與新增在同一個 `db.batch`、同一組 revision 條件，每筆刪除各有稽核（`hr_employee.status_change_deleted`、`hr_employee.assignment_change_deleted`，`before` 為被刪除的整列）；帶 `keepRedundant:true` 則保留。兩者同送回 422。狀態紀錄同一規則，建檔那筆（最早一筆狀態）不會被判定為沒有變化。
 - 驗證：門市／職稱須啟用；狀態改離職須帶 `terminationDate`、`terminationReason`；僱用型態與排班方式須相容（正職只能班別、半職不可不排班），且生效日當天與其後每個已排定的僱用型態或排班方式紀錄日都要相容，否則整筆拒絕並說明日期。
 - `hr_employees.status`、`termination_date`、`termination_reason` 是台北今日狀態的快取，寫入時依投影結果更新：較舊生效日的補登紀錄不會覆蓋較新的狀態，也不會清除離職日與原因；只有決定今日狀態的紀錄（或未來生效的離職）會寫離職資料。未來生效的復職到日後，快取的離職日不會自動清除（已知限制，讀取以投影狀態為準）。
 - 寫入以員工 revision 條件更新，兩張異動表與每筆稽核（`hr_employee.status_changed`、`hr_employee.assignment_changed`）同在一個 `db.batch` 並依同一成功條件寫入；過期視窗回 409。既有權限與資料隔離不變。薪資計算的留停期間仍只讀 `hr_status_changes`，任用異動不影響。
 - 人事詳情／清單、薪資總覽、排班、出勤、請假、薪資計算的員工來源及個人任用資料共用 view；不自動重算已確認或已發薪快照，也不新增歷史月份分段計薪規則。員工若有任用異動紀錄即視為已有作業紀錄，不能刪除。
-- 介面保留原狀態異動卡片與入口；視窗五個欄位預設「不變更」，只送有選的欄位。卡片合併兩張表依生效日由新到舊列出最近三筆：生效日期（含待生效標記）、異動日期、「欄位：舊值 → 新值」、原因；超過三筆提供查看全部。兩種新增視窗統一 `新增…異動｜員工編號 姓名`。
+- 介面保留原狀態異動卡片與入口；視窗五個欄位各有勾選框：沒勾的欄位鎖住並顯示目前值，勾了才可選新值並只送勾選的欄位，至少勾一個才能存；頁尾顯示「會存成 N 筆異動（…）」。收到 409 `HR_REDUNDANT_LATER_CHANGES` 時視窗顯示黃色提示與「一併刪除該筆」（預設勾選），再按儲存時依勾選送 `deleteRedundantIds` 或 `keepRedundant`。**舊值於顯示時計算**：詳情回傳的 `previous_status`／`previous_value` 取同欄位前一筆紀錄的新值（沒有則建檔基準），因此補登較舊日期後，後面紀錄的舊值會跟著更正；寫入當時存的值另以 `stored_previous_status`／`stored_previous_value` 回傳（稽核用，不刪）；`no_effect` 為真的紀錄顯示「（無變化）」。卡片合併兩張表依生效日由新到舊列出最近三筆：生效日期（含待生效標記）、異動日期、「欄位：舊值 → 新值」、原因；超過三筆提供查看全部。兩種新增視窗統一 `新增…異動｜員工編號 姓名`。
 
 ## 權限與隱私
 - `/api/business/hr/*` API 由 CYID Session 驗證，薪資及完整人事**僅 SUPER_ADMIN**。V0.21.0僅對兩條`attendance-corrections`路徑新增「ADMIN且具名門市授權」例外，詳見[每月薪資契約](HR_PAYROLL_CONTRACT.md)；不放行原月出勤／加班或薪資API。
