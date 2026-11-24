@@ -85,6 +85,7 @@ EXPECTED_TABLES = {
     "hr_education",
     "hr_work_history",
     "hr_status_changes",
+    "hr_assignment_changes",
     "hr_seniority_exclusions",
     "hr_salary_records",
     "hr_salary_allowances",

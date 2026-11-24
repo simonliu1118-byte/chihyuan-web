@@ -4,7 +4,7 @@
 
 分支：`cyweb/hr-bonus-payments`。相依 PR：[#546](https://github.com/simonliu1118-byte/chihyuan-web/pull/546)，基準 `462501d2f4275a4ea2e99058d4383f620ae3b8ef`。本 PR 先以 #546 分支為 base，避免重複呈現其已交付差異；#546 合併後再改指 main 並核對版本與 migration。不得單獨跳過 0081 套用本版。
 
-版本：V0.26.0 Build 0。獨立獎金發放、整批員工選擇與發放快照構成新的完整能力，依共通版本規則升 Minor；不是前版返修。Claude 尚未填審查結論。
+版本：V0.26.0 Build 1（Build 0 為首版）。獨立獎金發放、整批員工選擇與發放快照構成新的完整能力，依共通版本規則升 Minor；不是前版返修。Claude 尚未填審查結論。
 
 ## 使用者定案與完成行為
 
@@ -64,6 +64,7 @@ State／render／lifecycle：`BonusRecords` 管清單／視窗、`BonusEditor` �
 - `npm run validate:d1:local`：完整 migrations 0001～0082 套用成功，Worker + D1 全部 **20 組** acceptance（含 hrPayroll 獨立獎金）PASS。結尾 Windows Miniflare 的 `metadata.sqlite` 被子程序鎖定，tempfile cleanup 出現 WinError32，npm 指令非成功退出；不隱瞞此限制、不修改正式資料來繞過。
 - 真實瀏覽器／合成資料：重現並確認重複 key 修正；月薪來回切月份／員工後更正區塊只有一份。1440px 確認卡片第一排三張，第二排狀態665px／年資326px；獎金表單選取、儲存2000草稿、確認已發放、取消關閉、重開查看、員工獎金卡與完整歷史均正確；金額及「合成發放驗收」備註保留。
 - 390px 檢查發放視窗及獎金歷史，document／dialog 沒有水平溢出；共用 table adaptive 呈現。所有日期元件、shared Dialog 與表單 footer 正常，沒有新增背景點擊關閉或 X／取消重複。
+- Build 1：已併入 PR546 重新設計後的任用異動（狀態維持 `hr_status_changes`、其餘四欄存 `hr_assignment_changes`，0082 仍接在 0081 後、`CURRENT_MIGRATION` 為 0082）。修正阻擋缺陷：獎金視窗填「歸屬年度」時前端送字串、後端 `integer()` 要求數字而存檔失敗，改送數字（空白仍為 null），並新增 UI 測試驗證 payload 為 number。另補次要項目：已付所得 `paidIncome` 排序與公司清冊加入 `source` 作次序鍵（薪資與獎金 id 相同時結果固定）；0082 移除與 0075 `idx_hr_payroll_runs_paid_date` 功能重複的 `idx_hr_payroll_paid_date`。
 - 尚待：Claude 最終審查；正式環境預查／備份及另行授權後遷移部署。
 
 ## Claude 審查欄

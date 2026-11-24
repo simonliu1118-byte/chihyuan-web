@@ -22,7 +22,6 @@ CREATE TABLE hr_bonus_payments (
  UNIQUE(batch_id,employee_id)
 );
 CREATE INDEX idx_hr_bonus_employee ON hr_bonus_payments(employee_id,batch_id);
-CREATE INDEX idx_hr_payroll_paid_date ON hr_payroll_runs(pay_date,employee_id) WHERE status='paid';
 -- Single payment ledger consumed by payroll, bonuses and employer supplement.
 -- A historical monthly bonus is counted in its original salary snapshot only.
 CREATE VIEW hr_paid_income AS
