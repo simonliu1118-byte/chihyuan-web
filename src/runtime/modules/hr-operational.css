@@ -86,3 +86,6 @@
 .cy-hr-period .cy-date-trigger svg{width:15px;height:15px}
 .cy-hr-pending{margin-left:6px;color:var(--cy-text-muted);font-size:var(--cy-fs-xs)}
 .cy-hr-status-table td .cy-hr-pending{display:block;margin-left:0}
+/* 調薪視窗：目前薪資說明為獨立的提示行；津貼為空時只有一行說明與「＋ 新增津貼」。 */
+.cy-hr-salary-current{margin:0 0 12px}
+.cy-hr-allowance-empty{padding:14px 0 10px;margin:0}

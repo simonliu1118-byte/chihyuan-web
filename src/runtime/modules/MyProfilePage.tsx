@@ -44,7 +44,7 @@ type Line=Profile["payslips"][number]["lines"][number];
 const STATUS:Record<string,string>={probation:"試用",active:"在職",leave:"留職停薪",terminated:"離職"};
 const EMPLOYMENT:Record<string,string>={full:"正職",half:"半職",casual:"兼職"};
 const WEEK="日一二三四五六";
-const money=(n:number)=>n.toLocaleString("zh-TW");
+const money=(n:number)=>(n||0).toLocaleString("zh-TW");
 const noop=()=>undefined;
 /** 480 minutes is one leave day, matching the HR leave ledger. */
 function duration(minutes:number):string{

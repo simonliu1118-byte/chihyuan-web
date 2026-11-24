@@ -26,6 +26,10 @@
 | 測試 | 新 `scripts/hr-ui-fixes.test.mjs`；`hr-current-values.test.mjs`（`CURRENT_MIGRATION`）；`hr-phase1-acceptance.ts` 帶學歷備註。 |
 | 文件 | `HR_MODULE_CONTRACT.md`、CHANGELOG、TODO、handoff README、VERSION、BUILD、package.json。 |
 
+## 審查後第二輪（Claude 審查 2026-11-24）
+
+排班表固定版面（colgroup＋等寬日期欄）、−0 金額、調薪視窗提示行與津貼空狀態、法定級距／獎金／出勤／補充保費空狀態、手機薪資紀錄列、計薪／投保設定欄名置頂、狀態異動卡片日期整行、請假分隔符一致、四個原因視窗（撤回確認、調整計薪天數、確認曠班、確認全部）截圖。未動身分證「顯示」按鈕版面。
+
 ## 實作時的取捨（請確認）
 
 1. 建檔紀錄不從資料庫或 API 回應移除，只加 `is_creation` 旗標由畫面過濾（V0.29.0 的舊值推算依賴它）。判斷＝原因「建檔」且（任用紀錄沒有舊值／狀態紀錄前後相同）；使用者自己輸入原因「建檔」的真實異動一定有舊值，不會被誤判（有測試）。

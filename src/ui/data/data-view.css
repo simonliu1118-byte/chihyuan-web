@@ -32,6 +32,8 @@
 }
 
 
+.cy-data-filters select { min-width: 120px; }
+
 .cy-data-result-summary,
 .cy-data-pagination-label {
   color: var(--cy-text-muted);

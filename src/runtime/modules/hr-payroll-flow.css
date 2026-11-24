@@ -112,3 +112,24 @@
  .cy-hr-bonus-editor .cy-data-actions{flex-direction:column;align-items:stretch;width:100%}
  .cy-hr-bonus-editor .cy-data-actions .cy-f{grid-column:auto;width:100%}
 }
+
+/* 手機：展開的薪資紀錄是乾淨的列——第一行日期與本薪，第二行計薪與津貼，第三行原因。 */
+@media(max-width:820px){
+ .cy-hr-salary-history{border:0!important;background:none!important}
+ .cy-hr-salary-history tbody>tr{display:grid!important;grid-template-columns:minmax(0,1fr) auto!important;grid-template-areas:"d b" "p p" "a a" "r r"!important;column-gap:12px;row-gap:2px;margin:0!important;padding:8px 0!important;border:0!important;border-top:1px solid var(--cy-border)!important;border-radius:0!important;background:none!important}
+ .cy-hr-salary-history tbody>tr:first-child{border-top:0!important}
+ .cy-hr-salary-history tbody>tr>td{padding:0!important;border:0!important;background:none!important}
+ .cy-hr-salary-history tbody>tr>td::before{display:none!important}
+ .cy-hr-salary-history td[data-label="生效日"]{grid-area:d!important;font-weight:600}
+ .cy-hr-salary-history td[data-label="本薪"]{grid-area:b!important;text-align:right!important;font-weight:600}
+ .cy-hr-salary-history td[data-label="計薪"]{grid-area:p!important;color:var(--cy-text-muted);font-size:var(--cy-fs-sm)}
+ .cy-hr-salary-history td[data-label="津貼"]{grid-area:a!important;font-size:var(--cy-fs-sm)}
+ .cy-hr-salary-history td[data-label="原因"]{grid-area:r!important;color:var(--cy-text-muted);font-size:var(--cy-fs-sm)}
+ .cy-hr-salary-table tbody tr:hover td{background:none}
+}
+
+/* 手機：計薪／投保設定的長欄名放在欄位上方（整行欄位），不再擠在窄的欄名欄裡換成三行。 */
+@media(max-width:820px){
+ .cy-hr-profile-form .cy-entry-table td[data-entry-label]{grid-template-columns:minmax(0,1fr)}
+ .cy-hr-profile-form .cy-entry-table td[data-entry-label]::before{padding:6px 8px 2px;background:none}
+}

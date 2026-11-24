@@ -138,3 +138,36 @@ test('focus ring is one complete inset ring; search is compact; year picker shar
  const css=read('src/runtime/modules/hr-phase2a.css');assert.doesNotMatch(css,/hr-group-start/);assert.doesNotMatch(css,/font-size:11px/);
  assert.match(read('src/app.css'),/tbody:last-of-type > tr:last-child > td \{ border-bottom: 0; \}/);
 });
+
+// ---- 6. review round (V0.29.1 follow-up) ----
+test('roster: uniform fixed day columns that fit a 31-day month, 每日人力 wraps instead of widening',()=>{
+ const css=read('src/runtime/modules/hr-phase2a.css'),tsx=read('src/runtime/modules/HrRosterPanel.tsx');
+ const block=css.slice(css.indexOf('.hr-roster-table{--cy-roster-holiday'),css.indexOf('/* 國定假日／週末底色'));
+ assert.match(block,/table-layout:fixed;width:100%;min-width:1100px/);
+ assert.doesNotMatch(block,/min-width:38px|width:max-content/);
+ assert.match(block,/\.hr-staffing td\{font-size:13px;[^}]*white-space:normal/);
+ assert.match(tsx,/<colgroup><col className="hr-col-title"\/><col className="hr-col-name"\/>\{dates\.map\(d=><col key=\{d\}\/>\)\}<col className="hr-col-note"\/><\/colgroup>/);
+ assert.match(block,/font-size:14px/);
+});
+test('money: a zero deduction is 0, never −0 or $-0, in every HR formatter',()=>{
+ for(const f of ['HrOperationalPage','MyProfilePage','HrPayrollDetail','HrBonusPanel','HrSalaryOverview','HrPayrollMonthly']){
+  const src=read('src/runtime/modules/'+f+'.tsx');const line=src.split('\n').find(l=>/^const money\s*=/.test(l));
+  assert.match(line,/\(\w+\|\|0\)\.toLocaleString/,f+' normalises -0');
+ }
+ for(const f of ['HrPayrollMonthly','HrPayrollDetail']){const src=read('src/runtime/modules/'+f+'.tsx');assert.match(src,/const minus=\(v:number\)=>v\?'−'\+money\(v\)\.slice\(1\):'0'/,f);assert.doesNotMatch(src,/'−'\+money\(run\.deductions\)|−\{money\(summary/,f)}
+ assert.equal((-0||0).toLocaleString('zh-TW'),'0');
+});
+test('salary dialog: current-pay line is a notice above the form; empty 津貼 shows one message and 「＋ 新增津貼」',()=>{
+ const src=read('src/runtime/modules/HrOperationalPage.tsx');
+ assert.match(src,/<p className="cy-notice cy-hr-salary-current" role="note">/);assert.doesNotMatch(src,/colSpan=\{4\} data-label="目前設定"/);
+ assert.match(src,/allowances\.length===0\?<section className="cy-sheet-rows" aria-label="津貼">/);assert.match(src,/＋ 新增津貼/);
+});
+test('settings, attendance, leave and phone fixes are in place',()=>{
+ const s=read('src/runtime/modules/HrPayrollSettings.tsx');assert.equal((s.match(/empty=\{loaded&&/g)||[]).length,2);
+ assert.match(read('src/runtime/modules/HrAttendancePanel.tsx'),/<option value="">無員工<\/option>/);
+ assert.match(read('src/runtime/modules/HrRosterPanel.tsx'),/<option value="">無門市<\/option>/);
+ const leave=read('src/runtime/modules/HrLeavePanel.tsx');assert.doesNotMatch(leave,/"／"\+period/);assert.match(leave,/" "\+period/);
+ const op=read('src/runtime/modules/HrOperationalPage.tsx');assert.equal((op.match(/data-label="異動日期" className="nowrap" data-priority="wide"/g)||[]).length,2,'日期 cell spans the card so no blank block appears beside it');
+ const flow=read('src/runtime/modules/hr-payroll-flow.css');assert.match(flow,/\.cy-hr-profile-form \.cy-entry-table td\[data-entry-label\]\{grid-template-columns:minmax\(0,1fr\)\}/);assert.match(flow,/grid-template-areas:"d b" "p p" "a a" "r r"!important/);
+ assert.match(read('src/runtime/modules/HrPayrollProfileEditor.tsx'),/cy-hr-profile-form/);
+});

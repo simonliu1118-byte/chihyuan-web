@@ -29,7 +29,7 @@ const source=(c:Credit)=>c.kind==="overtime"?"加班 "+ymd(c.issuedOn):c.kind===
 const quota=(minutes:number,code:string,types:LeaveTypeOption[])=>{
  const type=types.find(x=>x.code===code),limit=type?.quota_days;
  const period={calendar_year:"年",month:"月",event:"次",two_years:"兩年"}[type?.quota_period??""]??"";
- return hrs(minutes)+(limit!=null?" / "+(limit*8)+(period?"／"+period:""):"");
+ return hrs(minutes)+(limit!=null?" / "+(limit*8)+(period?" "+period:""):"");
 };
 export function HrLeavePanel({initialEmployeeId}:{initialEmployeeId?:number|null}={}){
  const [year,setYear]=useState(Number(taipeiToday().slice(0,4))),[store,setStore]=useState(""),[stores,setStores]=useState<{id:number;name:string}[]>([]);

@@ -118,7 +118,7 @@ export function HrRosterPanel() {
  return <section className="cy-op-module cy-hr-phase2a" aria-label="月排班表">
   <div className="no-print"><DataViewToolbar searchValue={search} onSearchChange={setSearch} searchLabel="搜尋排班員工" searchPlaceholder="員工編號、姓名或職稱"
    beforeSearch={<MonthPicker value={month} disabled={loading} onChange={target=>void chooseMonth(target)}/>}
-   filters={<select aria-label="排班門市" disabled={loading} className="cy-op-input" value={storeId} onChange={e=>{const next=Number(e.target.value);if(!loading)void discard().then(ok=>{if(ok){setData(null);setStoreId(next)}})}}>{stores.map(x=><option key={x.id} value={x.id}>{x.name}</option>)}</select>}
+   filters={<select aria-label="排班門市" disabled={loading} className="cy-op-input" value={storeId} onChange={e=>{const next=Number(e.target.value);if(!loading)void discard().then(ok=>{if(ok){setData(null);setStoreId(next)}})}}>{stores.length?stores.map(x=><option key={x.id} value={x.id}>{x.name}</option>):<option value="">無門市</option>}</select>}
    resultSummary={`顯示 ${shownEmployees.length}／${data?.employees.length??0} 人；每日人力為全門市`}
    actions={<>
     <button type="button" disabled={loading||!data} className="cy-op-button" onClick={()=>setStaff(Object.fromEntries((data?.employees??[]).map(x=>[x.id,{sort:String(x.roster_sort),skip:x.skip_roster_checks===1}])))}>人員設定</button>
@@ -129,7 +129,7 @@ export function HrRosterPanel() {
   {error?<p role="alert" className="cy-notice cy-notice-danger no-print">{error}</p>:null}
   {notice?<p role="status" className="cy-notice no-print">{notice}</p>:null}
   {data?<><h2 className="hr-roster-print-title">{data.store.name}　{month.replace("-","年")}月班表</h2>
-   <div className="hr-roster-scroll cy-mobile-matrix" role="region" aria-label="月排班表，可左右捲動" tabIndex={0}><table className="hr-roster-table"><thead><tr><th rowSpan={2}>職稱</th><th rowSpan={2}>日期／姓名</th>
+   <div className="hr-roster-scroll cy-mobile-matrix" role="region" aria-label="月排班表，可左右捲動" tabIndex={0}><table className="hr-roster-table"><colgroup><col className="hr-col-title"/><col className="hr-col-name"/>{dates.map(d=><col key={d}/>)}<col className="hr-col-note"/></colgroup><thead><tr><th rowSpan={2}>職稱</th><th rowSpan={2}>日期／姓名</th>
     {dates.map(d=><th key={d} title={holidays.get(d)??""} className={dayClass(d)}>{Number(d.slice(-2))}{holidays.has(d)?<small>{holidays.get(d)}</small>:null}</th>)}
     <th rowSpan={2}>備註</th></tr><tr>{dates.map(d=><th key={d} className={dayClass(d)}>{weekdays[new Date(d+"T00:00:00Z").getUTCDay()]}</th>)}</tr></thead>
     <tbody>{shownEmployees.map((staff,i)=><tr key={staff.id}>
@@ -184,7 +184,7 @@ export function HrRosterPanel() {
    </form>:null}
   </Dialog>
   <Dialog dismissible={!loading} open={staff!==null} title="門市人員設定" size="large" onClose={()=>setStaff(null)}>
-   {staff?<form className="cy-op-form" onKeyDown={enterAdvancesFields} onSubmit={e=>e.preventDefault()}>
+   {staff?<form className="cy-op-form cy-hr-staff-form" onKeyDown={enterAdvancesFields} onSubmit={e=>e.preventDefault()}>
     <EntryTable label="門市人員設定"><thead><tr><th>員工編號</th><th>姓名</th><th>排序</th><th>不檢查排班規則</th><th>操作</th></tr></thead><tbody>{(data?.employees??[]).map(x=>{
      const v=staff[x.id]??{sort:'0',skip:false};const set=(next:Partial<typeof v>)=>setStaff(old=>({...old,[x.id]:{...v,...next}}));
      return <tr key={x.id}><td>{x.employee_no}</td><td>{x.name}</td><td><Field label={x.name+'排序'} presentation="cell"><input disabled={loading} type="number" className="cy-sheet-input" value={v.sort} onChange={e=>set({sort:e.target.value})}/></Field></td>
