@@ -1,5 +1,18 @@
 # CY Web 人事模組第一期資料與 API 合約（WO-0.9.20）
 
+## V0.28.0 薪資流程重整
+
+- 薪資頁籤：薪資設定｜每月薪資｜獎金發放｜公司補充保費。離開薪資頁（例如到出勤補正）再回來時還原子頁、月份與選取的員工。
+- 薪資設定：員工、門市・職稱、計薪、月薪合計（本薪＋津貼；時薪為「$N /時」）、生效日；展開列為薪資紀錄與目前生效的計薪／投保設定摘要（沿用 `GET /payroll/profiles/:id`，展開時才讀）。計薪／投保設定視窗（`POST /payroll/profiles/:id`，驗證不變）改由此頁與每月薪資詳情開啟。
+- 每月薪資是「一個月份一張工作清單」：
+  - 新增唯讀 `GET /payroll/month?month=YYYY-MM`（僅 SUPER_ADMIN，與其他薪資路由相同）：一次回傳 `{month,rows[]}`。列為該月應發薪員工——到職日不晚於月底且（無離職日或離職日不早於月初），或該月已有非撤回薪資紀錄者；每列有 `employeeId, employeeNo, name, storeId, storeName, hasSalary, voidCount` 與 `run`（`id, status, revision, payDate, gross, deductions, net, issues[], paidDays, reason`；沒有紀錄為 `null`）。全部參數化、單一查詢（只取 `result_json`／`input_json` 的 `json_extract` 摘要，不回逐日明細）、上限 500 人，超過回 422 要求縮小範圍。`hasSalary` 為月底前是否有任何薪資主檔紀錄；沒有薪資且沒有紀錄者在畫面顯示待補「尚未設定薪資」，不必先計算。
+  - `GET /payroll/runs?month=&employeeId=` 新增選填 `employeeId`，並回傳 `reason`；詳情的「歷史快照」展開時才以它讀撤回的快照。
+  - 狀態分類（畫面）：無紀錄且有薪資→未計算；無紀錄且無薪資→待補；草稿有待補事項→有待補、無待補事項→待確認；已確認；已發薪。狀態卡可點選篩選。實領欄在有待補時顯示「待確認」，合計列的實領不含有待補者，避免把未定案金額當成實發。
+  - 待補事項的動作由 `hr-payroll-flow.ts` 的 `classifyIssue` 依後端訊息對應：出勤補正、請假補單（切到出勤／請假頁並定位員工與月份）；確認曠班、例假緊急出勤、國定假日調移（既有 `POST /payroll/reviews/:employeeId`，必填核對原因，存檔後重算）；設定薪資（既有薪資異動視窗）；計薪／投保設定（既有視窗）；調整計薪天數（既有 `paidDays`，必填原因）。沒有對應的只顯示文字。缺卡沒有可確認的對應，只提供到出勤補正。
+  - 計算全部：對無紀錄（有薪資、未撤回過）與草稿的員工，逐一呼叫 `POST /payroll/calculate`（同時最多 2 筆），草稿沿用原本的 `paidDays` 與原因；單筆失敗不中斷；已確認／已發薪永不處理；撤回過尚未重算者須個別填原因，批次略過並提示。確認全部無待補：只處理沒有待補事項的草稿，逐筆 `POST /payroll/runs/:id`（`confirm`），來源資料已異動的 409（訊息含「重算」）標為「需重新計算」。批次不改變任何伺服器端守門：確認仍在交易內重跑來源比對。
+- **原因規則（使用者 2026-11-24）**：首次計算、計算全部、重算草稿、確認、確認全部、標記已發薪不需原因，後端存預設 `YYYY/MM 月薪`（`defaultReason`）。必填原因（422）的是：`reopen` 撤回確認；該員工該月已有撤回快照後的任何重新計算；指定 `paidDays`；既有的核對原因（`reviews`）。每次動作仍寫稽核，`reason` 欄位與 `input_json.reason` 保存實際或預設原因。
+- 測試：`scripts/hr-payroll-flow.test.mjs`、`scripts/hr-payroll-flow-ui.test.mjs`。無 migration；計算公式、法定表、快照不可變、樂觀鎖與授權不變。
+
 ## V0.27.0 人員清單與人事設定介面
 
 - `GET /employees` 新增選填 `storeId`（正整數）與 `employmentType`（`full`／`half`／`casual`），無效值回 422；與 `q`、`status`、`cursor`、`limit` 並用，皆比對 `hr_employee_current` 的今日有效值（門市與僱用型態依各自紀錄投影，未來生效的調任尚不計）。每列另回傳 `store_name`（左連 `hr_stores`，沒有門市則為 null）。排序仍為 `e.id`，不變。

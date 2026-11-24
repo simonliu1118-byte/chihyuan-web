@@ -30,7 +30,8 @@ export async function handleHrPayrollRoute(request:Request,db:D1Database,ctx:HrC
    return success({members:members.results??[],stores:stores.results??[]},id);
   }
   if(profile){if(request.method==='GET')return success(await service.profiles(+profile[1]),id);if(request.method==='POST')return success(await service.saveProfile(+profile[1],await body(),ctx),id);}
-  if(path==='/payroll/runs'&&request.method==='GET')return success(await service.list(payrollMonth(u.searchParams.get('month'))),id);
+  if(path==='/payroll/month'&&request.method==='GET')return success(await service.monthOverview(payrollMonth(u.searchParams.get('month'))),id);
+  if(path==='/payroll/runs'&&request.method==='GET')return success(await service.list(payrollMonth(u.searchParams.get('month')),u.searchParams.has('employeeId')?integer(Number(u.searchParams.get('employeeId')),'employeeId',true):null),id);
   if(path==='/payroll/calculate'&&request.method==='POST')return success(await service.calculate(await body(),ctx),id);
   if(run){if(request.method==='GET')return success(await service.get(+run[1]),id);if(request.method==='POST')return success(await service.transition(+run[1],await body(),ctx),id);}
   if(review&&request.method==='GET')return success(await service.reviews(+review[1],payrollMonth(u.searchParams.get('month'))),id);

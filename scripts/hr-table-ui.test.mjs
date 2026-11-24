@@ -27,7 +27,7 @@ test('salary overview clearly identifies settings, preserves the raise target, a
  globalThis.hrTransport=()=>Promise.resolve([{id:8,employeeNo:'T8',name:'合成員工',storeId:1,storeName:'合成門市',jobTitle:'合成',status:'active',salaryRecords:[{id:1,effective_date:'2026-01-01',payment_type:'monthly',base_amount:40000,reason:'合成',allowances:[{item_name:'交通',amount:1000,is_regular:1}]}]}]);
  const props={refreshToken:0,onRaise:(...args)=>{target=args}};
  try{host.render(HrSalaryOverview,props);let tree=await host.settle(HrSalaryOverview,props);const toolbar=walk(tree).find(n=>n.props.searchLabel==='搜尋員工');
- assert.ok(text(toolbar.props.resultSummary).includes('月薪設定合計'));assert.ok(text(toolbar.props.resultSummary).includes('非當月實發'));
+ assert.ok(text(toolbar.props.resultSummary).includes('月薪合計'));assert.ok(text(toolbar.props.resultSummary).includes('含津貼，不含時薪人員'));
  walk(tree).find(n=>n.type==='button'&&text(n)==='調薪').props.onClick();assert.deepEqual(target,[8,'合成員工']);
  walk(tree).find(n=>n.type?.name==='ExpandToggle').props.onToggle();tree=host.render(HrSalaryOverview,props);assert.ok(walk(tree).some(n=>n.type==='table'&&n.props.className?.includes('cy-hr-salary-history')));
  }finally{host.close();delete globalThis.hrHost;delete globalThis.hrTransport}

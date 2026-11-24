@@ -16,7 +16,7 @@ export class Host{
 export const plugin={name:'hr-interactions',setup(b){
  b.onResolve({filter:/\/node_modules\/react\/index\.js$/},a=>({path:a.path,external:true}));
  b.onResolve({filter:/^react$/},()=>({path:'react-hooks',namespace:'hr'}));
- b.onLoad({filter:/.*/,namespace:'hr'},()=>({contents:`export * from '${pathToFileURL(process.cwd()+'/node_modules/react/index.js').href}';export const useState=(...a)=>globalThis.hrHost.useState(...a),useRef=(...a)=>globalThis.hrHost.useRef(...a),useMemo=(...a)=>globalThis.hrHost.useMemo(...a),useCallback=(fn,deps)=>globalThis.hrHost.useMemo(()=>fn,deps),useEffect=(...a)=>globalThis.hrHost.useEffect(...a),useLayoutEffect=(...a)=>globalThis.hrHost.useEffect(...a),useContext=()=>null;`}));
+ b.onLoad({filter:/.*/,namespace:'hr'},()=>({contents:`export * from '${pathToFileURL(process.cwd()+'/node_modules/react/index.js').href}';export const useState=(...a)=>globalThis.hrHost.useState(...a),useRef=(...a)=>globalThis.hrHost.useRef(...a),useMemo=(...a)=>globalThis.hrHost.useMemo(...a),useCallback=(fn,deps)=>globalThis.hrHost.useMemo(()=>fn,deps),useEffect=(...a)=>globalThis.hrHost.useEffect(...a),useLayoutEffect=(...a)=>globalThis.hrHost.useEffect(...a),useContext=()=>null,useId=()=>globalThis.hrHost.useMemo(()=>':r'+Math.random().toString(36).slice(2)+':',[]);`}));
  b.onResolve({filter:/\/api\/client$/},()=>({path:'client',namespace:'transport'}));
  b.onLoad({filter:/.*/,namespace:'transport'},()=>({contents:'export const apiRequest=(...args)=>globalThis.hrTransport(...args);'}));
 }};

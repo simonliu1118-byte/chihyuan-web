@@ -14,8 +14,8 @@ test('month picker is mouse and touch only: no typing, no shortcut keys, bounded
  assert.match(source,/event\.key !== "Escape"/);assert.match(source,/pointerdown/);
  assert.match(source,/disabled=\{blocked\(target\)\}/);assert.match(source,/aria-pressed=\{target === value\}/);
 });
-test('the four month pages share the picker and keep their own guards',()=>{
- for(const [file,guard] of [['HrRosterPanel','discard()'],['HrAttendancePanel','discard()'],['HrPayrollPanel','navigation.canLeave()']]){
+test('the month pages share the picker and keep their own guards',()=>{
+ for(const [file,guard] of [['HrRosterPanel','discard()'],['HrAttendancePanel','discard()'],['HrPayrollMonthly','navigation.canLeave()'],['HrEmployerSupplement','']]){
   const source=read(`src/runtime/modules/${file}.tsx`);
   assert.match(source,/<MonthPicker /,file);assert.ok(source.includes(guard),file+' keeps its unsaved-change guard');assert.doesNotMatch(source,/上個月|下個月/,file);
  }

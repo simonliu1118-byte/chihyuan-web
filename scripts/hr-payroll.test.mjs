@@ -71,7 +71,7 @@ test('actual SQLite service preserves confirmed/paid snapshots, retains void ver
  r=await s.calculate({employeeId:1,month:'2026-11',payDate:'2026-12-05'},ctx);r=await s.transition(r.id,{action:'confirm',revision:r.revision,reason:'核對'},ctx);assert.equal(r.status,'confirmed');
  await assert.rejects(s.calculate({employeeId:1,month:'2026-11',payDate:'2026-12-05'},ctx),/不可直接重算/);
  const oldResult=JSON.stringify(r.result);r=await s.transition(r.id,{action:'reopen',revision:r.revision,reason:'重新核對'},ctx);assert.equal(r.status,'void');assert.equal(JSON.stringify(r.result),oldResult);
- let next=await s.calculate({employeeId:1,month:'2026-11',payDate:'2026-12-05'},ctx);assert.notEqual(next.id,r.id);next=await s.transition(next.id,{action:'confirm',revision:next.revision,reason:'核對'},ctx);next=await s.transition(next.id,{action:'pay',revision:next.revision,reason:'已人工發薪'},ctx);assert.equal(next.status,'paid');
+ let next=await s.calculate({employeeId:1,month:'2026-11',payDate:'2026-12-05',reason:'撤回後重算'},ctx);assert.notEqual(next.id,r.id);next=await s.transition(next.id,{action:'confirm',revision:next.revision,reason:'核對'},ctx);next=await s.transition(next.id,{action:'pay',revision:next.revision,reason:'已人工發薪'},ctx);assert.equal(next.status,'paid');
  await assert.rejects(s.transition(next.id,{action:'reopen',revision:next.revision,reason:'測試'},ctx));assert.equal((await s.get(r.id)).status,'void');
  }finally{f.sql.close();}
 });
@@ -116,7 +116,7 @@ test('actual service pays expired comp from original frozen wage/tax tiers once,
  let r=await s.calculate({employeeId:1,month:'2026-11',payDate:'2026-12-05'},ctx);assert.deepEqual(r.result.issues,[]);assert.equal(r.result.cashouts[0].amount,459);
  r=await s.transition(r.id,{action:'confirm',revision:r.revision,reason:'結清核對'},ctx);assert.equal(f.sql.prepare('SELECT COUNT(*) n FROM hr_payroll_consumptions WHERE active=1').get().n,1);
  r=await s.transition(r.id,{action:'reopen',revision:r.revision,reason:'核對測試'},ctx);assert.equal(f.sql.prepare('SELECT COUNT(*) n FROM hr_payroll_consumptions WHERE active=1').get().n,0);
- let next=await s.calculate({employeeId:1,month:'2026-11',payDate:'2026-12-05'},ctx);next=await s.transition(next.id,{action:'confirm',revision:next.revision,reason:'結清核對'},ctx);await s.transition(next.id,{action:'pay',revision:next.revision,reason:'已發'},ctx);
+ let next=await s.calculate({employeeId:1,month:'2026-11',payDate:'2026-12-05',reason:'撤回後重算'},ctx);next=await s.transition(next.id,{action:'confirm',revision:next.revision,reason:'結清核對'},ctx);await s.transition(next.id,{action:'pay',revision:next.revision,reason:'已發'},ctx);
  const december=await s.calculate({employeeId:1,month:'2026-12',payDate:'2026-12-31'},ctx);assert.equal(december.result.cashouts.length,0);assert.equal((await s.get(r.id)).status,'void');
  }finally{f.sql.close();}
 });
@@ -262,7 +262,7 @@ test('paid salary corrections keep the original, require recovery consent, fence
  r=await s.transition(r.id,{action:'confirm',revision:r.revision,reason:'合成'},ctx);assert.equal(f.sql.prepare('SELECT COUNT(*) n FROM hr_payroll_correction_uses WHERE is_active=1').get().n,1);
  await assert.rejects(corrections.cancel(1,'2026-11',{id:r.result.corrections[0],revision:1,reason:'合成不得直接撤銷已套用'},ctx));
  await s.transition(r.id,{action:'reopen',revision:r.revision,reason:'合成重算'},ctx);assert.equal(f.sql.prepare('SELECT COUNT(*) n FROM hr_payroll_correction_uses WHERE is_active=1').get().n,0);
- r=await s.calculate({employeeId:1,month:'2026-11',payDate:'2026-12-05'},ctx);r=await s.transition(r.id,{action:'confirm',revision:r.revision,reason:'合成'},ctx);await s.transition(r.id,{action:'pay',revision:r.revision,reason:'合成'},ctx);
+ r=await s.calculate({employeeId:1,month:'2026-11',payDate:'2026-12-05',reason:'撤回後重算'},ctx);r=await s.transition(r.id,{action:'confirm',revision:r.revision,reason:'合成'},ctx);await s.transition(r.id,{action:'pay',revision:r.revision,reason:'合成'},ctx);
  assert.equal(JSON.stringify((await s.get(original.id)).result),frozen);assert.equal(f.sql.prepare('SELECT COUNT(*) n FROM hr_payroll_correction_uses WHERE is_active=1').get().n,1);
  await assert.rejects(corrections.create(1,'2026-11',{...input,requestKey:'late-new-entry'},ctx),/目標月份/);
  }finally{f.sql.close();}

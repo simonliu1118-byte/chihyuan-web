@@ -20,8 +20,9 @@ type OvertimeEdit={date:string;minutes:number;settlement:"pay"|"comp";revision:n
 type Exception={employeeId:number;employeeNo:string;name:string;date:string;anomalies:string[]};
 const ROOT="/api/business/hr",punchFields=["in1","out1","in2","out2"] as const,weekdays=["日","一","二","三","四","五","六"];
 const hrs=(v:number)=>(Math.round(v/30)/2).toFixed(1);
-export function HrAttendancePanel(){
- const [employees,setEmployees]=useState<Employee[]>([]),[selected,setSelected]=useState(0),[month,setMonth]=useState(taipeiToday().slice(0,7));
+/** initialEmployeeId／initialMonth：從每月薪資的待補事項「到出勤補正」進入時，直接定位到該員工與月份。 */
+export function HrAttendancePanel({initialEmployeeId,initialMonth}:{initialEmployeeId?:number|null;initialMonth?:string}={}){
+ const [employees,setEmployees]=useState<Employee[]>([]),[selected,setSelected]=useState(initialEmployeeId??0),[month,setMonth]=useState(initialMonth??taipeiToday().slice(0,7));
  const [data,setData]=useState<Report|null>(null),[changes,setChanges]=useState<Record<string,Change>>({}),[otChanges,setOtChanges]=useState<Record<string,OvertimeEdit>>({});
  const [error,setError]=useState(""),[notice,setNotice]=useState(""),[busy,setBusy]=useState(false);
  const [exceptions,setExceptions]=useState<Exception[]|null>(null),[filter,setFilter]=useState("");
@@ -38,7 +39,7 @@ export function HrAttendancePanel(){
   const ticket=employeeRequest.begin();setEmployeeLoading(true);
   try{const page=await apiRequest<{items:Employee[];nextCursor:number|null}>(ROOT+'/employees?limit=100'+(cursor?'&cursor='+cursor:''));
    if(!ticket.current())return;setEmployees(old=>cursor?[...old,...page.items]:page.items);setEmployeeCursor(page.nextCursor);
-   if(!cursor)setSelected(page.items[0]?.id??0);
+   if(!cursor)setSelected(current=>current||(page.items[0]?.id??0));
   }catch(e){if(ticket.current())setError(e instanceof Error?e.message:'員工查詢失敗')}finally{if(ticket.current())setEmployeeLoading(false)}
  },[employeeRequest]);
  useEffect(()=>{void loadEmployees()},[loadEmployees]);

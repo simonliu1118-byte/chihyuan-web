@@ -34,7 +34,7 @@ import {HrEmployeeSheet} from "./HrEmployeeSheet";
 import {EntryTable,EntryHeading} from "../../ui/forms/EntryTable";
 import {EntryFields} from "../../ui/forms/EntryFields";
 import {RecordRows} from "../../ui/forms/RecordSheet";
-import {HrSalaryPanel} from './HrPayrollPanel';
+import {HrSalaryPanel,type SalaryView} from './HrPayrollPanel';
 
 const ROOT = "/api/business/hr";
 const statusLabels: Record<HrStatus, string> = { probation: "試用", active: "在職", leave: "留職停薪", terminated: "離職" };
@@ -134,6 +134,8 @@ function draftFrom(detail: EmployeeDetail): Draft {
 export function HrOperationalPage() {
   const [tab,setTab]=useState<"people"|"roster"|"attendance"|"leave"|"salary">("people");
  const [initialLeaveEmployeeId,setInitialLeaveEmployeeId]=useState<number|null>(null);
+ const [attendanceFocus,setAttendanceFocus]=useState<{employeeId:number;month:string}|null>(null);
+ const salaryView=useRef<SalaryView>({mode:"settings"});
   const [stores,setStores]=useState<{id:number;name:string;is_active?:number}[]>([]);
   const [jobTitles,setJobTitles]=useState<{id:number;name:string}[]>([]);
   useEffect(()=>{void Promise.all([
@@ -186,7 +188,7 @@ export function HrOperationalPage() {
   async function switchTab(next:typeof tab){
     if(next===tab)return;
     if(!(await navigation.canLeave({title:'切換人事頁籤？',description:'切換會放棄尚未儲存的內容，確定繼續？'})))return;
-    actionRequest.invalidate();setDraft(null);setCreating(false);setAction(null);setActionEmployeeId(null);setTab(next);
+    actionRequest.invalidate();setDraft(null);setCreating(false);setAction(null);setActionEmployeeId(null);if(next!=="attendance")setAttendanceFocus(null);setTab(next);
   }
   async function loadList(append = false) {
     const request=listRequest.begin();
@@ -581,7 +583,8 @@ export function HrOperationalPage() {
     </>
   </form>
     </Dialog> : null}
-  </div>:tab==="roster"?<HrRosterPanel/>:tab==="attendance"?<HrAttendancePanel/>:tab==="leave"?<HrLeavePanel initialEmployeeId={initialLeaveEmployeeId}/>:<HrSalaryPanel refreshToken={salaryRefresh} onRaise={(id)=>void openAction("salary",id)}/>}
+  </div>:tab==="roster"?<HrRosterPanel/>:tab==="attendance"?<HrAttendancePanel initialEmployeeId={attendanceFocus?.employeeId} initialMonth={attendanceFocus?.month}/>:tab==="leave"?<HrLeavePanel initialEmployeeId={initialLeaveEmployeeId}/>:<HrSalaryPanel refreshToken={salaryRefresh} onRaise={(id)=>void openAction("salary",id)} initialView={salaryView.current} onViewChange={view=>{salaryView.current=view}}
+   onNavigate={target=>{if(target.tab==="leave")setInitialLeaveEmployeeId(target.employeeId);else setAttendanceFocus({employeeId:target.employeeId,month:target.month});void switchTab(target.tab)}}/>}
     {action&&actionEmployeeId!==null?<Dialog showCloseButton={false} open
       size={action==="salary"?"large":action==="exclusion"?"small":"medium"} dismissible={!busy&&!actionLoading}
       title={(action==="status"?"新增狀態異動":action==="salary"?"新增薪資異動":"新增年資不計期間")+(actionName?"｜"+actionName:"")}
