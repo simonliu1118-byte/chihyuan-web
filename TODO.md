@@ -3,6 +3,11 @@
 > 本檔是 CY Web 唯一的現況與待辦清單，不是永久規則來源。各版本完成內容與驗證見 `CHANGELOG.md`；規格見 `docs/architecture/README.md`。
 > 2026-11-03、2026-11-09 整理：已完成且已記入 CHANGELOG 的版本段落移除；已結案的交接與工作單移到 Git 固定快照（見 `docs/handoff/README.md`）。
 
+## V0.29.0 人事目前值
+
+- [x] 主檔五欄永遠存今日值、建檔值改為紀錄、寫入同 batch 更新、每日 `hrCurrentValues` 推進、migration 0083、備份舊檔升級、測試（見 CHANGELOG）。
+- [x] Claude 依 [handoff](docs/handoff/CYWEB-HR-CURRENT-VALUES-20261124.md) 審查通過（2026-11-24），使用者授權合併部署；部署前預查正式 D1 並確認當日備份。
+
 ## V0.28.0 薪資流程重整
 
 - [x] 薪資四個子頁、薪資設定一覽（展開薪資紀錄與計薪／投保摘要）、每月薪資工作清單（狀態卡、計算全部、確認全部、詳情待補動作）、原因規則調整（使用者 2026-11-24）。

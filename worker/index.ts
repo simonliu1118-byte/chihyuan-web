@@ -1,5 +1,6 @@
 import type { HealthData } from "../shared/api";
 import { CYWEB_CRON, cywebCronTasks } from "../shared/cyweb-cron";
+import { rollHrCurrentValues } from "./hr/hr-current-values";
 import { backupService, type BackupRuntimeEnv } from "./backup/runtime";
 import { handleBackupRoute } from "./http/backup-routes";
 import { handleSettingsAuditRoute } from "./http/settings-audit-routes";
@@ -147,6 +148,7 @@ export default {
     if(env.BOT_PUSH_ENCRYPTION_KEY)jobs.push((async()=>{await deliverReviewPushes(env,{now});await cleanupReviewPushes(env,now)})());
     jobs.push(cleanupReviewImages(env, now));
     if (tasks.storeMonthly) jobs.push(ensureMonthlyRows(env.DB, now));
+    if (tasks.hrCurrentValues) jobs.push(rollHrCurrentValues(env.DB, now));
     if (tasks.programCatalog) jobs.push(updateProgramCatalog(env.DB, now));
     if (tasks.backup) jobs.push(scheduledBackup(env, controller.scheduledTime));
     const failed = (await Promise.allSettled(jobs)).find((r): r is PromiseRejectedResult => r.status === "rejected");

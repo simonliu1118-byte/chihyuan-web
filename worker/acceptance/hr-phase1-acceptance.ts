@@ -73,6 +73,12 @@ export async function acceptHrPhase1(db:D1Database):Promise<void>{
  check((await call("employees/"+removable.id,"DELETE",{confirmEmployeeNo:"HRTEST001"})).status===422,"ACCEPT_HR_DELETE_CONFIRMS_NUMBER");
  check((await call("employees/"+removable.id,"DELETE",{confirmEmployeeNo:"HRTEST005"})).status===200,"ACCEPT_HR_DELETE");
  check(!(await db.prepare("SELECT 1 FROM hr_employees WHERE id=?").bind(removable.id).first())&&!(await db.prepare("SELECT 1 FROM hr_emergency_contacts WHERE employee_id=?").bind(removable.id).first()),"ACCEPT_HR_DELETE_CASCADE");
+ // V0.29.0: a created employee has a 建檔 record per field, no 建檔 record is left behind by a delete, and the master equals the projection.
+ const records=await db.prepare("SELECT (SELECT COUNT(*) FROM hr_assignment_changes WHERE employee_id=?1 AND reason='建檔' AND previous_value IS NULL)+(SELECT COUNT(*) FROM hr_status_changes WHERE employee_id=?1 AND reason='建檔') AS n").bind(used.id).first<{n:number}>();
+ check(records?.n===5,"ACCEPT_HR_CREATE_WRITES_FIVE_RECORDS");
+ check(!(await db.prepare("SELECT 1 FROM hr_assignment_changes WHERE employee_id=?").bind(removable.id).first()),"ACCEPT_HR_DELETE_REMOVES_RECORDS");
+ const drift=await db.prepare("SELECT COUNT(*) AS n FROM hr_employees e JOIN hr_employee_current c ON c.id=e.id WHERE e.status IS NOT c.status OR e.store_id IS NOT c.store_id OR e.job_title_id IS NOT c.job_title_id OR e.employment_type IS NOT c.employment_type OR e.schedule_mode IS NOT c.schedule_mode").first<{n:number}>();
+ check(drift?.n===0,"ACCEPT_HR_MASTER_EQUALS_PROJECTION");
  const audit=await db.prepare("SELECT before_json,after_json,metadata_json FROM audit_events WHERE entity_type LIKE 'hr_%'").all<Record<string,string|null>>();
  check(!(audit.results??[]).some(x=>JSON.stringify(x).includes(input.nationalId)),"ACCEPT_HR_AUDIT_NO_FULL_ID");
  const adminEvents=await new AuditService(db).listDetailedPage({includeHrEvents:false});

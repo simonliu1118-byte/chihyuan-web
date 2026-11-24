@@ -60,12 +60,20 @@ function audit(db:D1Database, ctx:HrContext, type:string, key:string, action:str
 }
 // Anything done for an employee after the record was created. Profile rows (contacts, education, work
 // history), the 建檔 status change and the leave entitlement derived on viewing do not count.
-const ACTIVITY_TABLES=["hr_salary_records","hr_bonus_payments","hr_leave_records","hr_overtime_days","hr_comp_time_grants","hr_comp_time_settlements","hr_seniority_exclusions","hr_schedule_days","hr_roster_approvals","hr_attendance_days","hr_assignment_changes"];
-const HAS_ACTIVITY="("+ACTIVITY_TABLES.map(t=>`EXISTS(SELECT 1 FROM ${t} WHERE employee_id=?1)`).join(" OR ")+" OR (SELECT COUNT(*) FROM hr_status_changes WHERE employee_id=?1)>1)";
+const ACTIVITY_TABLES=["hr_salary_records","hr_bonus_payments","hr_leave_records","hr_overtime_days","hr_comp_time_grants","hr_comp_time_settlements","hr_seniority_exclusions","hr_schedule_days","hr_roster_approvals","hr_attendance_days"];
+// The 建檔 records (one status record, one assignment record per field) are written with the employee and do not count; any other record does.
+const HAS_ACTIVITY="("+ACTIVITY_TABLES.map(t=>`EXISTS(SELECT 1 FROM ${t} WHERE employee_id=?1)`).join(" OR ")+" OR (SELECT COUNT(*) FROM hr_status_changes WHERE employee_id=?1)>1 OR EXISTS(SELECT 1 FROM hr_assignment_changes WHERE employee_id=?1 AND (previous_value IS NOT NULL OR reason<>'建檔')))";
 const ASSIGNMENT_FIELDS=[["storeId","store_id"],["jobTitleId","job_title_id"],["employmentType","employment_type"],["scheduleMode","schedule_mode"]] as const;
 type AssignmentField=typeof ASSIGNMENT_FIELDS[number][1];
 interface StatusRecord{id:number;effective_date:string;previous_status:string;next_status:string}
-interface AssignmentRecord{id:number;field:string;effective_date:string;next_value:string}
+interface AssignmentRecord{id:number;field:string;effective_date:string;previous_value:string|null;next_value:string}
+function earliestOf<T extends {id:number;effective_date:string}>(records:T[]):T|undefined{
+  return [...records].sort((a,b)=>a.effective_date.localeCompare(b.effective_date)||a.id-b.id)[0];
+}
+/** What one assignment field was before its first record: that record's previous value (a 建檔 record has none: its own value). */
+function startValue(records:AssignmentRecord[]):string|null{const first=earliestOf(records);return first?first.previous_value??first.next_value:null;}
+/** Where a ledger's walk starts. A 建檔 record (no previous value) is its own baseline and is never "no change". */
+const assignmentStart=(records:AssignmentRecord[])=>{const first=earliestOf(records);return {base:first?.previous_value??null,anchor:first!==undefined&&first.previous_value==null};};
 /** The record in force on `at`: latest effective date not after it, ties by larger id (the ledger's ordering rule). */
 function latestAt<T extends {id:number;effective_date:string}>(records:T[],at:string):T|undefined{
   let best:T|undefined;
@@ -115,18 +123,17 @@ export class HrService {
       result.memberLabel=m?[m.employee_no,m.display_name].filter(Boolean).join(" ")||null:null;}
     for(const child of CHILDREN){const data=await this.db.prepare("SELECT * FROM "+child.table+" WHERE employee_id=? ORDER BY sort_order,id").bind(id).all();result[child.field]=data.results??[];}
     // 異動日期 = the Taipei date the record was written, derived from created_at.
-    // 舊值 is computed from the preceding record of the same field (or the 建檔 baseline); the stored previous_* columns
+    // 舊值 is computed from the preceding record of the same field (the first record, 建檔, has none); the stored previous_* columns
     // are kept for audit only and returned as stored_previous_*. no_effect marks a record that changes nothing.
     const statusRows=((await this.db.prepare("SELECT *,date(created_at,'+8 hours') AS recorded_date FROM hr_status_changes WHERE employee_id=? ORDER BY effective_date DESC,id DESC").bind(id).all<StatusRecord&Record<string,unknown>>()).results??[]);
     const assignmentRows=((await this.db.prepare("SELECT *,date(created_at,'+8 hours') AS recorded_date FROM hr_assignment_changes WHERE employee_id=? ORDER BY effective_date DESC,id DESC").bind(id).all<AssignmentRecord&Record<string,unknown>>()).results??[]);
-    const baseRow=await this.db.prepare("SELECT store_id,job_title_id,employment_type,schedule_mode FROM hr_employees WHERE id=?").bind(id).first<Record<string,unknown>>();
     const earliestStatus=[...statusRows].sort((a,b)=>a.effective_date.localeCompare(b.effective_date)||a.id-b.id)[0];
     const statusWalk=walkLedger(statusRows,earliestStatus?.previous_status??null,r=>r.next_status,true);
     result.statusChanges=statusRows.map(r=>({...r,stored_previous_status:r.previous_status,previous_status:statusWalk.get(r)?.previous??r.previous_status,no_effect:statusWalk.get(r)?.noEffect??false}));
     const assignmentWalk=new Map<AssignmentRecord,{previous:string|null;noEffect:boolean}>();
     for(const [,field] of ASSIGNMENT_FIELDS){
-      const baseValue=baseRow?.[field]==null?null:String(baseRow[field]);
-      for(const [r,x] of walkLedger(assignmentRows.filter(r=>r.field===field),baseValue,r=>r.next_value))assignmentWalk.set(r,x);
+      const own=assignmentRows.filter(r=>r.field===field),start=assignmentStart(own);
+      for(const [r,x] of walkLedger(own,start.base,r=>r.next_value,start.anchor))assignmentWalk.set(r,x);
     }
     result.assignmentChanges=assignmentRows.map(r=>({...r,stored_previous_value:(r as Record<string,unknown>).previous_value,previous_value:assignmentWalk.get(r)?.previous??null,no_effect:assignmentWalk.get(r)?.noEffect??false}));
     for(const [key,table] of [["salaryRecords","hr_salary_records"],["seniorityExclusions","hr_seniority_exclusions"]] as const){
@@ -195,6 +202,8 @@ export class HrService {
       statements.push(this.db.prepare("INSERT INTO "+child.table+" (employee_id,"+child.columns.join(",")+",sort_order) SELECT id,"+child.columns.map(()=>"?").join(",")+",? FROM hr_employees WHERE employee_no=?").bind(...values,idx,no));
     }
     statements.push(this.db.prepare("INSERT INTO hr_status_changes(employee_id,effective_date,previous_status,next_status,reason,handled_by,created_at) SELECT id,?,?,?,?,?,? FROM hr_employees WHERE employee_no=?").bind(String(profile.vals[10]),initial,initial,"建檔",ctx.actor,ctx.now,no));
+    // 建檔 records: every one of the five fields starts its own history at the hire date.
+    for(const [,field] of ASSIGNMENT_FIELDS)statements.push(this.db.prepare("INSERT INTO hr_assignment_changes(employee_id,field,effective_date,previous_value,next_value,reason,handled_by,created_at) SELECT id,?,?,NULL,CAST("+field+" AS TEXT),?,?,? FROM hr_employees WHERE employee_no=?").bind(field,String(profile.vals[10]),"建檔",ctx.actor,ctx.now,no));
     statements.push(audit(this.db,ctx,"hr_employee",no,"hr_employee.created",null,{employeeNo:no,name:profile.vals[1],status:initial,nationalIdMasked:maskTaiwanId(profile.vals[3] as string|null)}));
     await this.db.batch(statements);
     const row=await this.db.prepare("SELECT id FROM hr_employees WHERE employee_no=?").bind(no).first<{id:number}>();
@@ -245,7 +254,9 @@ export class HrService {
   }
   /**
    * 狀態異動：一筆紀錄只異動一個欄位。狀態寫入 hr_status_changes，門市、職稱、僱用型態、排班方式各寫一筆
-   * hr_assignment_changes。每個欄位的當前值只看自己的紀錄（台北今日以前、生效日與 id 最新），沒有紀錄時用建檔基準。
+   * hr_assignment_changes。每個欄位的當前值只看自己的紀錄（台北今日以前、生效日與 id 最新）；hr_employees 的對應欄位
+   * 永遠存台北今日的值，所以寫入紀錄的同一個 batch（同一個 revision 守門）把受影響的欄位設成今日投影。未來生效的紀錄
+   * 由每日排程 hrCurrentValues 推進主檔。
    */
   async statusChange(id:number,raw:unknown,ctx:HrContext) {
     const v=object(raw);
@@ -262,20 +273,23 @@ export class HrService {
     const today=new Date(Date.parse(ctx.now)+8*3600_000).toISOString().slice(0,10);
     const firstPrevious=[...statuses].sort((a,b)=>a.effective_date.localeCompare(b.effective_date)||a.id-b.id)[0]?.previous_status;
     const statusOn=(records:StatusRecord[],at:string)=>latestAt(records,at)?.next_status??firstPrevious??String(base.status);
-    const valueOn=(records:AssignmentRecord[],field:AssignmentField,at:string)=>latestAt(records.filter(r=>r.field===field),at)?.next_value??String(base[field]);
+    const valueOn=(records:AssignmentRecord[],field:AssignmentField,at:string):string|null=>{
+      const own=records.filter(r=>r.field===field);
+      return latestAt(own,at)?.next_value??startValue(own)??(base[field]==null?null:String(base[field]));
+    };
     const [storeRows,titleRows]=await Promise.all([this.db.prepare("SELECT id,name FROM hr_stores").all<{id:number;name:string}>(),this.db.prepare("SELECT id,name FROM hr_job_titles").all<{id:number;name:string}>()]);
     const names={store_id:new Map((storeRows.results??[]).map(x=>[String(x.id),x.name])),job_title_id:new Map((titleRows.results??[]).map(x=>[String(x.id),x.name]))};
     const shown=(field:"status"|AssignmentField,value:string)=>field==="status"?STATUS_NAMES[value]??value:field==="store_id"||field==="job_title_id"?names[field].get(value)??value:TYPE_NAMES[value]??value;
     // The form sends only the fields the user ticked. A sent field must really change: if it already has that value on the
     // effective date it is rejected (naming the field), never silently skipped.
-    const same=(field:"status"|AssignmentField,value:string)=>new HrValidationError(field==="status"?"nextStatus":ASSIGNMENT_FIELDS.find(x=>x[1]===field)![0],`「${FIELD_NAMES[field]}」在 ${effective} 已經是「${shown(field,value)}」，不需異動；請取消勾選該欄位，或改選其他值。`);
+    const same=(field:"status"|AssignmentField,value:string|null)=>new HrValidationError(field==="status"?"nextStatus":ASSIGNMENT_FIELDS.find(x=>x[1]===field)![0],`「${FIELD_NAMES[field]}」在 ${effective} 已經是「${value===null?"—":shown(field,value)}」，不需異動；請取消勾選該欄位，或改選其他值。`);
     const newStatus:{previous:string;next:string}|null=(()=>{
       if(v.nextStatus===undefined)return null;
       const next=status(v.nextStatus),previous=statusOn(statuses,effective);
       if(next===previous)throw same("status",next);
       return {previous,next};
     })();
-    const newAssignments:{field:AssignmentField;previous:string;next:string}[]=[];
+    const newAssignments:{field:AssignmentField;previous:string|null;next:string}[]=[];
     for(const [key,field] of ASSIGNMENT_FIELDS){
       if(v[key]===undefined)continue;
       let next:string;
@@ -298,20 +312,20 @@ export class HrService {
     // Ids of the new rows increase in statement order, so they win ties on the same effective date like real ids.
     const pendingId=(n:number)=>Number.MAX_SAFE_INTEGER-1000+n;
     const nextStatuses:StatusRecord[]=newStatus?[...statuses,{id:pendingId(0),effective_date:effective,previous_status:newStatus.previous,next_status:newStatus.next}]:statuses;
-    const nextAssignments:AssignmentRecord[]=[...assignments,...newAssignments.map((x,i)=>({id:pendingId(i+1),field:x.field,effective_date:effective,next_value:x.next}))];
+    const nextAssignments:AssignmentRecord[]=[...assignments,...newAssignments.map((x,i)=>({id:pendingId(i+1),field:x.field,effective_date:effective,previous_value:x.previous,next_value:x.next}))];
     // Later records that the new value would leave with nothing to change (their value equals the one already in force).
     // Only records that became pointless because of this save count; ones that already were stay as they are.
     interface Redundant{key:string;table:"hr_status_changes"|"hr_assignment_changes";rowId:number;field:"status"|AssignmentField;effectiveDate:string;previous:string;next:string}
     const redundant:Redundant[]=[];
-    const flag=(field:"status"|AssignmentField,table:Redundant["table"],before:{id:number;effective_date:string}[],after:{id:number;effective_date:string}[],base:string|null,value:(r:{id:number;effective_date:string})=>string,anchor:boolean)=>{
-      const was=walkLedger(before,base,value,anchor),now=walkLedger(after,base,value,anchor);
+    const flag=(field:"status"|AssignmentField,table:Redundant["table"],before:{id:number;effective_date:string}[],after:{id:number;effective_date:string}[],start:(records:{id:number;effective_date:string}[])=>{base:string|null;anchor:boolean},value:(r:{id:number;effective_date:string})=>string)=>{
+      const was=walkLedger(before,start(before).base,value,start(before).anchor),now=walkLedger(after,start(after).base,value,start(after).anchor);
       for(const [r,x] of now){
         if(r.id>=pendingId(0)||!x.noEffect||was.get(r)?.noEffect||r.effective_date<=effective)continue;
         redundant.push({key:(table==="hr_status_changes"?"s":"a")+r.id,table,rowId:r.id,field,effectiveDate:r.effective_date,previous:x.previous??"",next:value(r)});
       }
     };
-    if(newStatus)flag("status","hr_status_changes",statuses,nextStatuses,[...statuses].sort((a,b)=>a.effective_date.localeCompare(b.effective_date)||a.id-b.id)[0]?.previous_status??null,r=>(r as StatusRecord).next_status,true);
-    for(const x of newAssignments)flag(x.field,"hr_assignment_changes",assignments.filter(r=>r.field===x.field),nextAssignments.filter(r=>r.field===x.field),String(base[x.field]??""),r=>(r as AssignmentRecord).next_value,false);
+    if(newStatus)flag("status","hr_status_changes",statuses,nextStatuses,(rs)=>({base:(earliestOf(rs as unknown as StatusRecord[])?.previous_status)??null,anchor:true}),r=>(r as StatusRecord).next_status);
+    for(const x of newAssignments)flag(x.field,"hr_assignment_changes",assignments.filter(r=>r.field===x.field),nextAssignments.filter(r=>r.field===x.field),(rs)=>assignmentStart(rs as unknown as AssignmentRecord[]),r=>(r as AssignmentRecord).next_value);
     const requestedDeletes=v.deleteRedundantIds===undefined?[]:Array.isArray(v.deleteRedundantIds)&&v.deleteRedundantIds.every(x=>typeof x==="string")&&v.deleteRedundantIds.length<=50?[...new Set(v.deleteRedundantIds as string[])]:(()=>{throw new HrValidationError("deleteRedundantIds","要一併刪除的異動紀錄格式不正確")})();
     const keepRedundant=v.keepRedundant===true;
     if(keepRedundant&&requestedDeletes.length)throw new HrValidationError("keepRedundant","不能同時選擇保留與刪除沒有變化的紀錄");
@@ -328,8 +342,10 @@ export class HrService {
           throw new HrValidationError("scheduleMode",`${at} 起僱用型態與排班方式不相容（正職須為班別，半職不可為不排班），請一併調整`);
       }
     }
-    // hr_employees.status and the termination columns are a cache of the projection as of today. An older-dated record
-    // never overwrites newer state: termination data is only touched by the record that decides today's status, or by a future termination.
+    // hr_employees holds today's value of every personnel field (the projection as of the Taipei date). Written here in the same batch as
+    // the records, for the fields this save touched; a future-dated record reaches the master columns through the daily hrCurrentValues task.
+    // An older-dated record never overwrites newer state: termination data is only touched by the record that decides today's status,
+    // or by a future termination; once today's status is not 離職 and no 離職 record is still waiting, it is cleared.
     const projected=statusOn(survivingStatuses,today);
     let cachedTerminationDate=base.termination_date as string|null,cachedTerminationReason=base.termination_reason as string|null;
     if(newStatus){
@@ -337,10 +353,13 @@ export class HrService {
       if(newStatus.next==="terminated"&&(effective>today||decidesToday)){cachedTerminationDate=terminationDate;cachedTerminationReason=terminationReason;}
       else if(newStatus.next!=="terminated"&&decidesToday){cachedTerminationDate=null;cachedTerminationReason=null;}
     }
+    if(projected!=="terminated"&&!survivingStatuses.some(r=>r.next_status==="terminated"&&r.effective_date>today)){cachedTerminationDate=null;cachedTerminationReason=null;}
+    const survivingAssignments=nextAssignments.filter(r=>!doomed.has("a"+r.id));
+    const touched=newAssignments.map(x=>({field:x.field,value:valueOn(survivingAssignments,x.field,today)}));
     const guard="EXISTS(SELECT 1 FROM hr_employees WHERE id=? AND revision=? AND updated_at=? AND updated_by=?)",guardValues=[id,revision+1,ctx.now,ctx.actor];
     const audits:D1PreparedStatement[]=[],statements:D1PreparedStatement[]=[
-      this.db.prepare("UPDATE hr_employees SET status=?,termination_date=?,termination_reason=?,revision=revision+1,updated_at=?,updated_by=? WHERE id=? AND revision=?")
-        .bind(projected,cachedTerminationDate,cachedTerminationReason,ctx.now,ctx.actor,id,revision)];
+      this.db.prepare("UPDATE hr_employees SET status=?,termination_date=?,termination_reason=?"+touched.map(x=>","+x.field+"=?").join("")+",revision=revision+1,updated_at=?,updated_by=? WHERE id=? AND revision=?")
+        .bind(projected,cachedTerminationDate,cachedTerminationReason,...touched.map(x=>x.value===null?null:x.field==="store_id"||x.field==="job_title_id"?Number(x.value):x.value),ctx.now,ctx.actor,id,revision)];
     const auditService=new AuditService(this.db);
     if(newStatus){
       statements.push(this.db.prepare("INSERT INTO hr_status_changes (employee_id,effective_date,previous_status,next_status,reason,handled_by,created_at) SELECT ?,?,?,?,?,?,? WHERE "+guard)
