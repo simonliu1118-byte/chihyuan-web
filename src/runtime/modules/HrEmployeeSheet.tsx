@@ -8,6 +8,9 @@ import {formatDate} from "../../ui/foundation/format";
 import {PhoneInput,PhoneText} from "../../ui/forms/PhoneInput";
 import type {Draft,EmployeeDetail,MemberOption} from "./HrOperationalPage";
 
+/** 學歷 and 工作經歷 share these five content columns, so 學校 lines up with 公司, 就讀年月 with 薪資待遇 and 備註 with 離職原因. */
+const HISTORY_GRID=["15%","11%","29%","29%","16%"];
+
 /** The single HR employee renderer: edit switches cells into controls, never a second layout. */
 export function HrEmployeeSheet({value,detail,editing,creating,busy,members,stores,jobTitles,patch,onReveal}:{
  value:Draft;detail:EmployeeDetail|null;editing:boolean;creating:boolean;busy:boolean;
@@ -81,16 +84,17 @@ export function HrEmployeeSheet({value,detail,editing,creating,busy,members,stor
     // 班表排序／不檢查排班規則 live only in 排班 → 門市人員設定 (user 2026-11-09).
     ...[cell("人事狀態",({probation:"試用",active:"在職",leave:"留職停薪",terminated:"離職"})[value.status],
      <select className="cy-sheet-input" disabled={busy} value={value.status} onChange={e=>patch({status:e.target.value as Draft["status"]})}>
-      <option value="probation">試用</option><option value="active">在職</option></select>,true,3)]
-  ]},
-  {columns:grid,cells:[cell("備註",value.note,<textarea className="cy-sheet-input" value={value.note} disabled={busy}
-    onChange={e=>patch({note:e.target.value})}/>,false,6)]}
+      <option value="probation">試用</option><option value="active">在職</option></select>,true,1)],
+    // 備註 sits in the last two columns, under 通訊地址 (user 2026-11-24); one line, the full text in the tooltip.
+    cell("備註",value.note?<span className="cy-hr-oneline" title={value.note}>{value.note}</span>:"",<input className="cy-sheet-input" aria-label="備註" disabled={busy} value={value.note} title={value.note||undefined}
+      onChange={e=>patch({note:e.target.value})}/>,false,2)
+  ]}
  ];
  if(detail?.status==="terminated")rows.push({columns:grid,cells:[
    cell("離職日",detail.termination_date?formatDate(detail.termination_date):"",undefined),
    cell("離職原因",detail.termination_reason||"",undefined,false,5)
  ]});
- const education:Draft["education"]=editing?value.education:detail?.education.map(x=>({school:x.school,department:x.department||"",startMonth:x.start_month?.replace("/","-")||"",endMonth:x.end_month?.replace("/","-")||""}))??[];
+ const education:Draft["education"]=editing?value.education:detail?.education.map(x=>({school:x.school,department:x.department||"",startMonth:x.start_month?.replace("/","-")||"",endMonth:x.end_month?.replace("/","-")||"",note:x.note||""}))??[];
  const workHistory:Draft["workHistory"]=editing?value.workHistory:detail?.workHistory.map(x=>({company:x.company,jobTitle:x.job_title||"",startMonth:x.start_month?.replace("/","-")||"",endMonth:x.end_month?.replace("/","-")||"",salary:x.salary||"",leaveReason:x.leave_reason||""}))??[];
  const change=<T extends keyof Draft>(field:T,index:number,key:string,next:string)=>{
   const data=value[field] as unknown as Record<string,string>[];
@@ -103,9 +107,9 @@ export function HrEmployeeSheet({value,detail,editing,creating,busy,members,stor
  const remove=<T extends "education"|"workHistory">(field:T,index:number)=>{
   patch({[field]:(value[field] as Draft[T][number][]).filter((_,i)=>i!==index)} as Partial<Draft>);
  };
- const entry=(v:string,label:string,onChange:(next:string)=>void,type="text")=>type==="month"?
+ const entry=(v:string,label:string,onChange:(next:string)=>void,type="text",maxLength?:number)=>type==="month"?
   <DateInput precision="month" max="9999-12" className="cy-sheet-input" value={v} disabled={busy} onChange={onChange}/>:
-  <input className="cy-sheet-input" aria-label={label} type={type} disabled={busy} value={v} onChange={e=>onChange(e.target.value)}/>;
+  <input className="cy-sheet-input" aria-label={label} type={type} maxLength={maxLength} disabled={busy} value={v} onChange={e=>onChange(e.target.value)}/>;
  const period=(start:string,end:string)=>start||end?(start?start.replace("-","/"):"")+"～"+(end?end.replace("-","/"):""):"";
  const periodEdit=(start:string,end:string,label:string,setStart:(v:string)=>void,setEnd:(v:string)=>void)=><span className="cy-hr-period">
   <DateInput precision="month" max="9999-12" className="cy-sheet-input" aria-label={label+"起年月"} value={start} disabled={busy} onChange={setStart}/>
@@ -113,8 +117,9 @@ export function HrEmployeeSheet({value,detail,editing,creating,busy,members,stor
   <DateInput precision="month" max="9999-12" className="cy-sheet-input" aria-label={label+"迄年月"} value={end} disabled={busy} onChange={setEnd}/></span>;
  const educationColumns:RowColumn<Draft["education"][number]>[]=[
   {label:"學校",required:true,view:r=>r.school,edit:(r,i)=>entry(r.school,"學校",v=>change("education",i,"school",v))},
-  {label:"科系",view:r=>r.department,edit:(r,i)=>entry(r.department,"科系",v=>change("education",i,"department",v))},
-  {label:"就讀年月（起～迄）",view:r=>period(r.startMonth,r.endMonth),edit:(r,i)=>periodEdit(r.startMonth,r.endMonth,"就讀",v=>change("education",i,"startMonth",v),v=>change("education",i,"endMonth",v))}
+  {label:"科系",span:2,view:r=>r.department,edit:(r,i)=>entry(r.department,"科系",v=>change("education",i,"department",v))},
+  {label:"就讀年月（起～迄）",view:r=>period(r.startMonth,r.endMonth),edit:(r,i)=>periodEdit(r.startMonth,r.endMonth,"就讀",v=>change("education",i,"startMonth",v),v=>change("education",i,"endMonth",v))},
+  {label:"備註",view:r=>r.note?<span className="cy-hr-oneline" title={r.note}>{r.note}</span>:"",edit:(r,i)=>entry(r.note,"學歷備註",v=>change("education",i,"note",v),"text",200)}
  ];
  const workColumns:RowColumn<Draft["workHistory"][number]>[]=[
   {label:"公司",required:true,view:r=>r.company,edit:(r,i)=>entry(r.company,"公司",v=>change("workHistory",i,"company",v))},
@@ -125,9 +130,9 @@ export function HrEmployeeSheet({value,detail,editing,creating,busy,members,stor
  ];
  return <div className="cy-hr-sheet">
   <RecordSheet label="員工資料單" editing={editing} rows={rows}/>
-  <RecordRows title="學歷" editing={editing} busy={busy} rows={education} columns={educationColumns} rowKey={(_,i)=>i}
-   onInsert={i=>insert("education",i,{school:"",department:"",startMonth:"",endMonth:""})} onRemove={i=>remove("education",i)}/>
-  <RecordRows title="工作經歷" editing={editing} busy={busy} rows={workHistory} columns={workColumns} rowKey={(_,i)=>i}
+  <RecordRows title="學歷" editing={editing} busy={busy} rows={education} columns={educationColumns} grid={HISTORY_GRID} rowKey={(_,i)=>i}
+   onInsert={i=>insert("education",i,{school:"",department:"",startMonth:"",endMonth:"",note:""})} onRemove={i=>remove("education",i)}/>
+  <RecordRows title="工作經歷" editing={editing} busy={busy} rows={workHistory} columns={workColumns} grid={HISTORY_GRID} rowKey={(_,i)=>i}
    onInsert={i=>insert("workHistory",i,{company:"",jobTitle:"",startMonth:"",endMonth:"",salary:"",leaveReason:""})} onRemove={i=>remove("workHistory",i)}/>
   {editing&&picking?<MemberPicker members={members} employeeNo={value.employeeNo} onClose={()=>setPicking(false)}
    onPick={member=>{patch(member?{memberIdentityId:member.employeeId,memberLabel:member.employeeNo+" "+member.name}:{memberIdentityId:null,memberLabel:""});setPicking(false)}}/>:null}

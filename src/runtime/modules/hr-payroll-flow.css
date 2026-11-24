@@ -98,3 +98,17 @@
  .cy-hr-salary-actions{text-align:right}
 }
 .cy-pay-days .cy-op-input{width:84px;min-width:0}
+
+/* 薪資子頁籤與其下內容之間的標準間距。 */
+.cy-hr-subtabs{margin-bottom:12px}
+
+/* 獎金發放視窗：欄位、搜尋列、員工表、合計之間的垂直節奏；表格內容垂直置中。 */
+.cy-hr-bonus-editor .cy-data-toolbar{margin:12px 0}
+.cy-hr-bonus-editor .cy-data-actions{align-items:flex-end}
+.cy-hr-bonus-editor .cy-entry-table :is(td,th){vertical-align:middle}
+.cy-hr-bonus-editor>strong{display:block;margin:10px 0 12px}
+@media(max-width:820px){
+ .cy-hr-bonus-editor .cy-entry-table td{align-items:center}
+ .cy-hr-bonus-editor .cy-data-actions{flex-direction:column;align-items:stretch;width:100%}
+ .cy-hr-bonus-editor .cy-data-actions .cy-f{grid-column:auto;width:100%}
+}

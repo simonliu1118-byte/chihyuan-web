@@ -19,7 +19,7 @@ export function HrSalaryPanel(props:{onRaise:(id:number,name:string)=>void;refre
  const view=useRef<SalaryView>(props.initialView??{mode});
  function report(patch:Partial<SalaryView>){view.current={...view.current,...patch};props.onViewChange?.(view.current);}
  async function change(next:SalaryMode){if(next!==mode&&await navigation.canLeave()){setMode(next);report({mode:next});}}
- return <><SegmentedControl label="薪資頁籤" compact value={mode} options={modes} onChange={next=>void change(next)}/>
+ return <><div className="cy-hr-subtabs"><SegmentedControl label="薪資頁籤" compact value={mode} options={modes} onChange={next=>void change(next)}/></div>
   {mode==='settings'?<HrSalaryOverview onRaise={props.onRaise} refreshToken={props.refreshToken}/>
    :mode==='monthly'?<HrPayrollMonthly initialMonth={props.initialView?.month} initialEmployeeId={props.initialView?.employeeId??null} refreshToken={props.refreshToken} onRaise={props.onRaise} onNavigate={props.onNavigate}
      onViewChange={v=>report({month:v.month,employeeId:v.employeeId})}/>

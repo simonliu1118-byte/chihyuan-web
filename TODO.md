@@ -3,6 +3,11 @@
 > 本檔是 CY Web 唯一的現況與待辦清單，不是永久規則來源。各版本完成內容與驗證見 `CHANGELOG.md`；規格見 `docs/architecture/README.md`。
 > 2026-11-03、2026-11-09 整理：已完成且已記入 CHANGELOG 的版本段落移除；已結案的交接與工作單移到 Git 固定快照（見 `docs/handoff/README.md`）。
 
+## V0.29.1 人事介面修正與全面巡檢
+
+- [x] 員工資料單備註上移、學歷／經歷欄對齊與學歷備註（migration 0084）、狀態異動欄位拆分且不列建檔、排班搜尋與聚焦外框、排班表字級與雙週線、年份選擇共用、分組表格分隔線、薪資子頁籤間距、介面檢查清單（見 CHANGELOG）。
+- [ ] Claude 依 [handoff](docs/handoff/CYWEB-HR-UI-FIXES-20261124.md) 審查；通過後由使用者決定合併部署，部署前確認 migration 0084 與當日備份。
+
 ## V0.29.0 人事目前值
 
 - [x] 主檔五欄永遠存今日值、建檔值改為紀錄、寫入同 batch 更新、每日 `hrCurrentValues` 推進、migration 0083、備份舊檔升級、測試（見 CHANGELOG）。

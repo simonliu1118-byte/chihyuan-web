@@ -1,5 +1,11 @@
 # CY Web 人事模組第一期資料與 API 合約（WO-0.9.20）
 
+## V0.29.1 人事介面修正（使用者 2026-11-24）
+
+- **學歷備註**：`hr_education.note TEXT`（migration 0084，可為空，無 CHECK）。`POST／PATCH /employees` 的 `education[]` 接受 `note`（選填、最多 200 字，超過回 422，錯誤欄位 `educationNote`）；`GET /employees/:id` 與 `GET /me` 的學歷列含 `note`。備份欄位 `hr_education.note`，`CURRENT_MIGRATION = 0084_hr_education_note`；沒有該欄的舊備份還原後為 NULL。
+- **建檔紀錄標記**：`GET /employees/:id` 的 `statusChanges[]`、`assignmentChanges[]` 每列新增 `is_creation`：原因為「建檔」且（任用紀錄沒有舊值、狀態紀錄前後狀態相同）。建檔紀錄仍保留在資料庫與回應中，舊值推算（`previous_*`）照舊以它為前一筆；畫面的狀態異動卡、完整清單與筆數不列 `is_creation` 的列。`GET /me` 的 `statusChanges` 在後端就排除建檔。
+- **畫面**：員工資料單為六欄格，第四列為 緊急聯絡人姓名｜關係｜緊急聯絡人電話｜人事狀態｜備註（佔 2 欄，單行）；學歷與工作經歷共用同一組欄寬（學校＝公司、科系＝職稱＋起迄年月、就讀年月＝薪資待遇、備註＝離職原因）。
+
 ## V0.29.0 人事目前值（使用者 2026-11-24）
 
 - **一個欄位只有一個目前值**：`hr_employees` 的 `status`、`store_id`、`job_title_id`、`employment_type`、`schedule_mode` 永遠存「台北今日」的值，`termination_date`／`termination_reason` 與今日狀態一致。直接讀主檔欄位不會再讀到過期值；`hr_employee_current` 仍保留，其值與主檔欄位相同（測試斷言）。

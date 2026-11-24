@@ -6,7 +6,7 @@ import { date, employeeNumber, HrValidationError, integer, month, nationalId, nu
 export interface HrContext { actor: number; requestId: string; now: string }
 const CHILDREN = [
   { field: "contacts", table: "hr_emergency_contacts", columns: ["name","relationship","phone"], names: ["name","relationship","phone"] },
-  { field: "education", table: "hr_education", columns: ["school","department","start_month","end_month"], names: ["school","department","startMonth","endMonth"] },
+  { field: "education", table: "hr_education", columns: ["school","department","start_month","end_month","note"], names: ["school","department","startMonth","endMonth","note"] },
   { field: "workHistory", table: "hr_work_history", columns: ["company","job_title","start_month","end_month","salary","leave_reason"], names: ["company","jobTitle","startMonth","endMonth","salary","leaveReason"] },
 ] as const;
 const fields = ["employee_no","name","member_id","national_id","birth_date","gender","mobile","phone","mailing_address","registered_address","hire_date","seniority_start_date","note","store_id","job_title_id","roster_sort","employment_type","skip_roster_checks","schedule_mode"] as const;
@@ -42,7 +42,7 @@ function normalizeProfile(raw: unknown) {
     const record: Scalar[] = g.names.map((key)=>{
       const value = row[key]; if (key === "startMonth" || key === "endMonth") return month(value,key);
       if (key==="name" || key==="phone" && g.field==="contacts" || key==="school" || key==="company") return required(value,key,150);
-      return optional(value,key,1000);
+      return g.field==="education"&&key==="note"?optional(value,"educationNote",200):optional(value,key,1000);
     });
     if (index>49) throw new HrValidationError(g.field,"過多子表紀錄");
     return record;
@@ -129,13 +129,17 @@ export class HrService {
     const assignmentRows=((await this.db.prepare("SELECT *,date(created_at,'+8 hours') AS recorded_date FROM hr_assignment_changes WHERE employee_id=? ORDER BY effective_date DESC,id DESC").bind(id).all<AssignmentRecord&Record<string,unknown>>()).results??[]);
     const earliestStatus=[...statusRows].sort((a,b)=>a.effective_date.localeCompare(b.effective_date)||a.id-b.id)[0];
     const statusWalk=walkLedger(statusRows,earliestStatus?.previous_status??null,r=>r.next_status,true);
-    result.statusChanges=statusRows.map(r=>({...r,stored_previous_status:r.previous_status,previous_status:statusWalk.get(r)?.previous??r.previous_status,no_effect:statusWalk.get(r)?.noEffect??false}));
+    // is_creation marks the 建檔 records (the values the employee was created with). They stay in the ledger as the first
+    // record's predecessor, but are the employee's 建檔資料, not a 異動, so lists of changes leave them out.
+    result.statusChanges=statusRows.map(r=>({...r,stored_previous_status:r.previous_status,previous_status:statusWalk.get(r)?.previous??r.previous_status,no_effect:statusWalk.get(r)?.noEffect??false,
+      is_creation:(r as Record<string,unknown>).reason==="建檔"&&r.previous_status===r.next_status}));
     const assignmentWalk=new Map<AssignmentRecord,{previous:string|null;noEffect:boolean}>();
     for(const [,field] of ASSIGNMENT_FIELDS){
       const own=assignmentRows.filter(r=>r.field===field),start=assignmentStart(own);
       for(const [r,x] of walkLedger(own,start.base,r=>r.next_value,start.anchor))assignmentWalk.set(r,x);
     }
-    result.assignmentChanges=assignmentRows.map(r=>({...r,stored_previous_value:(r as Record<string,unknown>).previous_value,previous_value:assignmentWalk.get(r)?.previous??null,no_effect:assignmentWalk.get(r)?.noEffect??false}));
+    result.assignmentChanges=assignmentRows.map(r=>({...r,stored_previous_value:(r as Record<string,unknown>).previous_value,previous_value:assignmentWalk.get(r)?.previous??null,no_effect:assignmentWalk.get(r)?.noEffect??false,
+      is_creation:(r as Record<string,unknown>).reason==="建檔"&&r.previous_value==null}));
     for(const [key,table] of [["salaryRecords","hr_salary_records"],["seniorityExclusions","hr_seniority_exclusions"]] as const){
       const data=await this.db.prepare("SELECT * FROM "+table+" WHERE employee_id=? ORDER BY effective_date DESC,id DESC".replace("effective_date",key==="seniorityExclusions"?"start_date":"effective_date")).bind(id).all();
       result[key]=data.results??[];

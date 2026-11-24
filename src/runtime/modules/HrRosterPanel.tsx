@@ -25,6 +25,7 @@ type Approval={employeeId:number;kind:"consecutive"|"over_eight";startDate:strin
 type Ro={leaveForms:{employee_id:number;work_date:string;whole_day:number;minutes:number;code:string;batch_id:string}[];store:Store;month:string;bounds:{start:string;finish:string;first:string;end:string};employees:Staff[];shifts:Shift[];leaveTypes:Leave[];
  holidays:{date:string;name:string}[];days:Cell[];classification:Record<string,RosterResult>;staffing:Record<string,Record<string,number>>;actualHours:Record<string,Record<string,number>>;notes:string;rules:string;approvals:unknown[]};
 const ROOT="/api/business/hr",dayMs=86400000,weekdays=["日","一","二","三","四","五","六"];
+const isWeekend=(d:string)=>[0,6].includes(new Date(d+"T00:00:00Z").getUTCDay());
 const monthDates=(m:string)=>{const [y,n]=m.split("-").map(Number);return Array.from({length:new Date(Date.UTC(y,n,0)).getUTCDate()},(_,i)=>m+"-"+String(i+1).padStart(2,"0"))};
 export function HrRosterPanel() {
  const [stores,setStores]=useState<Store[]>([]),[storeId,setStoreId]=useState(0),[month,setMonth]=useState(taipeiToday().slice(0,7));
@@ -112,6 +113,8 @@ export function HrRosterPanel() {
  }
  async function chooseMonth(target:string){if(!loading&&target!==month&&await discard()){setData(null);setMonth(target)}}
  const holidays=new Map(data?.holidays.map(x=>[x.date,x.name])??[]);
+ // One class set per date, used by the header, every employee row and 每日人力, so shading and the 雙週 line run through the whole column.
+ const dayClass=(d:string)=>(holidays.has(d)||isWeekend(d)?"hr-holiday ":"")+(data&&new Date(d+"T00:00:00Z").getUTCDay()===1&&(Date.parse(d+"T00:00:00Z")-Date.parse(data.store.cycle_anchor_date+"T00:00:00Z"))%(14*dayMs)===0?"hr-cycle ":"");
  return <section className="cy-op-module cy-hr-phase2a" aria-label="月排班表">
   <div className="no-print"><DataViewToolbar searchValue={search} onSearchChange={setSearch} searchLabel="搜尋排班員工" searchPlaceholder="員工編號、姓名或職稱"
    beforeSearch={<MonthPicker value={month} disabled={loading} onChange={target=>void chooseMonth(target)}/>}
@@ -127,17 +130,17 @@ export function HrRosterPanel() {
   {notice?<p role="status" className="cy-notice no-print">{notice}</p>:null}
   {data?<><h2 className="hr-roster-print-title">{data.store.name}　{month.replace("-","年")}月班表</h2>
    <div className="hr-roster-scroll cy-mobile-matrix" role="region" aria-label="月排班表，可左右捲動" tabIndex={0}><table className="hr-roster-table"><thead><tr><th rowSpan={2}>職稱</th><th rowSpan={2}>日期／姓名</th>
-    {dates.map(d=><th key={d} title={holidays.get(d)??""} className={(holidays.has(d)||[0,6].includes(new Date(d+"T00:00:00Z").getUTCDay())?"hr-holiday ":"")+(new Date(d+"T00:00:00Z").getUTCDay()===1&&(Date.parse(d+"T00:00:00Z")-Date.parse(data.store.cycle_anchor_date+"T00:00:00Z"))%(14*dayMs)===0?"hr-cycle ":"")}>{Number(d.slice(-2))}{holidays.has(d)?<small>{holidays.get(d)}</small>:null}</th>)}
-    <th rowSpan={2}>備註</th></tr><tr>{dates.map(d=><th key={d}>{weekdays[new Date(d+"T00:00:00Z").getUTCDay()]}</th>)}</tr></thead>
-    <tbody>{shownEmployees.map((staff,i)=><tr key={staff.id} className={i>0&&shownEmployees[i-1].job_title_id!==staff.job_title_id?"hr-group-start":""}>
+    {dates.map(d=><th key={d} title={holidays.get(d)??""} className={dayClass(d)}>{Number(d.slice(-2))}{holidays.has(d)?<small>{holidays.get(d)}</small>:null}</th>)}
+    <th rowSpan={2}>備註</th></tr><tr>{dates.map(d=><th key={d} className={dayClass(d)}>{weekdays[new Date(d+"T00:00:00Z").getUTCDay()]}</th>)}</tr></thead>
+    <tbody>{shownEmployees.map((staff,i)=><tr key={staff.id}>
      <td>{staff.job_title_name??"未設定"}</td><th scope="row">{staff.name}</th>
      {dates.map(d=>{const value=staged.get(staff.id+"|"+d),form=data.leaveForms.find(x=>x.employee_id===staff.id&&x.work_date===d&&x.whole_day===1),partial=data.leaveForms.filter(x=>x.employee_id===staff.id&&x.work_date===d&&x.whole_day===0),bad=shown.some(x=>x.employeeId===staff.id&&x.dates.includes(d)),sixth=data.classification[String(staff.id)]?.sixthDays.includes(d);
-      return <td key={d} className={(holidays.has(d)||[0,6].includes(new Date(d+"T00:00:00Z").getUTCDay())?"hr-holiday ":"")+(bad?"hr-invalid ":"")+(sixth?"hr-sixth ":"")}>
+      return <td key={d} className={dayClass(d)+(bad?"hr-invalid ":"")+(sixth?"hr-sixth ":"")}>
        <button type="button" title={value?.kind==="leave"&&!form&&data.leaveTypes.find(x=>x.id===value.leave_type_id)?.code!=="國"?"尚未補假單":form?"已完成假單":""} id={"hr-roster-"+staff.id+"-"+d} disabled={loading} className={"hr-roster-cell no-print "+(value?.kind==="leave"&&!form&&data.leaveTypes.find(x=>x.id===value.leave_type_id)?.code!=="國"?"hr-leave-pending":"")} onClick={()=>open(staff.id,d)} onKeyDown={e=>keyDown(e,staff,d)} aria-label={staff.name+" "+d}>{staff.schedule_mode==="none"&&value?.kind!=="off"?(data.actualHours[String(staff.id)]?.[d]?.toFixed(1)??""):label(value,staff,d)}{value?.marker?<small>{value.marker==="home"?"居":"擺攤"}</small>:null}{partial.map(x=><small key={x.batch_id}>{x.code+(x.minutes/60)}</small>)}</button>
        <span className="print-only">{partial.map(x=>x.code+(x.minutes/60)).join(" ")}{staff.schedule_mode==="none"&&value?.kind!=="off"?(data.actualHours[String(staff.id)]?.[d]?.toFixed(1)??""):label(value,staff,d)}</span></td>})}
      <td>{staff.schedule_mode==="hours"||staff.schedule_mode==="none"?"合計 "+dates.reduce((sum,d)=>sum+(staff.schedule_mode==="none"?(data.actualHours[String(staff.id)]?.[d]??0):(staged.get(staff.id+"|"+d)?.hours??0)),0).toFixed(1)+"h":""}</td>
     </tr>)}
-    <tr className="hr-staffing"><th colSpan={2}>每日人力</th>{dates.map(d=><td key={d}>{Object.entries(data.staffing[d]??{}).map(([k,v])=>k+v).join(" ")}</td>)}<td/></tr>
+    <tr className="hr-staffing"><th colSpan={2}>每日人力</th>{dates.map(d=><td key={d} className={dayClass(d)}>{Object.entries(data.staffing[d]??{}).map(([k,v])=>k+v).join(" ")}</td>)}<td/></tr>
     <tr><th colSpan={2}>備註</th><td colSpan={dates.length+1} className="hr-sheet-cell"><textarea disabled={loading} className="cy-sheet-input no-print" value={notes} onChange={e=>setNotes(e.target.value)}/><span className="print-only">{notes}</span></td></tr>
     <tr><th colSpan={2}>注意事項</th><td colSpan={dates.length+1} className="hr-sheet-cell"><textarea disabled={loading} className="cy-sheet-input no-print" value={rules} onChange={e=>setRules(e.target.value)}/><span className="print-only">{rules}</span></td></tr></tbody></table></div>
    {compAlerts.length?<div className="cy-op-panel no-print hr-comp-alerts"><h3>補休提醒</h3>{compAlerts.map(x=><p key={x}>{x}</p>)}</div>:null}

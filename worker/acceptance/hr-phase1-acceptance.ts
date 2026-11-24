@@ -43,14 +43,14 @@ export async function acceptHrPhase1(db:D1Database):Promise<void>{
  const input={employeeNo:"HRTEST001",name:"測試員工甲",hireDate:"2025-01-01",seniorityStartDate:"2025-01-01",status:"active",nationalId:"A123456789",
   birthDate:"1990-01-01",gender:"女",mobile:"0900000001",registeredAddress:"虛構縣測試路1號",mailingAddress:"虛構縣測試路1號",storeId:1,jobTitleId:1,
   contacts:[{name:"測試聯絡甲",relationship:"家人",phone:"0900000000"}],
-  education:[{school:"虛構學校",department:"測試科",startMonth:"2020/09",endMonth:"2024/06"}],
+  education:[{school:"虛構學校",department:"測試科",startMonth:"2020/09",endMonth:"2024/06",note:"合成備註"}],
   workHistory:[{company:"測試公司",jobTitle:"測試職務",startMonth:"2024/07",endMonth:"2024/12",note:"測試"}]};
  const created=await svc.create(input,ctx) as Record<string,unknown>;
  check(typeof created.id==="number","ACCEPT_HR_CREATE");
  check(created.nationalIdMasked===maskTaiwanId(input.nationalId),"ACCEPT_HR_ID_MASKED");
  check(!JSON.stringify(created).includes(input.nationalId),"ACCEPT_HR_ID_RESPONSE_PRIVATE");
  check(Array.isArray(created.contacts)&&created.contacts.length===1,"ACCEPT_HR_CONTACT");
- check(Array.isArray(created.education)&&created.education.length===1,"ACCEPT_HR_EDUCATION");
+ check(Array.isArray(created.education)&&created.education.length===1&&created.education[0].note==="合成備註","ACCEPT_HR_EDUCATION");
  check(Array.isArray(created.workHistory)&&created.workHistory.length===1,"ACCEPT_HR_WORK_HISTORY");
  const id=created.id as number;
  check((await call("employees","POST",input)).status===409,"ACCEPT_HR_EMPLOYEE_NO_UNIQUE");

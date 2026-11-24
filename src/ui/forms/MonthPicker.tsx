@@ -8,10 +8,12 @@ import "./month-picker.css";
  * Mouse and touch only: there is no typing and no keyboard shortcut beyond Esc and Tab.
  */
 export interface MonthPickerProps {
-  /** YYYY-MM */
+  /** YYYY-MM, or YYYY with `precision="year"`. */
   value: string;
+  /** "month" (default) or "year": the same control steps and picks whole years. */
+  precision?: "month" | "year";
   onChange: (value: string) => void;
-  /** Inclusive limits, YYYY-MM. */
+  /** Inclusive limits, YYYY-MM (YYYY for year precision). */
   min?: string;
   max?: string;
   disabled?: boolean;
@@ -30,7 +32,58 @@ export function shiftMonthValue(value: string, delta: number): string {
 }
 const Chevron = ({ dir }: { dir: "left" | "right" }) => <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={dir === "left" ? "m15 6-6 6 6 6" : "m9 6 6 6-6 6"} /></svg>;
 
-export function MonthPicker({ value, onChange, min, max, disabled = false, label = "月份" }: MonthPickerProps) {
+export function MonthPicker(props: MonthPickerProps) {
+  return props.precision === "year" ? <YearPicker {...props} /> : <MonthPickerBody {...props} />;
+}
+
+/** `‹ 2026 年 ▾ ›` — the same control with year precision: the arrows step one year, the label opens a 3x4 grid of years. */
+function YearPicker({ value, onChange, min, max, disabled = false, label = "年度" }: MonthPickerProps) {
+  const thisYear = Number(taipeiToday().slice(0, 4));
+  const year = /^\d{4}$/.test(value) ? Number(value) : thisYear;
+  const [open, setOpen] = useState(false);
+  const [pageStart, setPageStart] = useState(year - 5);
+  const root = useRef<HTMLSpanElement>(null);
+  const popoverId = useId();
+  const lo = min ? Number(min) : -Infinity, hi = max ? Number(max) : Infinity;
+  const blocked = (y: number) => y < lo || y > hi || y < 1 || y > 9999;
+  useEffect(() => { if (disabled) setOpen(false); }, [disabled]);
+  useEffect(() => {
+    if (!open) return;
+    const outside = (event: PointerEvent) => { if (!root.current?.contains(event.target as Node)) setOpen(false); };
+    const escape = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      event.stopPropagation(); event.preventDefault(); setOpen(false);
+      root.current?.querySelector<HTMLElement>(".cy-month-label")?.focus();
+    };
+    document.addEventListener("pointerdown", outside);
+    document.addEventListener("keydown", escape, true);
+    return () => { document.removeEventListener("pointerdown", outside); document.removeEventListener("keydown", escape, true); };
+  }, [open]);
+  const choose = (y: number) => { if (blocked(y)) return; setOpen(false); if (y !== year) onChange(String(y)); };
+  return <span className="cy-month-picker" ref={root} role="group" aria-label={label}>
+    <button type="button" className="cy-month-arrow" aria-label="上一年" disabled={disabled || blocked(year - 1)} onClick={() => choose(year - 1)}><Chevron dir="left" /></button>
+    <button type="button" className="cy-month-label" aria-haspopup="dialog" aria-expanded={open} aria-controls={open ? popoverId : undefined} disabled={disabled}
+      onClick={() => { if (disabled) return; setPageStart(year - 5); setOpen(v => !v); }}>
+      <span>{year} 年</span>
+      <svg className="cy-month-caret" viewBox="0 0 24 24" width="12" height="12" fill="currentColor" aria-hidden="true"><path d="M5 9h14l-7 8z" /></svg>
+    </button>
+    <button type="button" className="cy-month-arrow" aria-label="下一年" disabled={disabled || blocked(year + 1)} onClick={() => choose(year + 1)}><Chevron dir="right" /></button>
+    {open ? <div className="cy-month-popover" id={popoverId} role="dialog" aria-label={`${label}選擇`}>
+      <div className="cy-month-year">
+        <button type="button" className="cy-month-arrow" aria-label="上一組年度" onClick={() => setPageStart(y => y - 12)}><Chevron dir="left" /></button>
+        <strong>{pageStart} – {pageStart + 11}</strong>
+        <button type="button" className="cy-month-arrow" aria-label="下一組年度" onClick={() => setPageStart(y => y + 12)}><Chevron dir="right" /></button>
+      </div>
+      <div className="cy-month-grid cy-year-grid">{Array.from({ length: 12 }, (_, i) => {
+        const y = pageStart + i;
+        return <button type="button" key={y} className="cy-month-cell" disabled={blocked(y)}
+          aria-pressed={y === year} data-current={y === thisYear || undefined} onClick={() => choose(y)}>{y}</button>;
+      })}</div>
+    </div> : null}
+  </span>;
+}
+
+function MonthPickerBody({ value, onChange, min, max, disabled = false, label = "月份" }: MonthPickerProps) {
   const parsed = MONTH.exec(value);
   const year = parsed ? Number(parsed[1]) : Number(taipeiToday().slice(0, 4));
   const month = parsed ? Number(parsed[2]) : 1;
