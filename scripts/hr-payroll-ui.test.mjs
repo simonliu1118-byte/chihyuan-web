@@ -2,7 +2,7 @@ import test from 'node:test';import assert from 'node:assert/strict';
 import {compiled,Host,plugin,walk,text} from './test-support/hr-ui-fixture.mjs';
 // Navigation itself is covered by guarded-navigation tests; here we drive API failure/success state.
 const guard={name:'payroll-navigation-boundary',setup(b){b.onResolve({filter:/foundation\/useUnsavedChangesGuard$/},()=>({path:'guard',namespace:'payroll-test'}));b.onLoad({filter:/.*/,namespace:'payroll-test'},()=>({contents:'export function useNavigationGuard(){return {canLeave:async()=>true};}export function useUnsavedChangesGuard(options){globalThis.payrollGuard=options;}'}));}};
-const {ProfileEditor,HrPayrollPanel}=await compiled('src/runtime/modules/HrPayrollPanel.tsx',[guard,plugin]);
+const {ProfileEditor}=await compiled('src/runtime/modules/HrPayrollPanel.tsx',[guard,plugin]);
 const {HrAttendanceCorrections}=await compiled('src/runtime/modules/HrAttendanceCorrections.tsx',[guard,plugin]);
 const fields=tree=>walk(tree).flatMap(n=>n.props?.rows??[]);
 const field=(tree,label)=>{const f=fields(tree).find(r=>r.label===label);assert.ok(f,label);return f.content;};
@@ -20,16 +20,6 @@ test('profile save failure retains attendance amount, effective date and reason,
  const h=new Host();let reject,writes=0,closed=false,payload;globalThis.hrTransport=(u,o)=>{if(o?.method){writes++;payload=o.json;return new Promise((a,b)=>{reject=b;});}return Promise.resolve([]);};const props={employeeId:1,month:'2026-11',onClose:()=>{closed=true;},onSaved(){}};
  try{h.render(ProfileEditor,props);let t=await h.settle(ProfileEditor,props);field(t,'每月全勤金額').props.onChange({target:{value:'3000'}});field(t,'設定原因').props.onChange({target:{value:'合成設定原因'}});t=h.render(ProfileEditor,props);
  const form=walk(t).find(n=>n.type==='form');form.props.onSubmit(event);form.props.onSubmit(event);assert.equal(writes,1);reject(Error('合成儲存失敗'));t=await h.settle(ProfileEditor,props);assert.equal(closed,false);assert.equal(field(t,'每月全勤金額').props.value,'3000');assert.equal(field(t,'設定原因').props.value,'合成設定原因');assert.ok(text(t).includes('合成儲存失敗'));assert.equal(payload.settings.laborEnabled,undefined);
- }finally{cleanup(h);}
-});
-test('monthly payroll calculation failure retains manual inputs and pending issues disable confirmation',async()=>{
- const h=new Host();let calls=0,resolve,reject;let rows=[];globalThis.hrTransport=(u,o)=>{if(o?.method){assert.equal(o.json.bonusAmount,undefined);calls++;return new Promise((a,b)=>{resolve=a;reject=b;});}if(u.includes('/employees?'))return Promise.resolve({items:[{id:1,employee_no:'S1',name:'合成',hire_date:'2025-01-01'}],nextCursor:null});return Promise.resolve(rows);};
- try{h.render(HrPayrollPanel);let t=await h.settle(HrPayrollPanel);await field(t,'員工').props.onChange({target:{value:'1'}});t=await h.settle(HrPayrollPanel);
- assert.ok(!fields(t).some(r=>r.label.includes('非每月獎金')));
- const keyed=t.props.children.filter(n=>n?.key!=null);assert.equal(new Set(keyed.map(n=>n.key)).size,keyed.length,'sibling panels must have distinct keys: duplicate keys leave orphan correction panels');
- field(t,'未滿月計薪天數（整月留空）').props.onChange({target:{value:'15'}});field(t,'計算／異動原因').props.onChange({target:{value:'合成半月'}});t=h.render(HrPayrollPanel);const form=walk(t).find(n=>n.type==='form');form.props.onSubmit(event);form.props.onSubmit(event);assert.equal(calls,1);
- reject(Error('合成計算失敗'));t=await h.settle(HrPayrollPanel);assert.equal(field(t,'未滿月計薪天數（整月留空）').props.value,'15');assert.equal(field(t,'計算／異動原因').props.value,'合成半月');assert.ok(text(t).includes('合成計算失敗'));
- walk(t).find(n=>n.type==='form').props.onSubmit(event);rows=[{id:7,employee_id:1,employee_no:'S1',name:'合成',month:'2026-11',pay_date:'2026-12-05',status:'draft',revision:1,result:{gross:15000,deductions:0,net:15000,employer:0,lines:[],ruleVersions:[],issues:['缺卡須補正']}}];resolve(rows[0]);t=await h.settle(HrPayrollPanel);assert.ok(text(t).includes('缺卡須補正'));assert.equal(button(t,'確認薪資').props.disabled,true);assert.ok(text(t).includes('待確認'));
  }finally{cleanup(h);}
 });
 test('correction save failure keeps the scoped employee, original revision, edited time and reason',async()=>{

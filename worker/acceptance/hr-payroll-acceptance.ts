@@ -29,7 +29,8 @@ export async function acceptHrPayroll(db:D1Database){
  next=await service.calculate(nextInput,ctx);check(!next.result.issues.length,'NEXT_READY');next=await service.transition(Number(next.id),{action:'confirm',revision:next.revision,reason:'合成差額確認'},ctx);
  check(Number((await db.prepare('SELECT COUNT(*) n FROM hr_payroll_correction_uses WHERE run_id=? AND is_active=1').bind(next.id).first<{n:number}>())?.n)===1,'DELTA_CLAIM');
  await service.transition(Number(next.id),{action:'reopen',revision:next.revision,reason:'合成撤回釋放'},ctx);check(Number((await db.prepare('SELECT COUNT(*) n FROM hr_payroll_correction_uses WHERE is_active=1').first<{n:number}>())?.n)===0,'DELTA_RELEASE');
- next=await service.calculate(nextInput,ctx);next=await service.transition(Number(next.id),{action:'confirm',revision:next.revision,reason:'合成重確認'},ctx);await service.transition(Number(next.id),{action:'pay',revision:next.revision,reason:'合成已補發'},ctx);
+ rejected=false;try{await service.calculate(nextInput,ctx);}catch{rejected=true;}check(rejected,'REOPEN_RECALC_REASON');
+ next=await service.calculate({...nextInput,reason:'合成撤回後重算'},ctx);next=await service.transition(Number(next.id),{action:'confirm',revision:next.revision,reason:'合成重確認'},ctx);await service.transition(Number(next.id),{action:'pay',revision:next.revision,reason:'合成已補發'},ctx);
  check(JSON.stringify((await service.get(Number(row.id))).result)===frozen,'ORIGINAL_UNCHANGED');
  await db.prepare("INSERT INTO hr_payroll_supplement_versions(effective_date,payload_json,source_url,source_hash,content_hash,source_text,created_at) VALUES('2021-01-01',?,'https://www.nhi.gov.tw/synthetic','synthetic','synthetic','synthetic',?)").bind(JSON.stringify({rate:2.11,cap:10000000,multiple:4}),now).run();
  const bonuses=new HrBonusService(db),bonusInput={requestKey:'accept-bonus',payDate:'2026-12-31',category:'年終獎金',attributionYear:2026,payments:[{employeeId,amount:100000,note:'合成獎金備註'}]};

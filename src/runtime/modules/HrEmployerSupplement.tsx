@@ -2,14 +2,18 @@ import {useEffect,useState} from 'react';
 import {apiRequest} from '../../api/client';
 import {useLatestRequest} from '../../ui/foundation/useLatestRequest';
 import {DataViewToolbar} from '../../ui/data/DataViewToolbar';
+import {MonthPicker} from '../../ui/forms/MonthPicker';
+import {taipeiToday} from '../../../shared/erp-query-history';
 interface Result {units:string[];statement:null|{month:string;unit:string;income:number;basis:number;rate:number|null;premium:number|null;issues:string[];payments:{id:number;employeeNo:string;name:string;income:number}[];insured:{employeeNo:string;name:string;profileId:number;basis:number}[]}}
-export function HrEmployerSupplement({month,refreshToken=0}:{month:string;refreshToken?:number}){
+/** 公司補充保費（獨立子頁）：以給付月選擇，計算與清冊邏輯不變。 */
+export function HrEmployerSupplement({initialMonth,refreshToken=0}:{initialMonth?:string;refreshToken?:number}){
+ const [month,setMonth]=useState(initialMonth??taipeiToday().slice(0,7));
  const [search,setSearch]=useState('');
  const [unit,setUnit]=useState(''),[result,setResult]=useState<Result|null>(null),[error,setError]=useState(''),[expanded,setExpanded]=useState(false);const request=useLatestRequest(month+'|'+unit);
  async function load(){const t=request.begin();try{const r=await apiRequest<Result>('/api/business/hr/payroll/employer-supplement?month='+month+'&unit='+encodeURIComponent(unit));if(t.current()){setResult(r);setError('');}}catch(e){if(t.current()){setResult(null);setError(e instanceof Error?e.message:'讀取公司補充保費失敗');}}}
  useEffect(()=>{void load();},[month,unit,refreshToken]);const s=result?.statement;
  return <section className="cy-op-panel"><h3>公司補充保費（給付月）</h3>
-  <DataViewToolbar searchValue={search} onSearchChange={setSearch} searchLabel="搜尋補充保費來源員工" resultSummary={month+'給付月'} filters={<select aria-label="公司投保單位" className="cy-op-input" value={unit} onChange={e=>setUnit(e.target.value)}><option value="">請選擇投保單位</option>{result?.units.map(u=><option key={u} value={u}>{u}</option>)}</select>} actions={<button type="button" className="cy-op-button" onClick={()=>void load()}>更新清冊</button>}/>
+  <DataViewToolbar beforeSearch={<MonthPicker label="給付月" value={month} onChange={setMonth}/>} searchValue={search} onSearchChange={setSearch} searchLabel="搜尋補充保費來源員工" resultSummary={month+'給付月'} filters={<select aria-label="公司投保單位" className="cy-op-input" value={unit} onChange={e=>setUnit(e.target.value)}><option value="">請選擇投保單位</option>{result?.units.map(u=><option key={u} value={u}>{u}</option>)}</select>} actions={<button type="button" className="cy-op-button" onClick={()=>void load()}>更新清冊</button>}/>
   {error?<p role="alert" className="cy-op-notice danger">{error}</p>:null}
   {s?<><div className="cy-op-table-wrap"><table className="cy-op-table cy-rt"><thead><tr><th>薪資所得總額</th><th>受僱者投保總額</th><th>費率</th><th>公司補充保費</th></tr></thead><tbody><tr><td data-label="薪資所得總額">{s.income.toLocaleString('zh-TW')}</td><td data-label="受僱者投保總額">{s.basis.toLocaleString('zh-TW')}</td><td data-label="費率">{s.rate??'待確認'}%</td><td data-label="公司補充保費"><strong>{s.issues.length?'待確認':s.premium?.toLocaleString('zh-TW')}</strong></td></tr></tbody></table></div>
    {s.issues.map((v,i)=><p key={i} role="alert" className="cy-op-notice danger">{v}</p>)}<button type="button" className="cy-op-button" aria-expanded={expanded} onClick={()=>setExpanded(x=>!x)}>{expanded?'收合':'展開'}來源明細</button>

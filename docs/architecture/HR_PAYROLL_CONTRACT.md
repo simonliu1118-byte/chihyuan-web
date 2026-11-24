@@ -11,9 +11,10 @@
 | 方法 | `/api/business/hr` 之後的路徑 | 權限／用途 |
 | --- | --- | --- |
 | GET／POST | `/payroll/profiles/:employeeId` | 超管，讀歷史／追加生效設定，`expectedId` 防舊編輯覆寫；同生效日更正追加新版本，不改舊列 |
-| GET | `/payroll/runs?month=YYYY-MM` | 超管，當月清冊含撤回歷史，上限200列；UI預設隱藏撤回列 |
+| GET | `/payroll/runs?month=YYYY-MM[&employeeId=]` | 超管，當月清冊含撤回歷史，上限200列，可只取單一員工；回傳reason（V0.28.0） |
+| GET | `/payroll/month?month=YYYY-MM` | 超管，唯讀；該月應發薪員工與目前紀錄摘要（狀態、金額、待補事項、paidDays、撤回次數、是否有薪資主檔），單一查詢、上限500人（V0.28.0） |
 | GET／POST | `/payroll/runs/:id` | 超管，快照明細／確認、標記已發薪、撤回確認；POST 必填 revision、action、reason |
-| POST | `/payroll/calculate` | 超管，employeeId、month、payDate、可選paidDays與必備原因；建立／重算月薪草稿；非零bonusAmount不再接受 |
+| POST | `/payroll/calculate` | 超管，employeeId、month、payDate、可選paidDays與原因；建立／重算月薪草稿；未填原因存預設「YYYY/MM 月薪」，指定paidDays或撤回後重算須填原因（V0.28.0）；非零bonusAmount不再接受 |
 | GET／POST | `/payroll/bonuses` | 超管，依給付年度或employeeId查詢、before游標續讀；建立獨立獎金草稿，requestKey冪等 |
 | GET／PUT／POST | `/payroll/bonuses/:id` | 超管，讀取／重新計算草稿／確認已發放或附原因作廢；revision防覆寫 |
 | GET／POST | `/payroll/legal-cases/:employeeId` | 超管，追加產假／公傷病核對版本，expectedId及來源、原因必填 |
@@ -46,7 +47,7 @@
 
 ## 結清、快照及交易
 
-草稿→確認→已發薪；確認可撤回為void快照，再開新草稿；已發薪不撤回、不原地更改。每次操作留下原因與Audit。確認及標記發薪均在交易內重跑同一個有界SQL來源快照並比較，關閉「讀完後並行更正」窗口；資料已更動就要求重算，不靜默換數字。
+草稿→確認→已發薪；確認可撤回為void快照，再開新草稿；已發薪不撤回、不原地更改。每次操作留下原因與Audit；確認、標記已發薪未填原因存預設「YYYY/MM 月薪」，撤回確認必填原因（V0.28.0）。確認及標記發薪均在交易內重跑同一個有界SQL來源快照並比較，關閉「讀完後並行更正」窗口；資料已更動就要求重算，不靜默換數字。
 
 補休到期／終止仍沿原介面產生結清紀錄，本批依原加班月份**已發薪**工資率與加班免稅級距快照算尚餘後段，不拿本月薪資重算。特休沿既有週年／遞延帳，按原年度終結或離職工資基準結清；額外公司額度不自動當法定免稅。確認時唯一消耗來源鍵，避免跨月重付；撤回未發薪確認才釋放該次消耗，歷史紀錄保留。缺原工資快照或部分工時歷年額度先待補，不猜數字。
 

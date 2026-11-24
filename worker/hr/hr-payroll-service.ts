@@ -70,6 +70,8 @@ const SOURCE_SQL=`WITH p AS (SELECT ?1 AS eid,?2 AS month,?3 AS last,?4 AS paid)
 type Row=Record<string,string|number|null>;
 interface RunRow extends Row {id:number;employee_id:number;month:string;pay_date:string;status:'draft'|'confirmed'|'paid'|'void';revision:number;input_json:string;result_json:string;source_json:string}
 interface Snapshot {corrections:Row[];nhiPolicies:Row[];paidIncome:Row[];legalCases:Row[];employee:Row|null;salaries:Row[];allowances:Row[];types:Row[];profiles:Row[];status:Row[];punches:Row[];schedules:Row[];shifts:Row[];leaves:Row[];leaveTypes:Row[];overtime:Row[];holidays:Row[];reviews:Row[];settlements:Row[];rules:Row[];syncBlocks:Row[];annualYears:Row[];exclusions:Row[];annualUses:Row[];history:Row[];consumed:Row[];wages:{effective_date:string;monthly_amount:number;hourly_amount:number}[]}
+/** 預設原因：首次計算、計算全部、重算草稿、確認、標記已發薪不需填原因，後端存「YYYY/MM 月薪」。 */
+export const defaultReason=(month:string)=>month.slice(0,4)+'/'+month.slice(5,7)+' 月薪';
 const end=(month:string)=>new Date(Date.UTC(+month.slice(0,4),+month.slice(5),0)).toISOString().slice(0,10);
 export class HrPayrollService {
  constructor(private db:D1Database){}
@@ -85,8 +87,10 @@ export class HrPayrollService {
  }
  private input(raw:unknown):PayrollInput{const v=object(raw),month=payrollMonth(v.month),payDate=date(v.payDate,'payDate'),paidDays=v.paidDays==null?undefined:number(v.paidDays,'paidDays',30),reason=typeof v.reason==='string'?v.reason.trim():'';
   if(paidDays!=null&&!reason)throw new HrValidationError('reason','指定計薪天數須填原因');
+  if(reason.length>1000)throw new HrValidationError('reason','原因過長');
   if(v.bonusAmount!=null&&v.bonusAmount!==0)throw new HrValidationError('bonusAmount','獎金請改由獎金發放建立');
-  return {employeeId:integer(v.employeeId,'employeeId',true),month,payDate,paidDays,reason,bonusAmount:0};
+  // 未填原因時存預設「YYYY/MM 月薪」；撤回後重算與手動異動（指定計薪天數）的原因檢查在此與 calculate()。
+  return {employeeId:integer(v.employeeId,'employeeId',true),month,payDate,paidDays,reason:reason||defaultReason(month),bonusAmount:0};
  }
  private async source(input:PayrollInput){
   const args=[input.employeeId,input.month,end(input.month),input.payDate] as const;
@@ -171,7 +175,11 @@ export class HrPayrollService {
   return result;
  }
  async calculate(raw:unknown,ctx:HrContext){
-  const input=this.input(raw),source=await this.source(input),result=this.compute(input,source.data);
+  const input=this.input(raw);
+  const explicit=typeof (raw as {reason?:unknown}).reason==='string'&&(raw as {reason:string}).reason.trim()!=='';
+  const history=await this.db.prepare("SELECT COUNT(*) AS n FROM hr_payroll_runs WHERE employee_id=? AND month=? AND status='void'").bind(input.employeeId,input.month).first<{n:number}>();
+  if(Number(history?.n??0)>0&&!explicit)throw new HrValidationError('reason','此月份已有撤回的歷史快照，重算須填原因');
+  const source=await this.source(input),result=this.compute(input,source.data);
   const existing=await this.db.prepare("SELECT id,status,revision FROM hr_payroll_runs WHERE employee_id=? AND month=? AND status!='void'").bind(input.employeeId,input.month).first<{id:number;status:string;revision:number}>();
   if(existing&&existing.status!=='draft')throw new HrValidationError('status','已確認／已發薪紀錄不可直接重算；須先撤回確認',409);
   const stmt=existing?this.db.prepare("UPDATE hr_payroll_runs SET pay_date=?,source_hash=?,source_json=?,input_json=?,result_json=?,revision=revision+1,updated_at=?,updated_by=? WHERE id=? AND revision=? AND status='draft'")
@@ -184,10 +192,35 @@ export class HrPayrollService {
   return this.get(Number(existing?.id??writes[guard.length].meta.last_row_id));
  }
  async get(id:number){const row=await this.db.prepare('SELECT r.*,e.employee_no,e.name FROM hr_payroll_runs r JOIN hr_employees e ON e.id=r.employee_id WHERE r.id=?').bind(id).first<RunRow>();if(!row)throw new HrValidationError('id','薪資紀錄不存在',404);const {source_json,...safe}=row;return {...safe,input:JSON.parse(String(row.input_json)),result:JSON.parse(String(row.result_json)) as PayrollResult};}
- async list(month:string){payrollMonth(month);const result=await this.db.prepare("SELECT r.id,r.employee_id,e.employee_no,e.name,r.month,r.pay_date,r.status,r.revision,r.result_json,r.updated_at FROM hr_payroll_runs r JOIN hr_employees e ON e.id=r.employee_id WHERE r.month=? ORDER BY e.employee_no,r.id LIMIT 201").bind(month).all<Row>();if((result.results??[]).length>200)throw new HrValidationError('limit','本月薪資超過200筆，請縮小範圍');return (result.results??[]).map(r=>({...r,result:JSON.parse(String(r.result_json)) as PayrollResult}));}
+ async list(month:string,employeeId:number|null=null){payrollMonth(month);const result=await this.db.prepare("SELECT r.id,r.employee_id,e.employee_no,e.name,r.month,r.pay_date,r.status,r.revision,r.reason,r.result_json,r.updated_at FROM hr_payroll_runs r JOIN hr_employees e ON e.id=r.employee_id WHERE r.month=?1 AND (?2 IS NULL OR r.employee_id=?2) ORDER BY e.employee_no,r.id LIMIT 201").bind(month,employeeId).all<Row>();if((result.results??[]).length>200)throw new HrValidationError('limit','本月薪資超過200筆，請縮小範圍');return (result.results??[]).map(r=>({...r,result:JSON.parse(String(r.result_json)) as PayrollResult}));}
+ /**
+  * 一個月份一張工作清單：唯讀、單一查詢列出該月應發薪的員工（任職期間與該月有交集，或已有非撤回薪資紀錄）及其目前紀錄摘要，
+  * 不回傳逐日明細，不因人數產生每人一次的讀取。上限500人，超過則要求縮小範圍而不是截斷。
+  */
+ async monthOverview(month:string){
+  payrollMonth(month);const first=month+'-01',last=end(month);
+  const rows=(await this.db.prepare(`SELECT e.id AS employee_id,e.employee_no,e.name,e.store_id,s.name AS store_name,
+   r.id AS run_id,r.status,r.revision,r.pay_date,json_extract(r.result_json,'$.gross') AS gross,json_extract(r.result_json,'$.deductions') AS deductions,json_extract(r.result_json,'$.net') AS net,
+   json_extract(r.result_json,'$.issues') AS issues_json,json_extract(r.input_json,'$.paidDays') AS paid_days,json_extract(r.input_json,'$.reason') AS input_reason,
+   (SELECT COUNT(*) FROM hr_payroll_runs v WHERE v.employee_id=e.id AND v.month=?1 AND v.status='void') AS void_count,
+   EXISTS(SELECT 1 FROM hr_salary_records sr WHERE sr.employee_id=e.id AND sr.effective_date<=?2) AS has_salary
+   FROM hr_employee_current e LEFT JOIN hr_stores s ON s.id=e.store_id
+   LEFT JOIN hr_payroll_runs r ON r.employee_id=e.id AND r.month=?1 AND r.status!='void'
+   WHERE (e.hire_date<=?2 AND (e.termination_date IS NULL OR e.termination_date>=?3)) OR r.id IS NOT NULL
+   ORDER BY e.employee_no,e.id LIMIT 501`).bind(month,last,first).all<Row>()).results??[];
+  if(rows.length>500)throw new HrValidationError('limit','本月應發薪人數超過500人，請縮小範圍');
+  return {month,rows:rows.map(r=>({employeeId:Number(r.employee_id),employeeNo:String(r.employee_no),name:String(r.name),storeId:r.store_id==null?null:Number(r.store_id),storeName:r.store_name==null?null:String(r.store_name),
+   voidCount:Number(r.void_count),hasSalary:Number(r.has_salary)===1,
+   run:r.run_id==null?null:{id:Number(r.run_id),status:String(r.status),revision:Number(r.revision),payDate:String(r.pay_date),gross:Number(r.gross??0),deductions:Number(r.deductions??0),net:Number(r.net??0),
+    issues:r.issues_json?JSON.parse(String(r.issues_json)) as string[]:[],paidDays:r.paid_days==null?null:Number(r.paid_days),reason:r.input_reason==null?'':String(r.input_reason)}}))};
+ }
  async transition(id:number,raw:unknown,ctx:HrContext){
-  const v=object(raw),action=required(v.action,'action'),revision=number(v.revision,'revision'),reason=required(v.reason,'reason',1000);
+  const v=object(raw),action=required(v.action,'action'),revision=number(v.revision,'revision');
   const row=await this.db.prepare('SELECT * FROM hr_payroll_runs WHERE id=?').bind(id).first<Row>();if(!row)throw new HrValidationError('id','薪資紀錄不存在',404);
+  // 撤回確認一定要原因；確認、標記已發薪未填時存預設「YYYY/MM 月薪」。
+  const given=typeof v.reason==='string'&&v.reason.trim()!=='';
+  if(action==='reopen'&&!given)throw new HrValidationError('reason','撤回確認須填原因');
+  const reason=given?required(v.reason,'reason',1000):defaultReason(String(row.month));
   if(row.revision!==revision)throw new HrValidationError('revision','薪資已更動，請重讀',409);
   const status=action==='confirm'&&row.status==='draft'?'confirmed':action==='pay'&&row.status==='confirmed'?'paid':action==='reopen'&&row.status==='confirmed'?'void':null;
   if(!status)throw new HrValidationError('status','此狀態不能執行指定操作',409);
