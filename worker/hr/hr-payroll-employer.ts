@@ -2,7 +2,7 @@ import {HrValidationError} from './hr-validation';
 export async function employerSupplement(db:D1Database,month:string,unit:string){
  const last=new Date(Date.UTC(+month.slice(0,4),+month.slice(5),0)).toISOString().slice(0,10);
  const [runs,profiles,rule]=await Promise.all([
-  db.prepare("SELECT r.id,r.employee_id,e.employee_no,e.name,r.result_json FROM hr_payroll_runs r JOIN hr_employees e ON e.id=r.employee_id WHERE r.status='paid' AND r.pay_date BETWEEN ? AND ? ORDER BY r.id LIMIT 2001").bind(month+'-01',last).all<{id:number;employee_id:number;employee_no:string;name:string;result_json:string}>(),
+  db.prepare("SELECT r.source||':'||r.id AS id,r.employee_id,e.employee_no,e.name,r.result_json FROM hr_paid_income r JOIN hr_employees e ON e.id=r.employee_id WHERE r.pay_date BETWEEN ? AND ? ORDER BY r.id,r.source LIMIT 2001").bind(month+'-01',last).all<{id:string;employee_id:number;employee_no:string;name:string;result_json:string}>(),
   db.prepare('SELECT e.id,e.employee_no,e.name,p.id AS profile_id,p.settings_json FROM hr_employees e LEFT JOIN hr_payroll_profiles p ON p.id=(SELECT q.id FROM hr_payroll_profiles q WHERE q.employee_id=e.id AND q.effective_date<=? ORDER BY q.effective_date DESC,q.id DESC LIMIT 1) ORDER BY e.id LIMIT 501').bind(last).all<{id:number;employee_no:string;name:string;profile_id:number;settings_json:string|null}>(),
   db.prepare('SELECT id,effective_date,payload_json,source_url FROM hr_payroll_supplement_versions WHERE effective_date<=? ORDER BY effective_date DESC,id DESC LIMIT 1').bind(last).first<{id:number;effective_date:string;payload_json:string;source_url:string}>(),
  ]);

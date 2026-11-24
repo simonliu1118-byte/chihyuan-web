@@ -15,6 +15,8 @@
 - 介面保留原狀態異動卡片與入口；視窗五個欄位各有勾選框：沒勾的欄位鎖住並顯示目前值，勾了才可選新值並只送勾選的欄位，至少勾一個才能存；頁尾顯示「會存成 N 筆異動（…）」。收到 409 `HR_REDUNDANT_LATER_CHANGES` 時視窗顯示黃色提示與「一併刪除該筆」（預設勾選），再按儲存時依勾選送 `deleteRedundantIds` 或 `keepRedundant`。**舊值於顯示時計算**：詳情回傳的 `previous_status`／`previous_value` 取同欄位前一筆紀錄的新值（沒有則建檔基準），因此補登較舊日期後，後面紀錄的舊值會跟著更正；寫入當時存的值另以 `stored_previous_status`／`stored_previous_value` 回傳（稽核用，不刪）；`no_effect` 為真的紀錄顯示「（無變化）」。卡片合併兩張表依生效日由新到舊列出最近三筆：生效日期（含待生效標記）、異動日期、「欄位：舊值 → 新值」、原因；超過三筆提供查看全部。兩種新增視窗統一 `新增…異動｜員工編號 姓名`。
 
 ## 權限與隱私
+
+V0.26.0 員工紀錄卡新增獎金，狀態異動移到年資不計左方、寬度兩格；發放流程及資料保存依 [薪資與獎金契約](HR_PAYROLL_CONTRACT.md#v0260-獨立獎金發放)。有獎金紀錄的員工視為已有業務活動，不可刪除主檔。
 - `/api/business/hr/*` API 由 CYID Session 驗證，薪資及完整人事**僅 SUPER_ADMIN**。V0.21.0僅對兩條`attendance-corrections`路徑新增「ADMIN且具名門市授權」例外，詳見[每月薪資契約](HR_PAYROLL_CONTRACT.md)；不放行原月出勤／加班或薪資API。
 - 此模組不列入 `CYWEB_MODULES`、模組授權或權限群組。三期完成前不得開放一般使用者。
 - `national_id` 儲存在人事主檔，**一般 GET 一律移除原文並提供 `nationalIdMasked`**。明確 `POST /employees/:id/national-id/reveal` 才提供原文，並寫稽核；稽核不含原文身分證／統一證號。

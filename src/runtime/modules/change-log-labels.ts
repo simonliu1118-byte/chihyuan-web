@@ -3,6 +3,7 @@ import { formatDate, formatDateTime, formatItem } from "../../ui/foundation/form
 import type { AuditEvent } from "../api/settings-audit-client";
 
 const entityNames: Record<string,string> = {
+  hr_bonus:"獎金發放",
   customer:"客戶",customer_visit:"拜訪紀錄",customer_item_quote:"報價紀錄",customer_frequent_item:"常用商品",
   item:"商品",item_margin_rules:"平台費用與優惠",defect:"瑕疵",sales_work_order:"銷售工單",outsourcing_order:"代工單",
   outsourcing:"代工單",contractor:"協力廠商",contractor_price:"代工單價",bom_recipe:"材料清單",
@@ -39,6 +40,7 @@ export const actionLabels: Record<string,string> = {
   "hr_attendance.corrected":"更正誤打下班卡","hr_attendance_grant.updated":"調整指定管理員出勤更正授權",
   "hr_payroll_correction.created":"建立前期薪資更正","hr_payroll_correction.voided":"撤銷未套用薪資更正","hr_payroll_legal.recorded":"核對法定假別計薪基準","hr_payroll_rule.imported":"導入官方薪資級距","hr_payroll_profile.created":"新增生效計薪與投保設定",
   "hr_payroll.calculated":"計算每月薪資草稿","hr_payroll.confirm":"確認薪資","hr_payroll.pay":"標記已發薪","hr_payroll.reopen":"撤回薪資確認",
+  "hr_bonus.saved":"儲存獎金草稿","hr_bonus.pay":"確認獎金已發放","hr_bonus.void":"作廢獎金發放",
   "hr_payroll_review.updated":"確認特殊出勤原因","hr_leave.payroll_protection":"設定假單法定全勤保護",
   "hr_employee.created":"新增人事資料","hr_employee.updated":"修改人事資料",
   "hr_employee.status_changed":"異動人事狀態","hr_employee.assignment_changed":"異動門市／職稱／僱用型態／排班方式","hr_employee.national_id.viewed":"查看完整身分證字號",

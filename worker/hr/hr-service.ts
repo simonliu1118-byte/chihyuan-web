@@ -60,7 +60,7 @@ function audit(db:D1Database, ctx:HrContext, type:string, key:string, action:str
 }
 // Anything done for an employee after the record was created. Profile rows (contacts, education, work
 // history), the 建檔 status change and the leave entitlement derived on viewing do not count.
-const ACTIVITY_TABLES=["hr_salary_records","hr_leave_records","hr_overtime_days","hr_comp_time_grants","hr_comp_time_settlements","hr_seniority_exclusions","hr_schedule_days","hr_roster_approvals","hr_attendance_days","hr_assignment_changes"];
+const ACTIVITY_TABLES=["hr_salary_records","hr_bonus_payments","hr_leave_records","hr_overtime_days","hr_comp_time_grants","hr_comp_time_settlements","hr_seniority_exclusions","hr_schedule_days","hr_roster_approvals","hr_attendance_days","hr_assignment_changes"];
 const HAS_ACTIVITY="("+ACTIVITY_TABLES.map(t=>`EXISTS(SELECT 1 FROM ${t} WHERE employee_id=?1)`).join(" OR ")+" OR (SELECT COUNT(*) FROM hr_status_changes WHERE employee_id=?1)>1)";
 const ASSIGNMENT_FIELDS=[["storeId","store_id"],["jobTitleId","job_title_id"],["employmentType","employment_type"],["scheduleMode","schedule_mode"]] as const;
 type AssignmentField=typeof ASSIGNMENT_FIELDS[number][1];

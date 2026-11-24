@@ -1,4 +1,5 @@
 import {SegmentedControl} from '../../ui/primitives/SegmentedControl';
+import {HrBonusPanel} from './HrBonusPanel';
 import {HrPayrollCorrections} from './HrPayrollCorrections';
 import {HrEmployerSupplement} from './HrEmployerSupplement';
 import {HrPayrollLegalCases} from './HrPayrollLegalCases';
@@ -87,15 +88,15 @@ export function HrPayrollPanel(){
  async function loadReviews(){const ticket=reviewRequest.begin();setReviewReady(false);if(!employee){setReviews([]);return;}try{const rows=await apiRequest<DayReview[]>(ROOT+'/payroll/reviews/'+employee+'?month='+month);if(ticket.current()){setReviews(rows);setReviewReady(true);}}catch(e){if(ticket.current())setError(e instanceof Error?e.message:'讀取出勤確認失敗');}}
  useEffect(()=>{void loadReviews();},[employee,month]);
  const request=useLatestRequest(month),selection=useLatestRequest(employee+'|'+month),writing=useRef(false),navigation=useNavigationGuard();
- useUnsavedChangesGuard({active:!!(payDate!==proposedPayday(month)||bonusAmount||paidDays||reason||reviewDate),blocked:busy});
+ useUnsavedChangesGuard({active:!!(payDate!==proposedPayday(month)||paidDays||reason||reviewDate),blocked:busy});
  async function loadPeople(append=false){const r=await apiRequest<{items:Person[];nextCursor:number|null}>(ROOT+'/employees?limit=100'+(append&&cursor?'&cursor='+cursor:''));setPeople(p=>append?[...p,...r.items]:r.items);setCursor(r.nextCursor);}
  useEffect(()=>{void loadPeople().catch(e=>setError(String(e)));},[]);
  async function load(){const t=request.begin();try{const rows=await apiRequest<Run[]>(ROOT+'/payroll/runs?month='+month);if(t.current()){setRuns(rows);setError('');}}catch(e){if(t.current()){setRuns([]);setError(e instanceof Error?e.message:'讀取薪資失敗');}}}
  useEffect(()=>{setDetail(null);void load();},[month]);
- async function chooseMonth(value:string){if(busy||!await navigation.canLeave())return;if(!/^20\d\d-(0[1-9]|1[0-2])$/.test(value))return;setPayDate(proposedPayday(value));setBonusAmount('');setPaidDays('');setReason('');setReviewDate('');setMonth(value);}
- async function chooseEmployee(value:number){if(busy||!await navigation.canLeave())return;selection.invalidate();setEmployee(value);setDetail(null);setPayDate(proposedPayday(month));setBonusAmount('');setPaidDays('');setReason('');setReviewDate('');}
+ async function chooseMonth(value:string){if(busy||!await navigation.canLeave())return;if(!/^20\d\d-(0[1-9]|1[0-2])$/.test(value))return;setPayDate(proposedPayday(value));setPaidDays('');setReason('');setReviewDate('');setMonth(value);}
+ async function chooseEmployee(value:number){if(busy||!await navigation.canLeave())return;selection.invalidate();setEmployee(value);setDetail(null);setPayDate(proposedPayday(month));setPaidDays('');setReason('');setReviewDate('');}
  async function run(fn:()=>Promise<void>){if(writing.current)return;writing.current=true;setBusy(true);setError('');setNotice('');try{await fn();}catch(e){setError(e instanceof Error?e.message:'薪資操作失敗');}finally{writing.current=false;setBusy(false);}}
- async function calculate(e:FormEvent){e.preventDefault();await run(async()=>{const ticket=selection.begin();const row=await apiRequest<Run>(ROOT+'/payroll/calculate',{method:'POST',json:{employeeId:employee,month,payDate,bonusAmount:bonusAmount?Number(bonusAmount):0,paidDays:paidDays===''?undefined:Number(paidDays),reason}});if(ticket.current()){setDetail(row);setNotice(row.result.issues.length?'已儲存草稿，請先處理待補事項':'已計算，請核對明細再確認');}setPayDate(proposedPayday(month));setBonusAmount('');setPaidDays('');setReason('');await load();});}
+ async function calculate(e:FormEvent){e.preventDefault();await run(async()=>{const ticket=selection.begin();const row=await apiRequest<Run>(ROOT+'/payroll/calculate',{method:'POST',json:{employeeId:employee,month,payDate,paidDays:paidDays===''?undefined:Number(paidDays),reason}});if(ticket.current()){setDetail(row);setNotice(row.result.issues.length?'已儲存草稿，請先處理待補事項':'已計算，請核對明細再確認');}setPayDate(proposedPayday(month));setPaidDays('');setReason('');await load();});}
  async function open(row:Run){await run(async()=>{const ticket=selection.begin();const r=await apiRequest<Run>(ROOT+'/payroll/runs/'+row.id);if(ticket.current())setDetail(r);});}
  async function transition(action:string){if(!detail)return;await run(async()=>{const r=await apiRequest<Run>(ROOT+'/payroll/runs/'+detail.id,{method:'POST',json:{action,revision:detail.revision,reason}});setDetail(r);setReason('');setNotice('已更新薪資狀態');await load();});}
  async function review(e:FormEvent){e.preventDefault();await run(async()=>{await apiRequest(ROOT+'/payroll/reviews/'+employee,{method:'POST',json:{date:reviewDate,kind:reviewKind,reason,revision:reviews.find(r=>r.work_date===reviewDate)?.revision??0}});await loadReviews();setReviewDate('');setReason('');setNotice('已保存確認原因，請重新計算草稿');});}
@@ -108,7 +109,6 @@ export function HrPayrollPanel(){
    <EntryFields label="每月薪資計算" columns={3} rows={[
     {label:'員工',required:true,content:<select className="cy-sheet-input" disabled={busy} value={employee||''} onChange={e=>void chooseEmployee(Number(e.target.value))}><option value="">請選擇</option>{people.map(p=><option key={p.id} value={p.id}>{p.employee_no} {p.name}</option>)}</select>},
     {label:'給付日期',required:true,content:<DateInput className="cy-sheet-input" disabled={busy} value={payDate} onChange={setPayDate}/>},
-    {label:'本次另發非每月獎金（無則留空）',content:<input className="cy-sheet-input" disabled={busy} type="number" min="0" step="1" value={bonusAmount} onChange={e=>setBonusAmount(e.target.value)}/>},
     {label:'未滿月計薪天數（整月留空）',content:<input className="cy-sheet-input" disabled={busy} type="number" min="0" max="30" step="1" value={paidDays} onChange={e=>setPaidDays(e.target.value)}/>},
     {label:'計算／異動原因',required:paidDays!=='',content:<input className="cy-sheet-input" disabled={busy} value={reason} onChange={e=>setReason(e.target.value)}/>},
    ]}/>
@@ -126,8 +126,8 @@ export function HrPayrollPanel(){
    <div className="cy-op-actions">{detail.status==='draft'?<button type="button" className="cy-op-button primary" disabled={busy||!!detail.result.issues.length||!reason.trim()} onClick={()=>void transition('confirm')}>確認薪資</button>:null}{detail.status==='confirmed'?<><button type="button" className="cy-op-button" disabled={busy||!reason.trim()} onClick={()=>void transition('reopen')}>撤回確認並保留快照</button><button type="button" className="cy-op-button primary" disabled={busy||!reason.trim()} onClick={()=>void transition('pay')}>標記已發薪</button></>:null}</div>
   </section>:null}
   <HrEmployerSupplement month={detail?.pay_date.slice(0,7)||payDate.slice(0,7)||month} refreshToken={detail?.revision??0}/>
-  {employee?<HrPayrollCorrections key={employee+month} employeeId={employee} month={month} refreshToken={detail?.revision??0}/>:null}
-  {employee?<HrPayrollLegalCases key={employee+month} employeeId={employee} month={month}/>:null}
+  {employee?<HrPayrollCorrections key={'corrections:'+employee+':'+month} employeeId={employee} month={month} refreshToken={detail?.revision??0}/>:null}
+  {employee?<HrPayrollLegalCases key={'legal:'+employee+':'+month} employeeId={employee} month={month}/>:null}
   <section className="cy-op-panel"><h3>特殊出勤確認</h3>
    <form className="cy-op-form" onKeyDown={enterAdvancesFields} onSubmit={e=>void review(e)}><EntryFields label="出勤確認" columns={3} rows={[
     {label:'日期',required:true,content:<DateInput disabled={busy} className="cy-sheet-input" value={reviewDate} onChange={setReviewDate}/>},
@@ -142,7 +142,7 @@ export function HrPayrollPanel(){
 }
 const shiftMonth=(m:string,delta:number)=>{const d=new Date(Date.UTC(+m.slice(0,4),+m.slice(5)-1+delta,1));return d.toISOString().slice(0,7)};
 export function HrSalaryPanel(props:{onRaise:(id:number,name:string)=>void;refreshToken:number}){
- const [mode,setMode]=useState<'settings'|'monthly'>('settings'),navigation=useNavigationGuard();
+ const [mode,setMode]=useState<'settings'|'monthly'|'bonus'>('settings'),navigation=useNavigationGuard();
  async function change(next:typeof mode){if(next!==mode&&await navigation.canLeave())setMode(next);}
- return <><SegmentedControl label="薪資頁籤" compact value={mode} options={[{value:'settings',label:'薪資設定'},{value:'monthly',label:'每月薪資'}]} onChange={next=>void change(next)}/>{mode==='settings'?<HrSalaryOverview {...props}/>:<HrPayrollPanel/>}</>;
+ return <><SegmentedControl label="薪資頁籤" compact value={mode} options={[{value:'settings',label:'薪資設定'},{value:'monthly',label:'每月薪資'},{value:'bonus',label:'獎金發放'}]} onChange={next=>void change(next)}/>{mode==='settings'?<HrSalaryOverview {...props}/>:mode==='monthly'?<HrPayrollPanel/>:<HrBonusPanel/>}</>;
 }

@@ -52,6 +52,8 @@ EXPECTED_TABLES = {
     "ordering_line_photos",
     "ordering_item_last_source",
     "ordering_revisions",
+    "hr_bonus_batches",
+    "hr_bonus_payments",
     "hr_payroll_profiles",
     "hr_payroll_corrections",
     "hr_payroll_correction_uses",

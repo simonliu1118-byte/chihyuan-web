@@ -1,4 +1,5 @@
 import {HrPayrollService} from '../hr/hr-payroll-service';
+import {HrBonusService} from '../hr/hr-bonus-service';
 import {HrPayrollCorrections} from '../hr/hr-payroll-corrections';
 import {HrPayrollLegalService} from '../hr/hr-payroll-legal-service';
 import {employerSupplement} from '../hr/hr-payroll-employer';
@@ -22,7 +23,7 @@ export async function acceptHrPayroll(db:D1Database){
  rejected=false;try{await service.transition(Number(row.id),{action:'reopen',revision:row.revision,reason:'合成禁止撤回'},ctx);}catch{rejected=true;}check(rejected,'IMMUTABLE_PAID');
  const frozen=JSON.stringify(row.result),corrections=new HrPayrollCorrections(db),facts=new HrPayrollLegalService(db);
  await corrections.create(employeeId,'2026-12',{sourceRunId:row.id,kind:'salary_topup',amount:1000,reference:'合成核定差額',consentReference:'',reason:'合成補發',requestKey:'accept-hr-correction-1'},ctx);
- const nextInput={employeeId,month:'2026-12',payDate:'2026-12-31',bonusAmount:100000};let next=await service.calculate(nextInput,ctx);check(next.result.corrections?.length===1&&next.result.bonusGross===100000,'DELTA_BONUS_SOURCE');
+ const nextInput={employeeId,month:'2026-12',payDate:'2026-12-31'};let next=await service.calculate(nextInput,ctx);check(next.result.corrections?.length===1&&next.result.bonusGross===0,'DELTA_SALARY_ONLY');
  await facts.save(employeeId,{kind:'occupational',eventDate:'2026-12-01',from:'2026-12-01',to:'2026-12-31',month:'2026-12',monthlyBasis:35000,averageDaily:0,offset:0,reference:'合成醫療與原工資核對',reason:'合成案件來源變更',active:true,expectedId:0},ctx);
  rejected=false;try{await service.transition(Number(next.id),{action:'confirm',revision:next.revision,reason:'合成過時法定來源'},ctx);}catch{rejected=true;}check(rejected,'LEGAL_CASE_SOURCE_FENCE');
  next=await service.calculate(nextInput,ctx);check(!next.result.issues.length,'NEXT_READY');next=await service.transition(Number(next.id),{action:'confirm',revision:next.revision,reason:'合成差額確認'},ctx);
@@ -31,5 +32,9 @@ export async function acceptHrPayroll(db:D1Database){
  next=await service.calculate(nextInput,ctx);next=await service.transition(Number(next.id),{action:'confirm',revision:next.revision,reason:'合成重確認'},ctx);await service.transition(Number(next.id),{action:'pay',revision:next.revision,reason:'合成已補發'},ctx);
  check(JSON.stringify((await service.get(Number(row.id))).result)===frozen,'ORIGINAL_UNCHANGED');
  await db.prepare("INSERT INTO hr_payroll_supplement_versions(effective_date,payload_json,source_url,source_hash,content_hash,source_text,created_at) VALUES('2021-01-01',?,'https://www.nhi.gov.tw/synthetic','synthetic','synthetic','synthetic',?)").bind(JSON.stringify({rate:2.11,cap:10000000,multiple:4}),now).run();
+ const bonuses=new HrBonusService(db),bonusInput={requestKey:'accept-bonus',payDate:'2026-12-31',category:'年終獎金',attributionYear:2026,payments:[{employeeId,amount:100000,note:'合成獎金備註'}]};
+ let bonus=await bonuses.save(bonusInput,ctx);check(bonus.payments[0].result.issues.length===0,'BONUS_READY');
+ check((await bonuses.save(bonusInput,ctx)).id===bonus.id,'BONUS_IDEMPOTENT');
+ bonus=await bonuses.transition(bonus.id,{action:'pay',revision:bonus.revision},ctx);check(bonus.status==='paid'&&bonus.payments[0].result.taxBonus===5000&&bonus.payments[0].note==='合成獎金備註','BONUS_PAID');
  const statement=await employerSupplement(db,'2026-12','合成投保單位');check(statement.statement?.income===170000&&statement.statement?.premium===3587,'EMPLOYER_SUPPLEMENT');
 }

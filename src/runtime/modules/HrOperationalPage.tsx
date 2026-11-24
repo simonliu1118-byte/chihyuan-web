@@ -23,6 +23,7 @@ import { Dialog } from "../../ui/overlays/Dialog";
 import { useConfirmation } from "../../ui/overlays/useConfirmation";
 import { StatusChip } from "../../ui/primitives/StatusChip";
 import { RelatedCard } from "../../ui/records/RelatedCard";
+import {HrEmployeeBonusCard} from './HrBonusPanel';
 import "./hr-operational.css";
 import {HrRosterPanel} from "./HrRosterPanel";
 import {HrAttendancePanel} from "./HrAttendancePanel";
@@ -526,7 +527,8 @@ export function HrOperationalPage() {
                   summary={currentSalary ? <strong>目前 {salaryText(currentSalary)}</strong> : null}
                   rows={detail.salaryRecords.slice(0, 3).map(row => <span key={row.id}>{date(row.effective_date)}　{salaryText(row)}　{row.reason}</span>)}
                   onAdd={() => void openAction("salary")} onView={() => setBrowse("salary")} />
-                <RelatedCard title="狀態異動" count={personnelChanges(detail).length} empty="尚無狀態異動。"
+                <HrEmployeeBonusCard employee={detail}/>
+                <RelatedCard className="cy-hr-status-card" title="狀態異動" count={personnelChanges(detail).length} empty="尚無狀態異動。"
                   rows={personnelChanges(detail).length?[statusTable(personnelChanges(detail).slice(0,3))]:[]}
                   onAdd={() => void openAction("status")} onView={personnelChanges(detail).length>3?() => setBrowse("status"):undefined} />
                 <RelatedCard title="年資不計期間" count={detail.seniorityExclusions.length} empty="沒有年資不計期間。"
