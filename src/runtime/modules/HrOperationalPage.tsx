@@ -44,7 +44,13 @@ interface EmployeeRow { id: number; employee_no: string; name: string; status: H
 interface ContactRow { name: string; relationship: string | null; phone: string }
 interface EducationRow { school: string; department: string | null; start_month: string | null; end_month: string | null }
 interface WorkRow { company: string; job_title: string | null; start_month: string | null; end_month: string | null; salary: string | null; leave_reason: string | null }
-interface StatusChangeRow { id: number; effective_date: string; next_status: HrStatus; previous_status?:HrStatus; reason: string; store_id?:number|null;job_title_id?:number|null;employment_type?:string|null;schedule_mode?:string|null;previous_assignment?:string|null }
+interface StatusChangeRow { id: number; effective_date: string; next_status: HrStatus; previous_status: HrStatus; reason: string; created_at: string; recorded_date: string }
+interface AssignmentChangeRow { id: number; field: AssignmentField; effective_date: string; previous_value: string | null; next_value: string; reason: string; created_at: string; recorded_date: string }
+type AssignmentField = "store_id" | "job_title_id" | "employment_type" | "schedule_mode";
+/** One personnel change as shown to the user: exactly one field, its old and new value. */
+interface PersonnelChange { key: string; effective_date: string; recorded_date: string; created_at: string; field: "status" | AssignmentField; previous: string | null; next: string; reason: string }
+const FIELD_LABELS: Record<PersonnelChange["field"], string> = { status: "人事狀態", store_id: "門市", job_title_id: "職稱", employment_type: "僱用型態", schedule_mode: "排班方式" };
+const TYPE_LABELS: Record<string, string> = { full: "正職", half: "半職", casual: "兼職", shift: "班別", hours: "時段或時數", none: "不排班" };
 interface SalaryRow { id: number; effective_date: string; payment_type: HrPaymentType; base_amount: number; reason: string;
   allowances: { item_name: string; amount: number; is_regular: number;item_type_id:number }[] }
 interface ExclusionRow { id: number; start_date: string; end_date: string; reason: string }
@@ -57,7 +63,7 @@ export interface EmployeeDetail extends EmployeeRow {
   note: string | null; revision: number;
   store_id:number|null;job_title_id:number|null;roster_sort:number;employment_type:"full"|"half"|"casual";skip_roster_checks:number;schedule_mode:"shift"|"hours"|"none";
   contacts: ContactRow[]; education: EducationRow[]; workHistory: WorkRow[];
-  statusChanges: StatusChangeRow[]; salaryRecords: SalaryRow[]; seniorityExclusions: ExclusionRow[];
+  statusChanges: StatusChangeRow[]; assignmentChanges: AssignmentChangeRow[]; salaryRecords: SalaryRow[]; seniorityExclusions: ExclusionRow[];
 }
 /** A live CYID account; memberId is the local CY Web record when one exists. */
 export interface MemberOption { employeeId: string; employeeNo: string; name: string; memberId: number | null }
@@ -256,19 +262,28 @@ export function HrOperationalPage() {
     finally { setBusy(false); }
   }
 
-  function changeContent(row:StatusChangeRow){
-    let previous:Record<string,unknown>={};try{previous=JSON.parse(row.previous_assignment??"{}")??{}}catch{/* Historic rows have no assignment snapshot. */}
-    const labels:Record<string,Record<string,string>>={employment_type:{full:"正職",half:"半職",casual:"兼職"},schedule_mode:{shift:"班別",hours:"時段或時數",none:"不排班"}};
-    const shown=(key:string,value:unknown)=>value==null?"—":key==="store_id"?stores.find(x=>x.id===value)?.name??String(value):key==="job_title_id"?jobTitles.find(x=>x.id===value)?.name??String(value):labels[key]?.[String(value)]??String(value);
-    const changed=([['store_id','門市'],['job_title_id','職稱'],['employment_type','僱用型態'],['schedule_mode','排班方式']] as const).filter(([key])=>row[key]!=null&&row[key]!==previous[key]);
-    return <>{(!changed.length||row.previous_status!==row.next_status)?<div>{row.previous_status&&row.previous_status!==row.next_status?statusLabels[row.previous_status]+" → ":""}{statusLabels[row.next_status]}</div>:null}{changed.map(([key,label])=><div key={key}>{label}：{shown(key,previous[key])} → {shown(key,row[key])}</div>)}</>;
+  function shownValue(field:PersonnelChange["field"],value:string|null){
+    if(value===null||value==="")return "—";
+    if(field==="status")return statusLabels[value as HrStatus]??value;
+    if(field==="store_id")return stores.find(x=>String(x.id)===value)?.name??value;
+    if(field==="job_title_id")return jobTitles.find(x=>String(x.id)===value)?.name??value;
+    return TYPE_LABELS[value]??value;
   }
-  function statusTable(rows:StatusChangeRow[]){return <div className="cy-op-table-wrap"><table className="cy-op-table cy-hr-status-table" aria-label="狀態異動"><thead><tr><th>生效日</th><th>異動內容</th><th>原因</th></tr></thead><tbody>{rows.map(row=><tr key={row.id}><td>{date(row.effective_date)}{row.effective_date>taipeiToday()?<small>待生效</small>:null}</td><td>{changeContent(row)}</td><td>{row.reason}</td></tr>)}</tbody></table></div>}
+  /** Status and assignment ledgers merged, newest effective date first. */
+  function personnelChanges(employee:EmployeeDetail):PersonnelChange[]{
+    return [
+      ...employee.statusChanges.map(r=>({key:"s"+r.id,effective_date:r.effective_date,recorded_date:r.recorded_date,created_at:r.created_at,field:"status" as const,previous:r.previous_status,next:r.next_status,reason:r.reason})),
+      ...(employee.assignmentChanges??[]).map(r=>({key:"a"+r.id,effective_date:r.effective_date,recorded_date:r.recorded_date,created_at:r.created_at,field:r.field,previous:r.previous_value,next:r.next_value,reason:r.reason})),
+    ].sort((a,b)=>b.effective_date.localeCompare(a.effective_date)||b.created_at.localeCompare(a.created_at)||b.key.localeCompare(a.key));
+  }
+  const changeContent=(row:PersonnelChange)=>row.previous===row.next?<>{FIELD_LABELS[row.field]}：{shownValue(row.field,row.next)}</>
+    :<>{FIELD_LABELS[row.field]}：{shownValue(row.field,row.previous)} → {shownValue(row.field,row.next)}</>;
+  function statusTable(rows:PersonnelChange[]){return <div className="cy-op-table-wrap"><table className="cy-op-table cy-hr-status-table" aria-label="狀態異動"><thead><tr><th>生效／異動日期</th><th>異動內容</th><th>原因</th></tr></thead><tbody>{rows.map(row=><tr key={row.key}><td>{date(row.effective_date)}{row.effective_date>taipeiToday()?<small>待生效</small>:null}<small>異動 {date(row.recorded_date)}</small></td><td>{changeContent(row)}</td><td>{row.reason}</td></tr>)}</tbody></table></div>}
 
   async function openAction(kind: ActionKind,employeeId?:number) {
     const targetId=employeeId??detail?.id;if(!targetId)return;
     const request=actionRequest.begin();setActionReady(kind!=='salary');setActionEmployeeId(targetId);setActionName(detail?.id===targetId?detail.employee_no+' '+detail.name:'');setActionError('');setActionSalaryBefore(null);
-    setForm(kind==='status'?{effectiveDate:taipeiToday(),nextStatus:detail?.status??'active',storeId:String(detail?.store_id??''),jobTitleId:String(detail?.job_title_id??''),employmentType:detail?.employment_type??'full',scheduleMode:detail?.schedule_mode??'shift'}:kind==='salary'?{effectiveDate:taipeiToday(),paymentType:'monthly'}:{});
+    setForm(kind==='status'?{effectiveDate:taipeiToday(),nextStatus:'',storeId:'',jobTitleId:'',employmentType:'',scheduleMode:''}:kind==='salary'?{effectiveDate:taipeiToday(),paymentType:'monthly'}:{});
     setAllowances([]);setAction(kind);
     if(kind==='salary'){
       setActionLoading(true);
@@ -293,12 +308,13 @@ export function HrOperationalPage() {
     const targetId=actionEmployeeId;
     const endpoint = action === "status" ? "status-changes" : action === "salary" ? "salary-records" : "seniority-exclusions";
     const body: Record<string, unknown> = { ...form };
-    if(action==="status"&&detail?.id===targetId){
-      body.expectedRevision=detail.revision;
-      for(const [key,col] of [["storeId","store_id"],["jobTitleId","job_title_id"],["employmentType","employment_type"],["scheduleMode","schedule_mode"]] as const){
-        if(String(body[key])===String(detail[col]??""))delete body[key];
-        else if(key==="storeId"||key==="jobTitleId")body[key]=Number(body[key]);
-      }
+    if(action==="status"){
+      // Only fields the user chose to change are sent; each becomes its own record on the effective date.
+      for(const key of ["nextStatus","storeId","jobTitleId","employmentType","scheduleMode"])if(!body[key])delete body[key];
+      for(const key of ["storeId","jobTitleId"])if(body[key]!==undefined)body[key]=Number(body[key]);
+      if(!["nextStatus","storeId","jobTitleId","employmentType","scheduleMode"].some(key=>body[key]!==undefined)){actionWriting.current=false;setActionError("請至少選擇一個要變更的欄位。");return;}
+      if(body.nextStatus!=="terminated"){delete body.terminationDate;delete body.terminationReason;}
+      if(detail?.id===targetId)body.expectedRevision=detail.revision;
     }
     if (action === "salary") {
       body.baseAmount = Number(form.baseAmount);
@@ -433,9 +449,9 @@ export function HrOperationalPage() {
                   summary={currentSalary ? <strong>目前 {salaryText(currentSalary)}</strong> : null}
                   rows={detail.salaryRecords.slice(0, 3).map(row => <span key={row.id}>{date(row.effective_date)}　{salaryText(row)}　{row.reason}</span>)}
                   onAdd={() => void openAction("salary")} onView={() => setBrowse("salary")} />
-                <RelatedCard title="狀態異動" count={detail.statusChanges.length} empty="尚無狀態異動。"
-                  rows={[statusTable(detail.statusChanges.slice(0,3))]}
-                  onAdd={() => void openAction("status")} onView={detail.statusChanges.length>3?() => setBrowse("status"):undefined} />
+                <RelatedCard title="狀態異動" count={personnelChanges(detail).length} empty="尚無狀態異動。"
+                  rows={personnelChanges(detail).length?[statusTable(personnelChanges(detail).slice(0,3))]:[]}
+                  onAdd={() => void openAction("status")} onView={personnelChanges(detail).length>3?() => setBrowse("status"):undefined} />
                 <RelatedCard title="年資不計期間" count={detail.seniorityExclusions.length} empty="沒有年資不計期間。"
                   rows={detail.seniorityExclusions.slice(0, 3).map(row => <span key={row.id}>{date(row.start_date)}～{date(row.end_date)}　{row.reason}</span>)}
                   onAdd={() => void openAction("exclusion")} onView={() => setBrowse("exclusion")} />
@@ -449,10 +465,10 @@ export function HrOperationalPage() {
     {detail && browse ? <Dialog open size="large" onClose={() => setBrowse(null)}
       title={`${browse === "leave" ? "特休" : browse === "salary" ? "薪資異動" : browse === "status" ? "狀態異動" : "年資不計期間"} — ${detail.employee_no} ${detail.name}`}>
       <div className="cy-op-table-wrap"><table className="cy-op-table cy-rt" aria-label="人事歷史紀錄">
-       <thead><tr>{(browse==='leave'?['年資','應給日數','年度起訖']:browse==='salary'?['生效日','計薪／本薪','津貼','原因']:browse==='status'?['生效日','異動內容','原因']:['起日','迄日','原因','操作']).map(label=><th key={label}>{label}</th>)}</tr></thead><tbody>
+       <thead><tr>{(browse==='leave'?['年資','應給日數','年度起訖']:browse==='salary'?['生效日','計薪／本薪','津貼','原因']:browse==='status'?['生效日期','異動日期','異動內容','原因']:['起日','迄日','原因','操作']).map(label=><th key={label}>{label}</th>)}</tr></thead><tbody>
         {browse==='leave'?[...leave].reverse().map(row=><tr key={row.periodStart}><td data-label="年資" data-priority="title">{row.serviceYearsLabel}</td><td data-label="應給">{row.days} 日</td><td data-label="年度">{date(row.periodStart)}～{date(row.periodEnd)}</td></tr>):null}
         {browse==='salary'?detail.salaryRecords.map(row=><tr key={row.id}><td data-label="生效日" data-priority="title">{date(row.effective_date)}</td><td data-label="計薪／本薪">{salaryText(row)}</td><td data-label="津貼">{row.allowances.map(a=>a.item_name+' '+money(a.amount)+(a.is_regular?'':'（非經常性）')).join('、')||'—'}</td><td data-label="原因">{row.reason}</td></tr>):null}
-        {browse==='status'?detail.statusChanges.map(row=><tr key={row.id}><td data-label="生效日" data-priority="title">{date(row.effective_date)}</td><td data-label="異動內容">{changeContent(row)}</td><td data-label="原因">{row.reason}</td></tr>):null}
+        {browse==='status'?personnelChanges(detail).map(row=><tr key={row.key}><td data-label="生效日期" data-priority="title">{date(row.effective_date)}{row.effective_date>taipeiToday()?'（待生效）':''}</td><td data-label="異動日期">{date(row.recorded_date)}</td><td data-label="異動內容">{changeContent(row)}</td><td data-label="原因">{row.reason}</td></tr>):null}
         {browse==='exclusion'?detail.seniorityExclusions.map(row=><tr key={row.id}><td data-label="起日" data-priority="title">{date(row.start_date)}</td><td data-label="迄日">{date(row.end_date)}</td><td data-label="原因">{row.reason}</td><td data-label="操作"><button type="button" className="cy-op-button compact soft" disabled={busy} onClick={()=>void removeExclusion(row)}>刪除</button></td></tr>):null}
        </tbody></table></div>
 
@@ -515,14 +531,19 @@ export function HrOperationalPage() {
           {label:"起日",required:true,content:<DateInput density="regular" max="9999-12-31" className="cy-sheet-input" value={form.startDate??""} onChange={v=>setForm({...form,startDate:v})}/>},
           {label:"迄日",required:true,content:<DateInput density="regular" max="9999-12-31" className="cy-sheet-input" value={form.endDate??""} onChange={v=>setForm({...form,endDate:v})}/>}
         ]:[{label:"生效日",required:true,content:<DateInput density="regular" max="9999-12-31" className="cy-sheet-input" value={form.effectiveDate??""} onChange={v=>setForm({...form,effectiveDate:v})}/>}]),
-        ...(action==="status"?[{label:"新狀態",content:<select className="cy-sheet-input" value={form.nextStatus??"active"} onChange={e=>setForm({...form,nextStatus:e.target.value})}>
-          {(Object.keys(statusLabels) as HrStatus[]).map(key=><option key={key} value={key}>{statusLabels[key]}</option>)}</select>}]:[]),
-        ...(action==="status"?[
-          {label:"門市",required:true,content:<select className="cy-sheet-input" value={form.storeId??""} onChange={e=>setForm({...form,storeId:e.target.value})}><option value="">請選擇</option>{stores.map(x=><option key={x.id} value={x.id}>{x.name}</option>)}</select>},
-          {label:"職稱",required:true,content:<select className="cy-sheet-input" value={form.jobTitleId??""} onChange={e=>setForm({...form,jobTitleId:e.target.value})}><option value="">請選擇</option>{jobTitles.map(x=><option key={x.id} value={x.id}>{x.name}</option>)}</select>},
-          {label:"僱用型態",content:<select className="cy-sheet-input" value={form.employmentType??"full"} onChange={e=>{const employmentType=e.target.value;setForm({...form,employmentType,scheduleMode:employmentType==="full"?"shift":employmentType==="half"&&form.scheduleMode==="none"?"shift":form.scheduleMode??"shift"})}}><option value="full">正職</option><option value="half">半職</option><option value="casual">兼職</option></select>},
-          {label:"排班方式",content:<select className="cy-sheet-input" value={form.scheduleMode??"shift"} onChange={e=>setForm({...form,scheduleMode:e.target.value})}><option value="shift">班別</option>{form.employmentType!=="full"?<option value="hours">時段或時數</option>:null}{form.employmentType==="casual"?<option value="none">不排班</option>:null}</select>}
-        ]:[]),
+        ...(action==="status"?(()=>{
+          const keep=(current:string)=><option value="">不變更{current?`（目前：${current}）`:""}</option>;
+          const known=detail?.id===actionEmployeeId;
+          const select=(key:"nextStatus"|"storeId"|"jobTitleId"|"employmentType"|"scheduleMode",current:string,options:[string,string][])=>
+            <select className="cy-sheet-input" value={form[key]??""} onChange={e=>setForm({...form,[key]:e.target.value})}>{keep(known?current:"")}{options.map(([value,label])=><option key={value} value={value}>{label}</option>)}</select>;
+          return [
+            {label:"人事狀態",content:select("nextStatus",shownValue("status",detail?.status??null),(Object.keys(statusLabels) as HrStatus[]).map(key=>[key,statusLabels[key]]))},
+            {label:"門市",content:select("storeId",shownValue("store_id",String(detail?.store_id??"")),stores.map(x=>[String(x.id),x.name]))},
+            {label:"職稱",content:select("jobTitleId",shownValue("job_title_id",String(detail?.job_title_id??"")),jobTitles.map(x=>[String(x.id),x.name]))},
+            {label:"僱用型態",content:select("employmentType",shownValue("employment_type",detail?.employment_type??null),[["full","正職"],["half","半職"],["casual","兼職"]])},
+            {label:"排班方式",content:select("scheduleMode",shownValue("schedule_mode",detail?.schedule_mode??null),[["shift","班別"],["hours","時段或時數"],["none","不排班"]])},
+          ];
+        })():[]),
         ...(action==="status"&&form.nextStatus==="terminated"?[
           {label:"離職日",required:true,content:<DateInput density="regular" max="9999-12-31" className="cy-sheet-input" value={form.terminationDate??""} onChange={v=>setForm({...form,terminationDate:v})}/>},
           {label:"離職原因",required:true,content:<input className="cy-sheet-input" value={form.terminationReason??""} onChange={e=>setForm({...form,terminationReason:e.target.value})}/>}

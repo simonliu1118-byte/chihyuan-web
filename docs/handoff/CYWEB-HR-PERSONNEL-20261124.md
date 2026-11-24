@@ -1,21 +1,51 @@
-# CYWEB V0.25.1 Build 1 — 人事主檔與任用異動交接
+# CYWEB V0.25.1 Build 2 — 人事主檔與任用異動交接
 
 ## 狀態與使用者決策
 
-- 分支 `cyweb/hr-personnel-changes`，基準 main `ca1fe3378f4c390ff33c49ab2fc18a07f463063c`（V0.25.0 Build 1）；本輪 V0.25.1 Build 1。
+- 分支 `cyweb/hr-personnel-changes`，基準 main `ca1fe3378f4c390ff33c49ab2fc18a07f463063c`（V0.25.0 Build 1）；本輪 V0.25.1 Build 2（重新設計，見下一節）。
 - Claude 最終審查：**待審**。未合併、未部署，0081 未套用正式 D1。
 - 使用者撤回「改狀態判定邏輯」的建議：維持現有生效日排序。並指定一筆正式人事資料更正，另見下方私密作業界線。
 - 狀態異動維持原卡片，不改全寬區塊；把狀態、門市、職稱、僱用型態、排班方式的異動塞進同一入口與卡片。
+- 使用者規則（Build 2 依此重做）：一筆異動紀錄只異動一個欄位，生效日當天只改該欄位，不牽動其他欄位；同視窗改兩欄位就是兩筆同生效日紀錄；另記異動日期（寫入當天，台北日期），畫面同時顯示生效日期與異動日期。
 - 建檔後五欄唯讀但不消失；薪資／狀態新增視窗一致，不重複佔一列顯示員工。
 - 正式規格以 `docs/architecture/HR_MODULE_CONTRACT.md` 的 V0.25.1 段為準。
 
-## 修改檔案與理由
+## Build 2 重新設計與原因
+
+Build 1 把門市、職稱、僱用型態、排班方式四欄加在 `hr_status_changes`，而該表 `next_status` 為必填，結果每筆門市／職稱異動都被迫帶一個狀態。已重現兩個缺陷：
+
+1. 員工 11/10 起留職停薪；之後補登 11/05 的門市異動（介面預設狀態＝目前狀態）會寫入 `next_status='leave'`、生效日 11/05 的紀錄，把留停起日默默提前。薪資以 `hr_status_changes` 的 `leave` 判斷留停（`hr-payroll-service.ts`），會連帶影響薪資。
+2. 員工 11/15 離職；之後補登 11/12、狀態帶「在職」的異動，舊的快取更新會把 `hr_employees.status` 設回在職並清掉離職日，不管有沒有更晚的紀錄。
+
+新設計：
+
+- 0081 尚未套用正式 D1，直接改寫同檔名。`hr_status_changes` 不再被修改，只保存狀態。新增 `hr_assignment_changes`，`field` 限四個任用欄位，一欄一筆，含 `previous_value`、`next_value`、`reason`、`handled_by`、`created_at`，索引 `(employee_id, field, effective_date, id)`；僱用型態與排班方式有值檢查。
+- `hr_employee_current` view 把五欄各自投影（狀態來自 `hr_status_changes`，另四欄來自新表；沒有紀錄時用建檔基準：狀態為最早一筆紀錄的 `previous_status`，其餘為主檔欄位），門市與職稱轉回 INTEGER。因此未來生效的狀態異動到日也對所有讀取者生效，不只 hr-service。
+- `statusChange` 接受任意子集的五欄；每個與「生效日當天該欄位值」不同的欄位各寫一筆（狀態寫 `hr_status_changes`，`previous_status` 為生效日當天的狀態；其餘寫新表）；都沒變則拒絕。每筆各一則稽核；樂觀鎖與條件式寫入維持同一 `db.batch`。
+- 僱用型態／排班方式相容性在生效日及其後每個已排定紀錄日檢查，不相容整筆拒絕。
+- 快取修正：`hr_employees.status`、離職日與原因依投影結果寫入；較舊生效日的補登紀錄不覆蓋較新狀態，也不清除離職資料。排序規則本身（生效日 DESC、id DESC）未改。
+- 介面：同一入口、同一卡片位置。視窗五欄預設「不變更（目前：…）」，只送有選的欄位。卡片合併兩表，列生效日期（待生效標記）與異動日期、「欄位：舊值 → 新值」、原因；最近三筆，超過三筆有查看全部（完整視窗另列異動日期欄）。個人自助頁沿用狀態異動，不加任用異動。
+- 已知限制：未來生效的復職到日後，`hr_employees` 快取的離職日不會自動清除（讀取以 view 投影狀態為準，沒有排程）。
+
+## 修改檔案與理由（Build 2）
+
+| 檔案 | 行為與原因 |
+| --- | --- |
+| `migrations/0081_hr_personnel_assignments.sql` | 新表 `hr_assignment_changes` 與五欄獨立投影的 `hr_employee_current`；不再修改 `hr_status_changes`。 |
+| `worker/hr/hr-service.ts` | `statusChange` 重寫（一欄一筆、生效日當天比對、相容性前後檢查、快取依投影）；詳情回傳 `assignmentChanges` 與各筆 `recorded_date`；清單／總覽的狀態改讀 view；有任用異動紀錄即不可刪除，刪除時一併清除。 |
+| `src/runtime/modules/HrOperationalPage.tsx`、`change-log-labels.ts` | 視窗五欄「不變更」預設；卡片與完整視窗合併兩表並顯示兩個日期；稽核標籤。 |
+| `worker/backup/schema-columns.ts` | 新表欄位；`hr_status_changes` 欄位回復原狀。舊備份沒有新表會還原成空表。 |
+| `scripts/validate_schema.py` | 預期資料表加入新表。 |
+| `scripts/hr-personnel.test.mjs` | 重寫：兩個缺陷重現、一欄一筆、未來待生效與同日兩筆、相容性（含後日衝突）、主檔拒改、薪資留停不受影響、舊 revision 與並發、備份還原（含無新表的舊備份）、刪除保護。 |
+
+以下為 Build 1 的檔案說明，凡提到「狀態表加欄位」、「成對保存」者以上方 Build 2 為準。
+
+## 修改檔案與理由（Build 1）
 
 | 檔案 | 行為與原因 |
 | --- | --- |
 | `HrEmployeeSheet.tsx` | 人事狀態四種文字完整顯示；五個欄位僅 creating 提供編輯控制，其他個資編輯不變。 |
 | `HrOperationalPage.tsx`、`hr-operational.css` | 同一卡片三欄表格、最近三筆、多項異動分行、待生效標記及查看全部。共用 EntryFields／DateInput 新增四欄，僱用／排班選項相容。兩個 Dialog 標題統一，薪資多餘員工表頭移除。手機卡片不沿用一般表格 560px 最小寬，日期不折行。 |
-| `0081_hr_personnel_assignments.sql` | 五個 nullable 歷程欄位與 `hr_employee_current` view；只增欄／view，不重建員工或狀態表、不改原狀態排序。 |
 | `worker/hr/hr-service.ts` | 一般 profile API 拒絕變更任用四欄，UPDATE 也排除基準欄位；statusChange 記錄前後值、驗證有效設定與相容性、樂觀鎖及條件式稽核。詳情／清單／總覽用當前投影。 |
 | `hr-roster-service.ts`、`hr-attendance-service.ts`、`hr-attendance-correction.ts`、`hr-leave-service.ts`、`hr-payroll-service.ts`、`hr-self-service.ts` | 需要任用資料的查詢讀同一 view；調店後的排班人員排序／檢查設定仍可寫入原主檔。未改薪資公式、既有快照或授權邊界。 |
 | `worker/backup/portable-backup.ts`、`schema-columns.ts` | CURRENT_MIGRATION 0081，新欄位按名稱與排序納入備份；舊備份缺欄位使用 migration 的 null 預設，不臆造舊任用歷史。 |
@@ -32,6 +62,7 @@
 
 ## 驗證
 
+- Build 2：全 Node 測試 **1013 項全過**（含重寫後 12 項人事測試）；`npm run typecheck`、`npm run validate:source`、`npm run build`、`python3 scripts/test_d1_runner.py`、`npm run validate:d1:local`（0081 與完整 migration chain、20 項 Worker／D1 acceptance）通過，`git diff --check` 通過。以下為 Build 1 時的驗證紀錄。
 - 相關 Node 測試（人事主檔／介面／薪資／排班／出勤／假單／備份遷移）：**87 項通過**；新增人事測試亦包含真正的可攜備份與空白 DB 還原、外鍵核對及誤建空白員工刪除。
 - `npm run validate:source` 通過。`npm run build` 通過（browser／worker TypeScript 及 Vite）；既有 bundle 大小提示仍在。
 - 真正 HrOperationalPage 搭配完全合成 API 在本機瀏覽器驗證：
@@ -47,7 +78,7 @@
 ## Claude 審查重點與部署界線
 
 - [ ] 核對狀態的生效日／ID 排序未變，未排除建檔紀錄、未新增 GET 寫入或輪詢。
-- [ ] 核對任用欄位 baseline 與分欄生效投影、僱用／排班成對保存、只送改過欄位、舊只改狀態呼叫相容。
+- [ ] 核對任用欄位 baseline 與五欄各自獨立投影、一筆紀錄只改一個欄位、只送改過欄位、舊只改狀態呼叫相容。
 - [ ] 核對主檔唯讀的 server 保護及 revision／條件式歷程與 audit，調店後排班設定可操作。
 - [ ] 注意現有排班與薪資員工來源仍採當前任用資料；本輪不新增月中任用變更的分段計薪規則，也不改已確認／已付快照。
 - [ ] 核對 0081 與備份欄位一致、舊備份可還原；view 不作第二份存檔資料。
