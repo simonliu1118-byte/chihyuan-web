@@ -6,7 +6,7 @@
 ## V0.28.0 薪資流程重整
 
 - [x] 薪資四個子頁、薪資設定一覽（展開薪資紀錄與計薪／投保摘要）、每月薪資工作清單（狀態卡、計算全部、確認全部、詳情待補動作）、原因規則調整（使用者 2026-11-24）。
-- [ ] Claude 依 [handoff](docs/handoff/CYWEB-PAYROLL-FLOW-20261124.md) 審查；分支 `cyweb/v0.28.0-payroll-flow`，未開 PR、未合併、未部署，沒有 migration。
+- [x] Claude 依 [handoff](docs/handoff/CYWEB-PAYROLL-FLOW-20261124.md) 審查通過（2026-11-24），使用者授權合併部署；沒有 migration。
 - [ ] 後續可評估：出勤頁支援以日期定位（目前只定位員工與月份）、員工超過 100 人時出勤員工選單的載入。
 
 ## V0.27.0 殼層與介面整理

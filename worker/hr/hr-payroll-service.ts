@@ -204,7 +204,7 @@ export class HrPayrollService {
    json_extract(r.result_json,'$.issues') AS issues_json,json_extract(r.input_json,'$.paidDays') AS paid_days,json_extract(r.input_json,'$.reason') AS input_reason,
    (SELECT COUNT(*) FROM hr_payroll_runs v WHERE v.employee_id=e.id AND v.month=?1 AND v.status='void') AS void_count,
    EXISTS(SELECT 1 FROM hr_salary_records sr WHERE sr.employee_id=e.id AND sr.effective_date<=?2) AS has_salary
-   FROM hr_employees e LEFT JOIN hr_stores s ON s.id=e.store_id
+   FROM hr_employee_current e LEFT JOIN hr_stores s ON s.id=e.store_id
    LEFT JOIN hr_payroll_runs r ON r.employee_id=e.id AND r.month=?1 AND r.status!='void'
    WHERE (e.hire_date<=?2 AND (e.termination_date IS NULL OR e.termination_date>=?3)) OR r.id IS NOT NULL
    ORDER BY e.employee_no,e.id LIMIT 501`).bind(month,last,first).all<Row>()).results??[];
