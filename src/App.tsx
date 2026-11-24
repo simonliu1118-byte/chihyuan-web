@@ -494,9 +494,10 @@ function OperationalApp({
       onHome={()=>navigate("home")}
        onNavigate={item => navigate(item.key)}
        notifications={<NotificationBell onNavigate={navigate}/>}
-       appearance={compact ? <ThemeToggle iconOnly direct /> : <ThemeSwitch />}
+       appearance={compact ? undefined : <ThemeSwitch />}
       account={<AccountMenu displayName={session.user.displayName}
         role={session.user.workspaceRole} roleLabel={accountPermissionLabel(session.user.workspaceRole)} compact={compact}
+        appearance={compact ? <ThemeToggle iconOnly direct /> : undefined}
         signingOut={signingOut} onAccount={() => navigate("account")} onTodos={()=>navigate("my-todos")} onLogout={() => void logout()} />}
     >
       {moduleAccessError && route === "account" ? <div className="cy-notice cy-notice-warning"><div className="cy-notice-title">模組權限狀態</div><div className="cy-notice-body">{moduleAccessError}</div></div> : null}

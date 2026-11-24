@@ -24,7 +24,7 @@ export function HrAttendanceCorrections(){
   
   {!editing&&error?<p role="alert" className="cy-op-notice danger">{error}</p>:null}{notice?<p role="status">{notice}</p>:null}
   <div className="cy-op-table-wrap"><table className="cy-op-table cy-rt"><thead><tr><th>日期</th><th>員工</th><th>下班1</th><th>下班2</th><th>操作</th></tr></thead><tbody>{shown.map(r=><tr key={r.employeeId+'|'+r.work_date}><td data-label="日期">{r.work_date}</td><td data-label="員工" data-priority="title">{r.employee_no} {r.name}</td><td data-label="下班1">{r.out1||'—'}</td><td data-label="下班2">{r.out2||'—'}</td><td data-label="操作"><button type="button" className="cy-op-button" disabled={busy||editing!==null} onClick={()=>{setEditing(r);setOut1(r.out1??'');setOut2(r.out2??'');setReason('');setError('');}}>更正下班時間</button></td></tr>)}</tbody></table></div>
-  <Dialog open={editing!==null} title="更正誤打下班卡" size="medium" dismissible={!busy} onClose={()=>void close()}>
+  <Dialog open={editing!==null} title="更正誤打下班卡" size="small" dismissible={!busy} onClose={()=>void close()}>
    {error?<p role="alert" className="cy-op-notice danger">{error}</p>:null}<p>{editing?.employee_no} {editing?.name}　{editing?.work_date}；原值：{editing?.out1||'—'}／{editing?.out2||'—'}</p>
    <form className="cy-op-form" onKeyDown={enterAdvancesFields} onSubmit={e=>void save(e)}><EntryFields label="下班時間更正" columns={2} rows={[
     {label:'正確下班1',content:<TimeInput disabled={busy} className="cy-sheet-input" value={out1} onChange={setOut1}/>},

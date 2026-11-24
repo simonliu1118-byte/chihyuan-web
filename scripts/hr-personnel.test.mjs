@@ -213,6 +213,34 @@ test('the previous value shown comes from the preceding record, not from what wa
  const status=(await f.service.get(f.id)).statusChanges;
  assert.deepEqual(status.map(r=>[r.next_status,r.previous_status,r.stored_previous_status]),[['terminated','leave','active'],['leave','active','active'],['active','active','active']]);
 });
+test('employee list filters by current store and employment type, validates them, and still pages',async t=>{
+ const f=fixture(t);
+ const add=(no,name)=>{f.sql.prepare("INSERT INTO hr_employees(employee_no,name,status,hire_date,seniority_start_date,store_id,job_title_id,created_at,updated_at) VALUES(?,?,'active','2000-01-01','2000-01-01',1,1,?,?)").run(no,name,ctx.now,ctx.now);
+  const id=f.sql.prepare('SELECT id FROM hr_employees WHERE employee_no=?').get(no).id;
+  f.sql.prepare("INSERT INTO hr_status_changes(employee_id,effective_date,previous_status,next_status,reason,handled_by,created_at) VALUES(?,?,?,?,?,?,?)").run(id,'2000-01-01','active','active','建檔',1,ctx.now);return id};
+ const second=add('SYNTH-B','合成乙'),third=add('SYNTH-C','合成丙');
+ // f.id and the two new ones start in store 1 / 正職. Today's store of the second is f.store; the third moves tomorrow (still store 1 today).
+ await f.service.statusChange(second,{effectiveDate:day(-1),reason:'合成',storeId:f.store,employmentType:'casual',scheduleMode:'hours'},ctx);
+ await f.service.statusChange(third,{effectiveDate:day(1),reason:'合成',storeId:f.store},ctx);
+ const names=async(filters,q='SYNTH')=>(await f.service.list(q,undefined,0,40,filters)).items.map(x=>x.employee_no).sort();
+ assert.deepEqual(await names({storeId:f.store}),['SYNTH-B'],'a future store move does not count yet');
+ assert.deepEqual(await names({storeId:1}),['SYNTHETIC-PERSONNEL','SYNTH-C'].sort());
+ assert.deepEqual(await names({employmentType:'casual'}),['SYNTH-B']);
+ assert.deepEqual(await names({storeId:f.store,employmentType:'full'}),[],'filters combine');
+ assert.deepEqual(await names({storeId:f.store,employmentType:'casual'}),['SYNTH-B']);
+ const shown=(await f.service.list('SYNTH-B',undefined,0)).items[0];
+ assert.equal(shown.store_name,'合成調任門市');
+ assert.equal((await f.service.list('SYNTHETIC',undefined,0)).items[0].store_name!==undefined,true);
+ // Invalid values are rejected, never turned into SQL.
+ await assert.rejects(f.service.list('',undefined,0,40,{storeId:0}),/整數/);
+ await assert.rejects(f.service.list('',undefined,0,40,{employmentType:"full' OR '1'='1"}),/僱用型態錯誤/);
+ // Paging keeps the filter: two pages of one row each cover exactly the matching employees in id order.
+ const page1=await f.service.list('',undefined,0,1,{storeId:1});
+ assert.equal(page1.items.length,1);assert.ok(page1.nextCursor);
+ const page2=await f.service.list('',undefined,page1.nextCursor,1,{storeId:1});
+ assert.equal(page2.items.length,1);assert.equal(page2.nextCursor,null);
+ assert.deepEqual([page1.items[0].employee_no,page2.items[0].employee_no],['SYNTHETIC-PERSONNEL','SYNTH-C']);
+});
 test('stale forms and concurrent submissions are rejected without leaving records',async t=>{
  const f=fixture(t),before=await f.service.get(f.id);
  await f.change({effectiveDate:day(-1),storeId:f.store,expectedRevision:before.revision});

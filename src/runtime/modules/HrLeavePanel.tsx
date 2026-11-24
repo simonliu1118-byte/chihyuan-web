@@ -188,7 +188,7 @@ export function HrLeavePanel({initialEmployeeId}:{initialEmployeeId?:number|null
   <Dialog open={viewAttachmentIds!==null} title="請假證明" size="large" onClose={()=>setViewAttachmentIds(null)}>
    <div className="hr-leave-attachments">{viewAttachmentIds?.map((id,index)=><img src={"/api/business/hr/leave-attachments/"+id} alt={"請假證明 "+(index+1)} key={id} loading="lazy"/>)}</div>
   </Dialog>
-  {protectionEntry?<Dialog open size="medium" title="假單法定全勤保護" dismissible={!mutationBusy} onClose={()=>setProtectionEntry(null)}>
+  {protectionEntry?<Dialog open size="small" title="假單法定全勤保護" dismissible={!mutationBusy} onClose={()=>setProtectionEntry(null)}>
    {mutationError?<p role="alert" className="cy-op-notice danger">{mutationError}</p>:null}
    <p>僅依已核對的法定事由設定，不變更請假時數。儲存後請重新計算尚未確認的薪資。</p>
    <form className="cy-op-form" onKeyDown={enterAdvancesFields} onSubmit={e=>{e.preventDefault();void saveProtection();}}><EntryFields columns={2} label="全勤保護設定" rows={[

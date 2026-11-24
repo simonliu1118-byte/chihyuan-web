@@ -70,6 +70,7 @@ import {
   updateCustomerVisit,
 } from "../api/customer-runtime-client";
 import "./customer-operational.css";
+import { ResultRow } from "../../ui/data/ResultRow";
 
 type RelatedView = "visits" | "quotes" | "frequent";
 type RelatedDialog = { view: RelatedView; mode: "create" | "browse" };
@@ -886,13 +887,9 @@ export function CustomerOperationalPage({ role }: {role:"ADMIN"|"SUPER_ADMIN"|"U
               ? <ListRow key={customer.id} title={customer.shortName} subtitle={customer.customerNo ?? ""}
                   trailing={customer.status?<StatusPill status={lookups?.customerStatuses.find(row=>row.id===customer.status?.id)??customer.status}/>:null}
                   selected={selectedId===customer.id} onClick={()=>void selectCustomer(customer.id)}/>
-              : <button key={customer.id} type="button" className={`cy-customer-result-row ${selectedId===customer.id?"active":""}`}
-                  aria-current={selectedId===customer.id?"true":undefined} onClick={()=>void selectCustomer(customer.id)}>
-                  <span className="cy-customer-result-main"><strong title={[customer.customerNo,customer.shortName].filter(Boolean).join(" ")}>
-                    {customer.customerNo?<span className="cy-customer-result-no">{customer.customerNo}</span>:null}{customer.shortName}
-                  </strong></span>
-                  <span className="cy-customer-result-status">{customer.status?<StatusPill status={lookups?.customerStatuses.find(row=>row.id===customer.status?.id)??customer.status}/>:null}</span>
-                </button>)}
+              : <ResultRow key={customer.id} no={customer.customerNo ?? undefined} name={customer.shortName} selected={selectedId===customer.id}
+                  status={customer.status?<StatusPill status={lookups?.customerStatuses.find(row=>row.id===customer.status?.id)??customer.status}/>:null}
+                  onClick={()=>void selectCustomer(customer.id)}/>)}
             {loadingList && rows.length === 0 ? <Loading /> : null}
             {!loadingList && rows.length === 0 ? <div className="cy-op-empty">沒有符合條件的客戶。</div> : null}
             <LoadMoreRow hasMore={paging.hasMore} loading={paging.loading} onMore={() => void paging.more()} />

@@ -1,3 +1,4 @@
+import {MonthPicker} from "../../ui/forms/MonthPicker";
 import {DataViewToolbar} from '../../ui/data/DataViewToolbar';
 import {EntryFields} from '../../ui/forms/EntryFields';
 import {useLatestRequest} from '../../ui/foundation/useLatestRequest';
@@ -19,7 +20,6 @@ type OvertimeEdit={date:string;minutes:number;settlement:"pay"|"comp";revision:n
 type Exception={employeeId:number;employeeNo:string;name:string;date:string;anomalies:string[]};
 const ROOT="/api/business/hr",punchFields=["in1","out1","in2","out2"] as const,weekdays=["日","一","二","三","四","五","六"];
 const hrs=(v:number)=>(Math.round(v/30)/2).toFixed(1);
-const adjacent=(value:string,by:number)=>{const d=new Date(value+"-01T00:00:00Z");d.setUTCMonth(d.getUTCMonth()+by);return d.toISOString().slice(0,7)};
 export function HrAttendancePanel(){
  const [employees,setEmployees]=useState<Employee[]>([]),[selected,setSelected]=useState(0),[month,setMonth]=useState(taipeiToday().slice(0,7));
  const [data,setData]=useState<Report|null>(null),[changes,setChanges]=useState<Record<string,Change>>({}),[otChanges,setOtChanges]=useState<Record<string,OvertimeEdit>>({});
@@ -70,11 +70,11 @@ export function HrAttendancePanel(){
   setBusy(true);try{const result=await apiRequest<Exception[]>(ROOT+"/attendance/anomalies?storeId="+storeId+"&month="+month);if(ticket.current())setExceptions(result)}
   catch(e){if(ticket.current())setError(e instanceof Error?e.message:"無法取得異常清單")}finally{if(ticket.current())setBusy(false)}
  }
- async function switchMonth(n:number){if(!busy&&!saving.current&&await discard()){setData(null);setChanges({});setOtChanges({});setNotice("");setMonth(x=>adjacent(x,n))}}
+ async function switchMonth(target:string){if(!busy&&!saving.current&&target!==month&&await discard()){setData(null);setChanges({});setOtChanges({});setNotice("");setMonth(target)}}
  async function switchEmployee(id:number){if(!busy&&!saving.current&&await discard()){setData(null);setChanges({});setOtChanges({});setNotice("");setSelected(id)}}
  return <section className="cy-op-module cy-hr-phase2a" aria-label="出勤輸入">
   <DataViewToolbar searchValue={search} onSearchChange={setSearch} searchLabel="搜尋出勤日期或異常" searchPlaceholder="日期、排定或異常"
-   beforeSearch={<><button type="button" disabled={busy} className="cy-op-button" onClick={()=>void switchMonth(-1)}>上個月</button><strong>{month.replace('-', ' 年 ')} 月</strong><button type="button" disabled={busy} className="cy-op-button" onClick={()=>void switchMonth(1)}>下個月</button></>}
+   beforeSearch={<MonthPicker value={month} disabled={busy} onChange={target=>void switchMonth(target)}/>}
    filters={<select aria-label="出勤員工" disabled={busy} className="cy-op-input" value={selected} onChange={e=>void switchEmployee(Number(e.target.value))}>{employees.map(e=><option key={e.id} value={e.id}>{e.employee_no} {e.name}</option>)}</select>}
    resultSummary={`顯示 ${shownDays.length}／${data?.days.length??0} 天；合計為整月`}
    actions={<>

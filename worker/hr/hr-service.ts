@@ -94,11 +94,17 @@ function walkLedger<T extends {id:number;effective_date:string}>(records:T[],bas
 export class HrService {
   constructor(private db:D1Database) {}
   private employeeRow(id:number) { return this.db.prepare("SELECT e.* FROM hr_employee_current e WHERE e.id=?").bind(id).first<Record<string,unknown>>(); }
-  async list(q:string,statusFilter:string|undefined,cursor:number,limit=40) {
+  /** Filters match the current projection (today's effective status, store and employment type). */
+  async list(q:string,statusFilter:string|undefined,cursor:number,limit=40,filters:{storeId?:number;employmentType?:string}={}) {
     const terms=["e.id>?"],values:(string|number)[]=[cursor];
     if(q){terms.push("(e.employee_no LIKE ? OR e.name LIKE ?)");values.push("%"+q.slice(0,80)+"%","%"+q.slice(0,80)+"%");}
     if(statusFilter){status(statusFilter);terms.push("e.status=?");values.push(statusFilter);}
-    const found=await this.db.prepare("SELECT e.* FROM hr_employee_current e WHERE "+terms.join(" AND ")+" ORDER BY e.id LIMIT ?").bind(...values,Math.min(limit,100)+1).all<Record<string,unknown>>();
+    if(filters.storeId!==undefined){terms.push("e.store_id=?");values.push(integer(filters.storeId,"storeId",true));}
+    if(filters.employmentType!==undefined){
+      if(!["full","half","casual"].includes(filters.employmentType))throw new HrValidationError("employmentType","僱用型態錯誤");
+      terms.push("e.employment_type=?");values.push(filters.employmentType);
+    }
+    const found=await this.db.prepare("SELECT e.*,s.name AS store_name FROM hr_employee_current e LEFT JOIN hr_stores s ON s.id=e.store_id WHERE "+terms.join(" AND ")+" ORDER BY e.id LIMIT ?").bind(...values,Math.min(limit,100)+1).all<Record<string,unknown>>();
     const all=found.results??[];return {items:all.slice(0,limit).map(sanitized),nextCursor:all.length>limit?Number(all[limit-1].id):null};
   }
   async get(id:number) {

@@ -94,7 +94,10 @@ export async function handleHrRoute(request:Request,env:IdentityRuntimeEnv & HrF
       const cursor=Number(url.searchParams.get("cursor")??0);
       const limit=Number(url.searchParams.get("limit")??40);
       if(!Number.isSafeInteger(cursor)||cursor<0||!Number.isSafeInteger(limit)||limit<1||limit>100)return bad("分頁參數錯誤",requestId);
-      return success(await service.list(q,status,cursor,limit),requestId);
+      const storeText=url.searchParams.get("storeId"),typeText=url.searchParams.get("employmentType");
+      if(storeText!==null&&!/^[1-9]\d{0,9}$/.test(storeText))return bad("門市篩選錯誤",requestId);
+      if(typeText!==null&&!["full","half","casual"].includes(typeText))return bad("僱用型態篩選錯誤",requestId);
+      return success(await service.list(q,status,cursor,limit,{storeId:storeText===null?undefined:Number(storeText),employmentType:typeText??undefined}),requestId);
     }
     if(request.method==="POST")return success(await service.create(await withMember(await body()),ctx),requestId);
   }

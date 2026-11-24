@@ -19,6 +19,7 @@ import { ListRow } from "../../ui/mobile/ListRow";
 import { ActionBar } from "../../ui/mobile/ActionBar";
 import { OverflowMenu } from "../../ui/mobile/OverflowMenu";
 import { DataViewToolbar } from "../../ui/data/DataViewToolbar";
+import { OutlineTag, ResultRow } from "../../ui/data/ResultRow";
 import { Dialog } from "../../ui/overlays/Dialog";
 import { useConfirmation } from "../../ui/overlays/useConfirmation";
 import { StatusChip } from "../../ui/primitives/StatusChip";
@@ -41,7 +42,7 @@ const statusTone = (status: HrStatus) => status === "active" ? "success" as cons
   : status === "probation" ? "info" as const : status === "leave" ? "warning" as const : "neutral" as const;
 
 // Rows come back from the HR API as stored (snake_case); only the fields this page reads are typed.
-interface EmployeeRow { id: number; employee_no: string; name: string; status: HrStatus }
+interface EmployeeRow { id: number; employee_no: string; name: string; status: HrStatus; store_name?: string | null }
 interface ContactRow { name: string; relationship: string | null; phone: string }
 interface EducationRow { school: string; department: string | null; start_month: string | null; end_month: string | null }
 interface WorkRow { company: string; job_title: string | null; start_month: string | null; end_month: string | null; salary: string | null; leave_reason: string | null }
@@ -133,10 +134,10 @@ function draftFrom(detail: EmployeeDetail): Draft {
 export function HrOperationalPage() {
   const [tab,setTab]=useState<"people"|"roster"|"attendance"|"leave"|"salary">("people");
  const [initialLeaveEmployeeId,setInitialLeaveEmployeeId]=useState<number|null>(null);
-  const [stores,setStores]=useState<{id:number;name:string}[]>([]);
+  const [stores,setStores]=useState<{id:number;name:string;is_active?:number}[]>([]);
   const [jobTitles,setJobTitles]=useState<{id:number;name:string}[]>([]);
   useEffect(()=>{void Promise.all([
-    apiRequest<{id:number;name:string}[]>(ROOT+"/settings/stores"),
+    apiRequest<{id:number;name:string;is_active?:number}[]>(ROOT+"/settings/stores"),
     apiRequest<{id:number;name:string}[]>(ROOT+"/settings/job-titles")
   ]).then(([a,b])=>{setStores(a);setJobTitles(b)}).catch(()=>{});},[]);
   const pane = useMasterDetailPane();
@@ -148,6 +149,7 @@ export function HrOperationalPage() {
   const [loadingList, setLoadingList] = useState(true);
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
+  const [storeFilter, setStoreFilter] = useState(""), [typeFilter, setTypeFilter] = useState("");
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [detail, setDetail] = useState<EmployeeDetail | null>(null);
   const [leave, setLeave] = useState<AnnualLeavePeriod[]>([]);
@@ -179,7 +181,7 @@ export function HrOperationalPage() {
     title: "放棄尚未儲存的修改", description, confirmLabel: "放棄修改", cancelLabel: "繼續編輯", confirmTone: "danger",
   }))).allowed;
 
-  const listRequest=useLatestRequest(query+'|'+statusFilter),detailRequest=useLatestRequest(selectedId),revealRequest=useLatestRequest(selectedId+"|"+tab),actionRequest=useLatestRequest("hr-action");
+  const listRequest=useLatestRequest(query+'|'+statusFilter+'|'+storeFilter+'|'+typeFilter),detailRequest=useLatestRequest(selectedId),revealRequest=useLatestRequest(selectedId+"|"+tab),actionRequest=useLatestRequest("hr-action");
   const navigation=useNavigationGuard();
   async function switchTab(next:typeof tab){
     if(next===tab)return;
@@ -191,6 +193,8 @@ export function HrOperationalPage() {
     const params = new URLSearchParams({ limit: "40" });
     if (query.trim()) params.set("q", query.trim());
     if (statusFilter) params.set("status", statusFilter);
+    if (storeFilter) params.set("storeId", storeFilter);
+    if (typeFilter) params.set("employmentType", typeFilter);
     if (append && nextCursor) params.set("cursor", String(nextCursor));
     setLoadingList(true);
     try {
@@ -218,11 +222,29 @@ export function HrOperationalPage() {
   useEffect(() => {
     const timer = window.setTimeout(() => void loadList(), 200);
     return () => window.clearTimeout(timer);
-  }, [query, statusFilter]);
+  }, [query, statusFilter, storeFilter, typeFilter]);
   useEffect(() => { if (selectedId) void loadDetail(selectedId); }, [selectedId]);
   useEffect(() => {
     void apiRequest<MemberOption[]>(`${ROOT}/members`).then(setMembers).catch(error => reportError(errorText(error)));
   }, []);
+
+  /** 人事狀態、門市、僱用型態: all three are matched against today's effective values on the server. */
+  function filterControls(){
+    return <>
+      <select className="cy-op-input" aria-label="人事狀態" value={statusFilter} onChange={event=>setStatusFilter(event.target.value)}>
+        <option value="">全部狀態</option>
+        {(Object.keys(statusLabels) as HrStatus[]).map(code=><option key={code} value={code}>{statusLabels[code]}</option>)}
+      </select>
+      <select className="cy-op-input" aria-label="門市" value={storeFilter} onChange={event=>setStoreFilter(event.target.value)}>
+        <option value="">全部門市</option>
+        {stores.filter(x=>x.is_active!==0).map(x=><option key={x.id} value={String(x.id)}>{x.name}</option>)}
+      </select>
+      <select className="cy-op-input" aria-label="僱用型態" value={typeFilter} onChange={event=>setTypeFilter(event.target.value)}>
+        <option value="">全部型態</option>
+        {(["full","half","casual"] as const).map(code=><option key={code} value={code}>{TYPE_LABELS[code]}</option>)}
+      </select>
+    </>;
+  }
 
   async function select(id: number) {
     if (id === selectedId && !editing) { pane.open(); return; }
@@ -467,11 +489,8 @@ export function HrOperationalPage() {
       <section className="cy-op-panel cy-md-list" aria-label="人事清單">
         {compact?<DataViewToolbar searchValue={query} onSearchChange={setQuery} searchLabel="搜尋員工"
           searchPlaceholder="搜尋員工編號、姓名"
-          filters={<select className="cy-op-input" aria-label="人事狀態" value={statusFilter} onChange={event=>setStatusFilter(event.target.value)}>
-            <option value="">全部狀態</option>
-            {(Object.keys(statusLabels) as HrStatus[]).map(code=><option key={code} value={code}>{statusLabels[code]}</option>)}
-          </select>}
-          activeFilterCount={statusFilter?1:0}
+          filters={filterControls()}
+          activeFilterCount={[statusFilter,storeFilter,typeFilter].filter(Boolean).length}
           actions={<button type="button" className="cy-op-button primary" disabled={busy} onClick={()=>void startCreate()}>＋ 新增員工</button>}
           resultSummary={loadingList?"載入中":nextCursor?`已載入 ${rows.length} 筆，還有更多`:`共 ${rows.length} 筆`}/>
         :        <div className="cy-md-toolbar">
@@ -479,23 +498,16 @@ export function HrOperationalPage() {
             <button type="button" className="cy-op-button primary" disabled={busy} onClick={() => void startCreate()}>＋ 新增員工</button>
             <input className="cy-op-input" type="search" aria-label="搜尋員工" placeholder="搜尋員工編號、姓名" value={query} onChange={event => setQuery(event.target.value)} />
           </div>
-          <div className="cy-md-toolbar-row">
-            <select className="cy-op-input" aria-label="人事狀態" value={statusFilter} onChange={event => setStatusFilter(event.target.value)}>
-              <option value="">全部狀態</option>
-              {(Object.keys(statusLabels) as HrStatus[]).map(code => <option key={code} value={code}>{statusLabels[code]}</option>)}
-            </select>
-          </div>
+          <div className="cy-md-toolbar-row cy-hr-filter-row">{filterControls()}</div>
           <div className="cy-md-count">{loadingList ? <Loading inline /> : nextCursor ? `已載入 ${rows.length} 筆，還有更多` : `共 ${rows.length} 筆`}</div>
         </div>}
         <div className="cy-op-list">
-          {rows.map(row=>compact?<ListRow key={row.id} title={row.name} subtitle={row.employee_no}
+          {rows.map(row=>compact?<ListRow key={row.id} title={<span className="cy-hr-row-title">{row.name}{row.store_name?<OutlineTag>{row.store_name}</OutlineTag>:null}</span>} subtitle={row.employee_no}
               trailing={<StatusChip tone={statusTone(row.status)}>{statusLabels[row.status]}</StatusChip>}
               selected={selectedId===row.id} onClick={()=>void select(row.id)}/>
-            :<button key={row.id} type="button" className={`cy-op-list-row cy-hr-row ${selectedId===row.id?"active":""}`}
-              aria-current={selectedId===row.id?"true":undefined} onClick={()=>void select(row.id)}>
-              <span className="cy-mono">{row.employee_no}</span><strong>{row.name}</strong>
-              <StatusChip tone={statusTone(row.status)}>{statusLabels[row.status]}</StatusChip>
-             </button>)}
+            :<ResultRow key={row.id} no={row.employee_no} name={row.name} tag={row.store_name?<OutlineTag>{row.store_name}</OutlineTag>:undefined}
+              status={<StatusChip tone={statusTone(row.status)}>{statusLabels[row.status]}</StatusChip>}
+              selected={selectedId===row.id} onClick={()=>void select(row.id)}/>)}
           {!loadingList && rows.length === 0 ? <div className="cy-op-empty">沒有符合條件的員工。</div> : null}
           {nextCursor ? <button type="button" className="cy-op-button soft" disabled={loadingList} onClick={() => void loadList(true)}>載入更多</button> : null}
         </div>
@@ -571,7 +583,7 @@ export function HrOperationalPage() {
     </Dialog> : null}
   </div>:tab==="roster"?<HrRosterPanel/>:tab==="attendance"?<HrAttendancePanel/>:tab==="leave"?<HrLeavePanel initialEmployeeId={initialLeaveEmployeeId}/>:<HrSalaryPanel refreshToken={salaryRefresh} onRaise={(id)=>void openAction("salary",id)}/>}
     {action&&actionEmployeeId!==null?<Dialog showCloseButton={false} open
-      size={action==="salary"?"large":"medium"} dismissible={!busy&&!actionLoading}
+      size={action==="salary"?"large":action==="exclusion"?"small":"medium"} dismissible={!busy&&!actionLoading}
       title={(action==="status"?"新增狀態異動":action==="salary"?"新增薪資異動":"新增年資不計期間")+(actionName?"｜"+actionName:"")}
       onClose={()=>{actionRequest.invalidate();setAction(null);setActionEmployeeId(null)}}>
       {actionLoading?<Loading/>:<form className="cy-op-form" onKeyDown={enterAdvancesFields} onSubmit={e=>void submitAction(e)}>

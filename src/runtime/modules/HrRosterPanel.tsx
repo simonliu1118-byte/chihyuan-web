@@ -1,3 +1,4 @@
+import {MonthPicker} from "../../ui/forms/MonthPicker";
 import {DataViewToolbar} from '../../ui/data/DataViewToolbar';
 import {EntryTable} from '../../ui/forms/EntryTable';
 import {Field} from '../../ui/forms/Field';
@@ -25,7 +26,6 @@ type Ro={leaveForms:{employee_id:number;work_date:string;whole_day:number;minute
  holidays:{date:string;name:string}[];days:Cell[];classification:Record<string,RosterResult>;staffing:Record<string,Record<string,number>>;actualHours:Record<string,Record<string,number>>;notes:string;rules:string;approvals:unknown[]};
 const ROOT="/api/business/hr",dayMs=86400000,weekdays=["日","一","二","三","四","五","六"];
 const monthDates=(m:string)=>{const [y,n]=m.split("-").map(Number);return Array.from({length:new Date(Date.UTC(y,n,0)).getUTCDate()},(_,i)=>m+"-"+String(i+1).padStart(2,"0"))};
-const monthOffset=(m:string,by:number)=>{const d=new Date(m+"-01T00:00:00Z");d.setUTCMonth(d.getUTCMonth()+by);return d.toISOString().slice(0,7)};
 export function HrRosterPanel() {
  const [stores,setStores]=useState<Store[]>([]),[storeId,setStoreId]=useState(0),[month,setMonth]=useState(taipeiToday().slice(0,7));
  const [data,setData]=useState<Ro|null>(null),[changes,setChanges]=useState<Record<string,Change>>({});
@@ -110,11 +110,11 @@ export function HrRosterPanel() {
    setChanges({});setNotice("已儲存 "+(json.data?.changedDays??0)+" 個排班格");await reload();
   }catch(e){setError(e instanceof Error?e.message:"儲存失敗")}finally{saving.current=false;setLoading(false)}
  }
- async function navigate(offset:number){if(!loading&&await discard()){setData(null);setMonth(m=>monthOffset(m,offset))}}
+ async function chooseMonth(target:string){if(!loading&&target!==month&&await discard()){setData(null);setMonth(target)}}
  const holidays=new Map(data?.holidays.map(x=>[x.date,x.name])??[]);
  return <section className="cy-op-module cy-hr-phase2a" aria-label="月排班表">
   <div className="no-print"><DataViewToolbar searchValue={search} onSearchChange={setSearch} searchLabel="搜尋排班員工" searchPlaceholder="員工編號、姓名或職稱"
-   beforeSearch={<><button type="button" className="cy-op-button" disabled={loading} onClick={()=>void navigate(-1)}>上個月</button><strong>{month.replace('-', ' 年 ')} 月</strong><button type="button" className="cy-op-button" disabled={loading} onClick={()=>void navigate(1)}>下個月</button></>}
+   beforeSearch={<MonthPicker value={month} disabled={loading} onChange={target=>void chooseMonth(target)}/>}
    filters={<select aria-label="排班門市" disabled={loading} className="cy-op-input" value={storeId} onChange={e=>{const next=Number(e.target.value);if(!loading)void discard().then(ok=>{if(ok){setData(null);setStoreId(next)}})}}>{stores.map(x=><option key={x.id} value={x.id}>{x.name}</option>)}</select>}
    resultSummary={`顯示 ${shownEmployees.length}／${data?.employees.length??0} 人；每日人力為全門市`}
    actions={<>
@@ -145,9 +145,9 @@ export function HrRosterPanel() {
    {pending.length?<div className="cy-op-panel no-print"><h3>主管核准</h3>{pending.map((x,i)=><p key={i}>{data.employees.find(e=>e.id===x.employeeId)?.name??x.employeeId}　{x.startDate}～{x.endDate}　{x.kind==="over_eight"?"兼職超過八小時":"連六"}。{x.suggestion}</p>)}
     <button type="button" className="cy-op-button primary" disabled={loading} onClick={()=>void submit(pending)}>核准並儲存</button></div>:null}
   </>:<p>正在讀取排班…</p>}
-  <Dialog open={cell!==null} title={emp?emp.name+"　"+cell?.date:"排班格"} size="large" onClose={()=>setCell(null)}>
+  <Dialog open={cell!==null} title={emp?emp.name+"　"+cell?.date:"排班格"} size="medium" onClose={()=>setCell(null)}>
    {cell&&emp&&data?<form onKeyDown={enterAdvancesFields} className="cy-op-form" onSubmit={e=>e.preventDefault()}>
-    <EntryFields columns={3} label="排班格編輯" rows={[
+    <EntryFields columns={2} label="排班格編輯" rows={[
      ...(staged.get(cell.employeeId+"|"+cell.date)?.kind==="leave"?[{label:"假單",content:<button type="button" className="cy-op-button primary" onClick={()=>{
         setLeaveInitialDate(cell.date);
         const existing=data.leaveForms.find(x=>x.employee_id===cell.employeeId&&x.work_date===cell.date&&x.whole_day===1);

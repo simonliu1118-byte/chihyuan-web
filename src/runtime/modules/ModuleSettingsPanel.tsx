@@ -1,5 +1,5 @@
 import { PlatformMarginSettings } from "./item/PlatformMarginSettings";
-import { Icons } from "../../ui/actions/icons";
+import { ModuleSettingsGear } from "../../ui/shell/ModuleSettingsGear";
 import {Field,CheckField,FormSection} from "../../ui/forms/Field";
 import { SegmentedControl } from "../../ui/primitives/SegmentedControl";
 import { Loading } from "../../ui/feedback/Loading";
@@ -200,9 +200,7 @@ export function ModuleSettingsButton({ role, label, only }: {
   if (role === "USER") return null;
   const wide = only.includes("scoring") || only.includes("item_margin");
   return <>
-    <button className="cy-op-button cy-module-settings-trigger" type="button" onClick={() => setOpen(true)}>
-      <span aria-hidden="true">{Icons.settings}</span> 設定
-    </button>
+    <ModuleSettingsGear moduleLabel={label} expanded={open} onClick={() => setOpen(true)} />
     {open ? <Dialog open title={label + "設定"} size={wide ? "large" : "medium"} className="cy-module-settings-dialog" onClose={() => void close()}>
       <ModuleSettingsPanel role={role} only={only} onDirtyChange={onDirtyChange} />
     </Dialog> : null}
