@@ -1,3 +1,4 @@
+import {MonthPicker} from "../../ui/forms/MonthPicker";
 import {useEffect,useState,type ReactNode} from "react";
 import {apiRequest} from "../../api/client";
 import type {AuthSession} from "../../auth/auth-client";
@@ -52,7 +53,6 @@ function duration(minutes:number):string{
  return [days?days+" 天":"",hours?hours+" 小時":"",mins?mins+" 分":""].filter(Boolean).join(" ");
 }
 const clock=(minutes:number)=>minutes?Math.floor(minutes/60)+"h"+(minutes%60?String(minutes%60).padStart(2,"0")+"m":""):"—";
-const shiftMonth=(m:string,delta:number)=>{const d=new Date(Date.UTC(+m.slice(0,4),+m.slice(5)-1+delta,1));return d.toISOString().slice(0,7)};
 const day=(value:string)=>value.slice(5).replace("-","/")+"（"+WEEK[new Date(value+"T00:00:00Z").getUTCDay()]+"）";
 function rows<T>(title:string,columns:RowColumn<T>[],data:readonly T[],key:(row:T,index:number)=>string|number){
  return <RecordRows title={title} editing={false} columns={columns} rows={data} rowKey={key} onInsert={noop} onRemove={noop}/>;
@@ -120,8 +120,7 @@ function LeaveTab({since}:{since:string}){
   </section>
   <section className="cy-op-panel">
    <div className="cy-my-profile-head"><h2>出勤</h2>
-    <span className="cy-my-profile-nav"><button type="button" className="cy-op-button" disabled={month<=since.slice(0,7)} onClick={()=>setMonth(shiftMonth(month,-1))}>上個月</button><strong>{month.replace("-"," 年 ")} 月</strong>
-     <button type="button" className="cy-op-button" disabled={month>=today.slice(0,7)} onClick={()=>setMonth(shiftMonth(month,1))}>下個月</button></span></div>
+    <span className="cy-my-profile-nav"><MonthPicker value={month} min={since.slice(0,7)} max={today.slice(0,7)} onChange={setMonth}/></span></div>
    {!attendance?<Loading/>:<>
     <RecordSheet label="本月出勤統計" editing={false} rows={[{columns:"repeat(5,minmax(0,1fr))",cells:[
      {label:"工時",view:clock(attendance.totals.workedMinutes)},{label:"加班",view:clock(attendance.totals.overtimeMinutes)},

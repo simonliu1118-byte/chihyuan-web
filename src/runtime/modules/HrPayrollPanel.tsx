@@ -1,3 +1,4 @@
+import {MonthPicker} from "../../ui/forms/MonthPicker";
 import {SegmentedControl} from '../../ui/primitives/SegmentedControl';
 import {HrBonusPanel} from './HrBonusPanel';
 import {HrPayrollCorrections} from './HrPayrollCorrections';
@@ -102,7 +103,7 @@ export function HrPayrollPanel(){
  async function review(e:FormEvent){e.preventDefault();await run(async()=>{await apiRequest(ROOT+'/payroll/reviews/'+employee,{method:'POST',json:{date:reviewDate,kind:reviewKind,reason,revision:reviews.find(r=>r.work_date===reviewDate)?.revision??0}});await loadReviews();setReviewDate('');setReason('');setNotice('已保存確認原因，請重新計算草稿');});}
  const shown=runs.filter(r=>(showVoided||r.status!=='void')&&(r.employee_no+' '+r.name).includes(search.trim()));
  return <section className="cy-op-module" aria-label="每月薪資">
-  <DataViewToolbar searchValue={search} onSearchChange={setSearch} searchLabel="搜尋薪資員工" searchPlaceholder="員工編號、姓名" resultSummary={`共 ${shown.length} 筆`} beforeSearch={<><button type="button" disabled={busy} className="cy-op-button" onClick={()=>void chooseMonth(shiftMonth(month,-1))}>上個月</button><strong>{month.replace('-',' 年 ')} 月</strong><button type="button" disabled={busy} className="cy-op-button" onClick={()=>void chooseMonth(shiftMonth(month,1))}>下個月</button></>}/>
+  <DataViewToolbar searchValue={search} onSearchChange={setSearch} searchLabel="搜尋薪資員工" searchPlaceholder="員工編號、姓名" resultSummary={`共 ${shown.length} 筆`} beforeSearch={<MonthPicker value={month} disabled={busy} onChange={target=>void chooseMonth(target)}/>}/>
   {error?<p role="alert" className="cy-op-notice danger">{error}</p>:null}{notice?<p role="status" className="cy-op-notice">{notice}</p>:null}
   
   <form className="cy-op-form" onKeyDown={enterAdvancesFields} onSubmit={e=>void calculate(e)}>
@@ -140,7 +141,6 @@ export function HrPayrollPanel(){
   {profileOpen&&employee?<ProfileEditor employeeId={employee} month={month} onSaved={()=>setNotice('已保存生效設定，請重新計算草稿')} onClose={()=>setProfileOpen(false)}/>:null}
  </section>;
 }
-const shiftMonth=(m:string,delta:number)=>{const d=new Date(Date.UTC(+m.slice(0,4),+m.slice(5)-1+delta,1));return d.toISOString().slice(0,7)};
 export function HrSalaryPanel(props:{onRaise:(id:number,name:string)=>void;refreshToken:number}){
  const [mode,setMode]=useState<'settings'|'monthly'|'bonus'>('settings'),navigation=useNavigationGuard();
  async function change(next:typeof mode){if(next!==mode&&await navigation.canLeave())setMode(next);}

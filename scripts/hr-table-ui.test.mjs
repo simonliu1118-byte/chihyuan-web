@@ -44,14 +44,14 @@ test('leave tables filter cancelled records while keeping the effective cancel t
 });
 
 const {HrLeaveTypeSettings}=await compiled('src/runtime/modules/HrLeaveTypeSettings.tsx',[plugin]);
-test('new company leave opens an inline table row and a failed save keeps its values',async()=>{
+test('new company leave opens an editor dialog and a failed save keeps its values',async()=>{
  const host=new Host();globalThis.window={addEventListener(){},removeEventListener(){}};let payload;
  globalThis.hrTransport=(url,options)=>{if(options?.method){payload=options.json;return Promise.reject(Error('合成儲存失敗'))}return Promise.resolve([])};
- try{host.render(HrLeaveTypeSettings);let tree=await host.settle(HrLeaveTypeSettings);walk(tree).find(n=>n.type==='button'&&text(n)==='＋新增公司假別').props.onClick();tree=host.render(HrLeaveTypeSettings);
- let field=walk(tree).find(n=>n.props.label==='名稱'&&n.props.presentation==='cell');assert.ok(field);field.props.children.props.onChange({target:{value:'合成公司假'}});
- field=walk(tree).find(n=>n.props.label==='代號'&&n.props.presentation==='cell');field.props.children.props.onChange({target:{value:'測'}});
- tree=host.render(HrLeaveTypeSettings);walk(tree).find(n=>n.type==='form').props.onSubmit({preventDefault(){}});tree=await host.settle(HrLeaveTypeSettings);
- assert.equal(payload.name,'合成公司假');assert.equal(payload.code,'測');assert.ok(text(tree).includes('合成儲存失敗'));
- field=walk(tree).find(n=>n.props.label==='名稱'&&n.props.presentation==='cell');assert.equal(field.props.children.props.value,'合成公司假');
+ try{host.render(HrLeaveTypeSettings);let tree=await host.settle(HrLeaveTypeSettings);walk(tree).find(n=>n.props.actionLabel==='＋ 新增公司假別').props.onAction();tree=host.render(HrLeaveTypeSettings);
+ let field=walk(tree).find(n=>n.props.label==='名稱'&&n.props.size==='m');assert.ok(field);field.props.children.props.onChange({target:{value:'合成公司假'}});
+ field=walk(tree).find(n=>n.props.label==='代號'&&n.props.size==='s');field.props.children.props.onChange({target:{value:'測'}});
+ tree=host.render(HrLeaveTypeSettings);walk(tree).find(n=>n.props.onSubmit&&n.props.title==='新增公司假別').props.onSubmit({preventDefault(){}});tree=await host.settle(HrLeaveTypeSettings);
+ assert.equal(payload.name,'合成公司假');assert.equal(payload.code,'測');assert.equal(walk(tree).find(n=>n.props.onSubmit&&n.props.title==='新增公司假別').props.error,'合成儲存失敗');
+ field=walk(tree).find(n=>n.props.label==='名稱'&&n.props.size==='m');assert.equal(field.props.children.props.value,'合成公司假');
  }finally{host.close();delete globalThis.window;delete globalThis.hrHost;delete globalThis.hrTransport}
 });

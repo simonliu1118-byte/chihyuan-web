@@ -523,7 +523,7 @@ export function WorkLogOperationalPage() {
   return (
     <div className="cy-worklog-op">
       {confirmationDialog}
-      <Dialog showCloseButton={false} open={reviewDraft !== null} title="審核工作日誌" size="large" dismissible={!busy}
+      <Dialog showCloseButton={false} open={reviewDraft !== null} title="審核工作日誌" size="medium" dismissible={!busy}
         onClose={() => void closeReview()} footer={<div className="cy-dialog-action-row">
           <button type="button" className="cy-op-button" disabled={busy} onClick={() => void closeReview()}>取消</button>
           <button type="submit" form={reviewFormId} className="cy-op-button primary" disabled={busy} aria-busy={busy || undefined}>完成審核</button>

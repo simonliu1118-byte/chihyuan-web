@@ -1,0 +1,24 @@
+/* ‹ 2026 年 11 月 ▾ › — borderless arrows, popover of months */
+.cy-month-picker { position: relative; display: inline-flex; align-items: center; gap: 2px; flex: 0 0 auto; }
+.cy-month-arrow, .cy-month-label { border: 0; background: transparent; color: var(--cy-text); cursor: pointer; }
+.cy-month-arrow { width: 30px; height: 30px; display: grid; place-items: center; padding: 0; border-radius: var(--cy-radius-sm); color: var(--cy-text-muted); }
+.cy-month-arrow:hover:not(:disabled), .cy-month-label:hover:not(:disabled) { background: var(--cy-surface-muted); color: var(--cy-text); }
+.cy-month-arrow:disabled, .cy-month-label:disabled { opacity: .4; cursor: not-allowed; }
+.cy-month-arrow:focus-visible, .cy-month-label:focus-visible, .cy-month-cell:focus-visible { outline: 2px solid var(--cy-accent); outline-offset: 1px; }
+.cy-month-label { display: inline-flex; align-items: center; gap: 6px; min-height: 30px; padding: 0 8px; border-radius: var(--cy-radius-sm); font-size: var(--cy-fs-lg); font-weight: 700; white-space: nowrap; }
+.cy-month-caret { color: var(--cy-text-muted); }
+.cy-month-popover {
+  position: absolute; top: calc(100% + 6px); left: 0; z-index: 40; width: 248px; padding: 10px;
+  border: 1px solid var(--cy-border); border-radius: var(--cy-radius-lg); background: var(--cy-surface); box-shadow: var(--cy-shadow-lg);
+}
+.cy-month-year { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.cy-month-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.cy-month-cell {
+  min-height: 40px; border: 1px solid transparent; border-radius: var(--cy-radius-sm); background: transparent;
+  color: var(--cy-text); font-size: var(--cy-fs-md); cursor: pointer;
+}
+.cy-month-cell:hover:not(:disabled):not([aria-pressed="true"]) { background: var(--cy-surface-muted); }
+.cy-month-cell[data-current] { border-color: var(--cy-accent); color: var(--cy-accent); }
+.cy-month-cell[aria-pressed="true"] { background: var(--cy-accent); border-color: var(--cy-accent); color: var(--cy-on-accent); font-weight: 600; }
+.cy-month-cell:disabled { opacity: .35; cursor: not-allowed; }
+@media (max-width: 820px) { .cy-month-popover { width: min(280px, calc(100vw - 32px)); } }

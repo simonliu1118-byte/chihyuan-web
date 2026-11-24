@@ -1,5 +1,5 @@
 import { useEffect, useState, type PropsWithChildren, type ReactNode } from "react";
-import { Drawer } from "../overlays/Dialog";
+import { BottomSheet } from "../overlays/Dialog";
 import { useCompactLayout } from "../foundation/useCompactLayout";
 import type { NavigationGroup, NavigationItem } from "../foundation/navigation";
 
@@ -7,12 +7,13 @@ export interface AppShellProps {
   appName: string;
   pageTitle: string;
   pageDescription?: string;
+  /** Page-level tools. Desktop: right after the title. Phone: in the top-bar right cluster, before the bell. */
   pageTools?: ReactNode;
   systemNotice?: ReactNode;
   subtitle?: string;
   navigation: readonly NavigationGroup[];
   activeNavigationKey?: string;
-  /** Top-right controls, left to right: appearance switch, then the person's menu. */
+  /** Top-right controls, left to right: appearance switch (desktop only; phones keep it in the person's menu), then the person's menu. */
   appearance?: ReactNode;
   account?: ReactNode;
   notifications?: ReactNode;
@@ -43,9 +44,9 @@ const navIconPaths: Record<string, string[]> = {
   programs: ["M3 3h7v7H3z","M14 3h7v7h-7z","M3 14h7v7h-7z","M14 14h7v7h-7z"],
   external: ["M14 3h7v7","M10 14 21 3","M21 13v7a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h7"]
 };
-function NavIcon({ name }: { name: string }) {
+function NavIcon({ name, size = 16, className = "cy-shell-nav-icon" }: { name: string; size?: number; className?: string }) {
   const paths = navIconPaths[name] ?? (name.startsWith("web-") ? navIconPaths.external : navIconPaths.programs);
-  return <svg className="cy-shell-nav-icon" viewBox="0 0 24 24" width="16" height="16"
+  return <svg className={className} viewBox="0 0 24 24" width={size} height={size}
     fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"
     strokeLinejoin="round" aria-hidden="true">{paths.map((d, i) => <path key={i} d={d} />)}</svg>;
 }
@@ -66,54 +67,30 @@ export function AppShell({
   onNavigate,
   children,
 }: PropsWithChildren<AppShellProps>) {
-  const [navigationOpen, setNavigationOpen] = useState(false);
+  const [sheetOpen, setSheetOpen] = useState(false);
   const compact = useCompactLayout();
 
-  useEffect(() => { setNavigationOpen(false); }, [pageTitle, compact]);
-  // Phone: swipe right from the left edge opens the menu; swipe left closes it (user 2026-11-10).
-  useEffect(() => {
-    if (!compact) return;
-    let start: { x: number; y: number; opening: boolean } | null = null;
-    const down = (e: TouchEvent) => {
-      const t = e.touches[0];
-      if (e.touches.length !== 1 || !t) { start = null; return; }
-      const navOpen = Boolean(document.querySelector("dialog.cy-shell-navigation-drawer[open]"));
-      if (navOpen) start = { x: t.clientX, y: t.clientY, opening: false };
-      else if (t.clientX <= 24 && !document.querySelector("dialog[open]")) start = { x: t.clientX, y: t.clientY, opening: true };
-      else start = null;
-    };
-    const move = (e: TouchEvent) => {
-      const t = e.touches[0];
-      if (!start || !t) return;
-      const dx = t.clientX - start.x, dy = Math.abs(t.clientY - start.y);
-      if (dy > 40 && dy > Math.abs(dx)) { start = null; return; }
-      if (start.opening && dx > 50) { start = null; setNavigationOpen(true); }
-      else if (!start.opening && dx < -60) { start = null; setNavigationOpen(false); }
-    };
-    const end = () => { start = null; };
-    document.addEventListener("touchstart", down, { passive: true });
-    document.addEventListener("touchmove", move, { passive: true });
-    document.addEventListener("touchend", end, { passive: true });
-    document.addEventListener("touchcancel", end, { passive: true });
-    return () => {
-      document.removeEventListener("touchstart", down);
-      document.removeEventListener("touchmove", move);
-      document.removeEventListener("touchend", end);
-      document.removeEventListener("touchcancel", end);
-    };
-  }, [compact]);
-  // The same list is mounted once: sidebar on desktop, modal drawer on compact screens.
+  useEffect(() => { setSheetOpen(false); }, [pageTitle, compact]);
+
+  // One click rule for every module link (sidebar row or phone sheet tile).
+  function followItem(event: React.MouseEvent<HTMLAnchorElement>, item: NavigationItem) {
+    if (item.disabled) { event.preventDefault(); return; }
+    if (item.external) { setSheetOpen(false); return; }
+    if (!onNavigate || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    event.preventDefault();
+    if (item.key === activeNavigationKey) setSheetOpen(false);
+    onNavigate(item);
+  }
+  const groups = navigation.filter(group => group.items.length > 0);
+  const externalMark = <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d="M14 3h7v7M10 14 21 3M21 13v7H3V3h8" /></svg>;
   const navigationContent = <>
     <div className="cy-shell-brand">
-      <button type="button" className="cy-shell-brand-home" title="返回首頁" onClick={()=>{setNavigationOpen(false);onHome?.()}}><span className="cy-shell-brand-mark" aria-hidden="true">CY</span>
+      <button type="button" className="cy-shell-brand-home" title="返回首頁" onClick={() => onHome?.()}><span className="cy-shell-brand-mark" aria-hidden="true">CY</span>
         <span><span className="cy-shell-brand-name">{appName}</span>{subtitle ? <span className="cy-shell-brand-subtitle">{subtitle}</span> : null}</span>
       </button>
-      {compact ? <button type="button" className="cy-shell-nav-close" aria-label="關閉模組選單" onClick={() => setNavigationOpen(false)}>
-        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12" /></svg>
-      </button> : null}
     </div>
     <nav className="cy-shell-nav-groups" aria-label="模組導覽">
-      {navigation.filter(group => group.items.length > 0).map((group, index) => <div key={group.key}
+      {groups.map((group, index) => <div key={group.key}
         className={["cy-shell-nav-group", group.dividerBefore && index > 0 ? "has-divider" : ""].filter(Boolean).join(" ")}>
         {group.label ? <div className="cy-shell-nav-label">{group.label}</div> : null}
         <div className="cy-shell-nav-items">{group.items.map(item => <a key={item.key}
@@ -122,14 +99,7 @@ export function AppShell({
           aria-label={item.external ? item.label+"（另開新分頁）" : undefined}
           aria-current={item.key === activeNavigationKey ? "page" : undefined}
           aria-disabled={item.disabled || undefined} data-disabled={item.disabled || undefined} title={item.description}
-          onClick={event => {
-            if (item.disabled) { event.preventDefault(); return; }
-            if (item.external) { setNavigationOpen(false); return; }
-            if (!onNavigate || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
-            event.preventDefault();
-            if (item.key === activeNavigationKey) setNavigationOpen(false);
-            onNavigate(item);
-          }}>{item.iconSrc ? <img className="cy-shell-nav-icon cy-shell-nav-app-icon" src={item.iconSrc} width="18" height="18" alt="" /> : <NavIcon name={item.key} />}<span>{item.label}</span>{item.external ? <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d="M14 3h7v7M10 14 21 3M21 13v7H3V3h8" /></svg> : null}</a>)}</div>
+          onClick={event => followItem(event, item)}>{item.iconSrc ? <img className="cy-shell-nav-icon cy-shell-nav-app-icon" src={item.iconSrc} width="18" height="18" alt="" /> : <NavIcon name={item.key} />}<span>{item.label}</span>{item.external ? externalMark : null}</a>)}</div>
       </div>)}
     </nav>
   </>;
@@ -147,15 +117,19 @@ export function AppShell({
 
       <div className="cy-shell-workspace">
         <header className="cy-shell-topbar">
-          {compact ? <button type="button" className="cy-shell-menu-toggle" aria-label="開啟模組選單" aria-expanded={navigationOpen} onClick={() => setNavigationOpen(true)}>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16" /></svg>
-          </button> : null}
+          {compact ? <button type="button" className="cy-shell-mark" aria-label="返回首頁" title="返回首頁" onClick={() => onHome?.()}>CY</button> : null}
           <div className="cy-shell-topbar-heading">
-            <h1 className="cy-shell-topbar-title">{pageTitle}</h1>
+            {compact
+              ? <h1 className="cy-shell-topbar-title"><button type="button" className="cy-shell-title-button" aria-haspopup="dialog" aria-expanded={sheetOpen}
+                  aria-label={`${pageTitle}，切換模組`} onClick={() => setSheetOpen(true)}>
+                  <span>{pageTitle}</span>
+                  <svg className="cy-shell-title-caret" viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M5 9h14l-7 8z" /></svg>
+                </button></h1>
+              : <h1 className="cy-shell-topbar-title">{pageTitle}</h1>}
+            {!compact && pageTools ? <div className="cy-shell-page-tools">{pageTools}</div> : null}
             {!compact && pageDescription ? <p className="cy-shell-topbar-description">{pageDescription}</p> : null}
           </div>
-          {pageTools ? <div className="cy-shell-page-tools">{pageTools}</div> : null}
-          <div className="cy-shell-topbar-end">{notifications}{appearance}{account}</div>
+          <div className="cy-shell-topbar-end">{compact ? pageTools : null}{notifications}{appearance}{account}</div>
         </header>
 
         {systemNotice ? <div className="cy-shell-global-notice">{systemNotice}</div> : null}
@@ -163,7 +137,22 @@ export function AppShell({
           {children}
         </main>
       </div>
-      {compact ? <Drawer open={navigationOpen} title="模組選單" onClose={() => setNavigationOpen(false)} className="cy-shell-navigation-drawer" hideHeader showCloseButton={false} closeOnBackdrop>{navigationContent}</Drawer> : null}
+      {compact ? <BottomSheet open={sheetOpen} title="切換模組" onClose={() => setSheetOpen(false)} className="cy-shell-module-sheet" closeOnBackdrop>
+        <nav aria-label="模組導覽" className="cy-shell-sheet-groups">
+          {groups.map(group => <section key={group.key} className="cy-shell-sheet-group">
+            {group.label ? <h3 className="cy-shell-sheet-label">{group.label}</h3> : null}
+            <div className="cy-shell-sheet-grid">{group.items.map(item => <a key={item.key}
+              className={["cy-shell-sheet-item", item.key === activeNavigationKey ? "is-active" : ""].filter(Boolean).join(" ")}
+              href={item.href} target={item.external ? "_blank" : undefined} rel={item.external ? "noopener noreferrer" : undefined}
+              aria-label={item.external ? item.label+"（另開新分頁）" : undefined}
+              aria-current={item.key === activeNavigationKey ? "page" : undefined}
+              aria-disabled={item.disabled || undefined} data-disabled={item.disabled || undefined}
+              onClick={event => followItem(event, item)}>
+              {item.iconSrc ? <img className="cy-shell-sheet-icon cy-shell-nav-app-icon" src={item.iconSrc} width="28" height="28" alt="" /> : <NavIcon name={item.key} size={26} className="cy-shell-sheet-icon" />}
+              <span>{item.label}</span></a>)}</div>
+          </section>)}
+        </nav>
+      </BottomSheet> : null}
     </div>
   );
 }

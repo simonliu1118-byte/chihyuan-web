@@ -1,20 +1,6 @@
 /* Customer workspace. Layout, buttons, inputs and tabs come from app.css / forms.css. */
 .cy-customer-op { min-width: 0; }
 
-/* List rows: name + ERP no · region, status on the right. */
-.cy-customer-result-row {
-  appearance: none; width: 100%;
-  display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 8px;
-  min-height: 36px; padding: 6px 12px; border: 0; border-radius: 0;
-  background: transparent; color: var(--cy-text); text-align: left;
-}
-.cy-customer-result-row:hover { background: var(--cy-surface-muted); }
-.cy-customer-result-row.active { background: var(--cy-accent-soft); box-shadow: inset 3px 0 var(--cy-accent); }
-.cy-customer-result-row + .cy-customer-result-row { border-top: 1px solid var(--cy-border); }
-.cy-customer-result-main { min-width: 0; display: grid; gap: 1px; }
-.cy-customer-result-main strong { font-size: var(--cy-fs-sm); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.cy-customer-result-main span { color: var(--cy-text-muted); font-size: var(--cy-fs-sm); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-
 /* Important notes are surfaced first so nobody misses payment or delivery conditions. */
 .cy-customer-alert { margin: 12px 0 0; padding: 10px 12px; border-radius: var(--cy-radius-md); background: var(--cy-warning-soft); }
 .cy-customer-alert strong { display: block; margin-bottom: 2px; color: var(--cy-warning); font-size: var(--cy-fs-sm); }
@@ -191,7 +177,6 @@
   .cy-customer-workspace .cy-customer-cards > :nth-child(2) { grid-row: auto; }
 }
 
-.cy-customer-result-status { font-size: var(--cy-fs-sm); color: var(--cy-text-muted); }
 
 /* Related-records drawer, about a third of the earlier width (user 2026-11-03): the toolbar wraps and
    the quote and visit forms stack. */

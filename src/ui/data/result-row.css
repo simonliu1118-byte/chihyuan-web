@@ -1,0 +1,20 @@
+/* List rows: 編號 + 名稱 (+ tag) on one line, status on the right. Same look for customers and employees. */
+.cy-result-row {
+  appearance: none; width: 100%;
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 8px;
+  min-height: 36px; padding: 6px 12px; border: 0; border-radius: 0;
+  background: transparent; color: var(--cy-text); text-align: left; cursor: pointer;
+}
+.cy-result-row:hover { background: var(--cy-surface-muted); }
+.cy-result-row.active { background: var(--cy-accent-soft); box-shadow: inset 3px 0 var(--cy-accent); }
+.cy-result-row:focus-visible { outline: 2px solid var(--cy-accent); outline-offset: -2px; }
+.cy-result-row + .cy-result-row { border-top: 1px solid var(--cy-border); }
+.cy-result-main { min-width: 0; display: flex; align-items: center; gap: 8px; }
+.cy-result-main strong { min-width: 0; flex: 0 1 auto; font-size: var(--cy-fs-sm); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cy-result-no { margin-right: 10px; font-weight: 400; color: var(--cy-text); }
+.cy-result-status { font-size: var(--cy-fs-sm); color: var(--cy-text-muted); }
+.cy-outline-tag {
+  flex: 0 5 auto; min-width: 0; max-width: 9em; padding: 0 6px; border: 1px solid var(--cy-border-strong); border-radius: 4px;
+  background: transparent; color: var(--cy-text-muted); font-size: var(--cy-fs-xs); line-height: 18px; font-weight: 400;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}

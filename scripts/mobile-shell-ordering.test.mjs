@@ -16,8 +16,8 @@ test("mobile sun/moon theme uses effective mode; desktop still three choices",()
  assert.match(theme,/function ThemeSwitch\(/);
  assert.match(shellCss,/\.cy-shell-topbar-end \.cy-theme-toggle \{[^}]*border: 0;/);
 });
-test("navigation Drawer only narrows its own surface",()=>{
- assert.match(overlay,/cy-shell-navigation-drawer \.cy-dialog-surface \{ width: min\(264px,calc\(100vw - 72px\)\)/);
+test("generic Drawer keeps its own width; the phone navigation drawer is gone",()=>{
+ assert.doesNotMatch(overlay,/cy-shell-navigation-drawer/);
  assert.match(overlay,/\.cy-dialog-drawer \.cy-dialog-surface \{\s*width: min\(560px, 92vw\)/);
 });
 test("ERP phone state is a pill and its existing control Dialog remains",()=>{
@@ -81,12 +81,14 @@ test("one OrderingGrid owner renders phone ListRow editor sheet and desktop tabl
  assert.match(ordering,/<table className="cy-ordering-grid cy-rt cy-ordering-receipts" data-readonly>/);
 });
 
-test("mobile drawer brand replaces redundant title and BOT has a dedicated icon",()=>{
+test("phone top bar: CY mark, title as module-sheet button, no hamburger or edge swipe; BOT keeps a dedicated icon",()=>{
  const shell=read("src/ui/shell/AppShell.tsx","utf8");
- assert.match(shell,/cy-shell-nav-close" aria-label="關閉模組選單"/);
- assert.match(shell,/className="cy-shell-navigation-drawer" hideHeader showCloseButton=\{false\}/);
+ assert.match(shell,/className="cy-shell-mark" aria-label="返回首頁"/);
+ assert.match(shell,/className="cy-shell-title-button"/);
+ assert.match(shell,/className="cy-shell-module-sheet"/);
+ assert.doesNotMatch(shell,/cy-shell-menu-toggle|touchstart|開啟模組選單|<Drawer/);
  assert.match(shell,/"bot-center": \[/);
- assert.match(shellCss,/\.cy-shell-navigation-drawer\.cy-dialog-plain \.cy-dialog-body/);
+ assert.match(shellCss,/\.cy-shell-sheet-grid \{ display: grid; grid-template-columns: repeat\(4,/);
 });
 test("ordering toolbar routes history filtering through DataViewToolbar and keeps the same filter state",()=>{
  assert.match(ordering,/searchValue=\{search\} onSearchChange=\{setSearch\}/);

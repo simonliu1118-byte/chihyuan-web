@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 
 export interface AccountMenuProps {
   displayName: string;
@@ -8,13 +8,15 @@ export interface AccountMenuProps {
   /** Hide the name beside the avatar (phones). */
   compact?: boolean;
   signingOut?: boolean;
+  /** Phone only: the appearance switch lives here as a row 「外觀」 (the desktop top bar has its own switch). */
+  appearance?: ReactNode;
   onAccount: () => void;
   onTodos: () => void;
   onLogout: () => void;
 }
 
 /** Top-right person button; its menu holds 我的帳號 and 登出 (appearance has its own switch). */
-export function AccountMenu({ displayName, roleLabel, role, compact, signingOut, onAccount, onTodos, onLogout }: AccountMenuProps) {
+export function AccountMenu({ displayName, roleLabel, role, compact, signingOut, appearance, onAccount, onTodos, onLogout }: AccountMenuProps) {
   const [open, setOpen] = useState(false);
   const root = useRef<HTMLDivElement>(null);
   const menuId = useId();
@@ -41,6 +43,7 @@ export function AccountMenu({ displayName, roleLabel, role, compact, signingOut,
     {open ? <div className="cy-account-popover" id={menuId} role="menu" aria-label="個人選單">
       <button type="button" role="menuitem" onClick={() => pick(onTodos)}>我的待辦事項</button>
       <button type="button" role="menuitem" onClick={() => pick(onAccount)}>我的資料</button>
+      {appearance ? <div className="cy-account-appearance"><span id={menuId + "-appearance"}>外觀</span>{appearance}</div> : null}
       <button type="button" role="menuitem" className="danger" disabled={signingOut} aria-busy={signingOut || undefined} onClick={() => pick(onLogout)}>登出</button>
     </div> : null}
   </div>;
