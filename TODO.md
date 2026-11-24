@@ -6,7 +6,7 @@
 ## V0.29.0 人事目前值
 
 - [x] 主檔五欄永遠存今日值、建檔值改為紀錄、寫入同 batch 更新、每日 `hrCurrentValues` 推進、migration 0083、備份舊檔升級、測試（見 CHANGELOG）。
-- [ ] Claude 依 [handoff](docs/handoff/CYWEB-HR-CURRENT-VALUES-20261124.md) 審查；通過後由使用者授權合併部署（含 migration 0083，需先備份）。
+- [x] Claude 依 [handoff](docs/handoff/CYWEB-HR-CURRENT-VALUES-20261124.md) 審查通過（2026-11-24），使用者授權合併部署；部署前預查正式 D1 並確認當日備份。
 
 ## V0.28.0 薪資流程重整
 
