@@ -313,7 +313,7 @@ export function HrOperationalPage() {
       ...(employee.assignmentChanges??[]).map(r=>({key:"a"+r.id,effective_date:r.effective_date,recorded_date:r.recorded_date,created_at:r.created_at,field:r.field,previous:r.previous_value,next:r.next_value,reason:r.reason,noEffect:r.no_effect===true})),
     ].sort((a,b)=>b.effective_date.localeCompare(a.effective_date)||b.created_at.localeCompare(a.created_at)||b.key.localeCompare(a.key));
   }
-  const changeContent=(row:PersonnelChange)=>row.noEffect?<>{FIELD_LABELS[row.field]}：{shownValue(row.field,row.next)}（無變化）</>:row.previous===row.next?<>{FIELD_LABELS[row.field]}：{shownValue(row.field,row.next)}</>
+  const changeContent=(row:PersonnelChange)=>row.noEffect?<>{FIELD_LABELS[row.field]}：{shownValue(row.field,row.next)}（無變化）</>:row.previous===null||row.previous===row.next?<>{FIELD_LABELS[row.field]}：{shownValue(row.field,row.next)}</>
     :<>{FIELD_LABELS[row.field]}：{shownValue(row.field,row.previous)} → {shownValue(row.field,row.next)}</>;
   function statusTable(rows:PersonnelChange[]){return <div className="cy-op-table-wrap"><table className="cy-op-table cy-hr-status-table" aria-label="狀態異動"><thead><tr><th>生效／異動日期</th><th>異動內容</th><th>原因</th></tr></thead><tbody>{rows.map(row=><tr key={row.key}><td>{date(row.effective_date)}{row.effective_date>taipeiToday()?<small>待生效</small>:null}<small>異動 {date(row.recorded_date)}</small></td><td>{changeContent(row)}</td><td>{row.reason}</td></tr>)}</tbody></table></div>}
 

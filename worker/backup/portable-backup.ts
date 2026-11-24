@@ -9,13 +9,67 @@ export const BACKUP_TABLES = Object.keys(BACKUP_COLUMNS).sort();
  * The latest migration in migrations/ (file name without .sql). Bump it with every migration; a test
  * keeps it in step. A backup records it, and a restore maps its data by table and column name.
  */
-export const CURRENT_MIGRATION = "0082_hr_bonus_payments";
+export const CURRENT_MIGRATION = "0083_hr_current_values";
 /**
  * Only for a migration that changes what existing data means (moves, renames, drops or recomputes
  * values). New tables, new columns with a default, new indexes and wider checks need nothing here:
  * a missing table restores empty and a missing column takes the database default. Each step runs on
  * a backup taken before its migration, in order, before the column-name restore.
  */
+/**
+ * 0083 on backup data (same rules as the migration, in the same order): 建檔 records for the four assignment fields without a
+ * record on or before the hire date, a 建檔 status record for an employee without any, then every employee's master columns set to
+ * the projection as of the Taipei date of the restore. Existing records are never changed.
+ */
+function upgradeHrCurrentValues(data: Data): void {
+  const employees = data.tables.hr_employees;
+  if (!employees?.rows.length) return;
+  const at = (table: TableData, name: string) => table.columns.indexOf(name);
+  const need = ["id", "status", "hire_date", "created_at"].map(name => at(employees, name));
+  if (need.some(i => i < 0)) return;
+  const [iId, iStatus, iHire, iCreated] = need, iBy = at(employees, "created_by");
+  const today = new Date(Date.now() + 8 * 3600_000).toISOString().slice(0, 10);
+  const ensure = (name: string): TableData => data.tables[name] ??= { columns: [...BACKUP_COLUMNS[name]], rows: [] };
+  const statusTable = ensure("hr_status_changes"), assignmentTable = ensure("hr_assignment_changes");
+  const readRows = (table: TableData) => table.rows.map(row => Object.fromEntries(table.columns.map((c, i) => [c, row[i]])) as Record<string, Cell>);
+  const statuses = readRows(statusTable), assignments = readRows(assignmentTable);
+  const nextId = (rows: Record<string, Cell>[]) => rows.reduce((n, r) => Math.max(n, Number(r.id) || 0), 0) + 1;
+  let statusId = nextId(statuses), assignmentId = nextId(assignments);
+  const push = (table: TableData, rows: Record<string, Cell>[], record: Record<string, Cell>) => {
+    rows.push(record); table.rows.push(table.columns.map(c => record[c] ?? null));
+  };
+  const fields = ["store_id", "job_title_id", "employment_type", "schedule_mode"].filter(f => at(employees, f) >= 0);
+  const hireOf = (row: Cell[]) => row[iHire] ? String(row[iHire]) : new Date(Date.parse(String(row[iCreated])) + 8 * 3600_000).toISOString().slice(0, 10);
+  const byEmployee = <T extends Record<string, Cell>>(rows: T[]) => { const m = new Map<string, T[]>(); for (const r of rows) { const k = String(r.employee_id); (m.get(k) ?? m.set(k, []).get(k)!).push(r); } return m; };
+  const ledger = (rows: Record<string, Cell>[]) => [...rows].sort((a, b) => String(a.effective_date).localeCompare(String(b.effective_date)) || Number(a.id) - Number(b.id));
+  const latest = (rows: Record<string, Cell>[]) => ledger(rows.filter(r => String(r.effective_date) <= today)).at(-1);
+  // (a) and (b): from the master columns as they are before the projection.
+  for (const row of employees.rows) {
+    const employee = String(row[iId]), hire = hireOf(row), created = String(row[iCreated]), by = iBy >= 0 ? row[iBy] : null;
+    const own = assignments.filter(r => String(r.employee_id) === employee);
+    for (const field of fields) {
+      const value = row[at(employees, field)];
+      if (value === null || value === undefined || own.some(r => r.field === field && String(r.effective_date) <= hire)) continue;
+      push(assignmentTable, assignments, { id: assignmentId++, employee_id: Number(employee), field, effective_date: hire, previous_value: null, next_value: String(value), reason: "建檔", handled_by: by, created_at: created });
+    }
+    if (!statuses.some(r => String(r.employee_id) === employee))
+      push(statusTable, statuses, { id: statusId++, employee_id: Number(employee), effective_date: hire, previous_status: row[iStatus], next_status: row[iStatus], reason: "建檔", handled_by: by, created_at: created });
+  }
+  // (c): the projection as of today.
+  const statusBy = byEmployee(statuses), assignmentBy = byEmployee(assignments), iTermDate = at(employees, "termination_date"), iTermReason = at(employees, "termination_reason");
+  for (const row of employees.rows) {
+    const employee = String(row[iId]), ownStatus = statusBy.get(employee) ?? [], ownAssign = assignmentBy.get(employee) ?? [];
+    const first = ledger(ownStatus)[0], current = latest(ownStatus);
+    row[iStatus] = current ? current.next_status : first ? first.previous_status : row[iStatus];
+    for (const field of fields) {
+      const own = ownAssign.filter(r => r.field === field), now = latest(own), start = ledger(own)[0];
+      const value = now ? now.next_value : start ? start.previous_value ?? start.next_value : null;
+      if (value !== null && value !== undefined) row[at(employees, field)] = field === "store_id" || field === "job_title_id" ? Number(value) : value;
+    }
+    const pending = ownStatus.some(r => r.next_status === "terminated" && String(r.effective_date) > today);
+    if (row[iStatus] !== "terminated" && !pending) { if (iTermDate >= 0) row[iTermDate] = null; if (iTermReason >= 0) row[iTermReason] = null; }
+  }
+}
 const UPGRADES: { migration: string; apply: (data: Data) => void }[] = [
   // 0046: the single customers.fax column becomes customer_phones rows of kind FAX.
   { migration: "0046_customer_fax_rows_visit_subject", apply: data => {
@@ -136,6 +190,7 @@ const UPGRADES: { migration: string; apply: (data: Data) => void }[] = [
       row[pCompleted]=1;row[pDate]=visit[vDate];row[pNote]=visit[vNote];
     }
   } },
+  { migration: "0083_hr_current_values", apply: upgradeHrCurrentValues },
 ];
 // Operational queue, heartbeat and revocable credential hashes are intentionally
 // excluded from durable backup (also the ERP 關閉／暫停 request and BOT ingest token).

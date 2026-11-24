@@ -46,9 +46,9 @@ test("the single CY Web cron runs ERP checks every tick and each daily job at it
   assert.deepEqual(erpHousekeepingPhases(Date.parse("2026-10-29T14:05:00Z")),{expire:true,purge:true,retention:false});
   assert.deepEqual(erpHousekeepingPhases(at),{expire:true,purge:true,retention:true});
   const tasks=t=>{const x=cywebCronTasks(Date.parse("2026-10-29T"+t+":00Z"));return Object.keys(x).filter(k=>x[k]===true&&k!=="erp").join()};
-  assert.equal(tasks("16:00"),"storeMonthly");assert.equal(tasks("19:00"),"programCatalog");assert.equal(tasks("19:15"),"erpRetention");
+  assert.equal(tasks("16:00"),"storeMonthly,hrCurrentValues");assert.equal(tasks("16:30"),"hrCurrentValues");assert.equal(tasks("19:00"),"programCatalog");assert.equal(tasks("19:15"),"erpRetention");
   assert.equal(tasks("19:30"),"backup");assert.equal(tasks("19:45"),"backup");
-  for(const t of ["16:05","19:05","19:20","19:35","19:50","03:30","11:30"])assert.equal(tasks(t),"",t);
+  for(const t of ["16:05","16:15","16:35","19:05","19:20","19:35","19:50","03:30","11:30"])assert.equal(tasks(t),"",t);
 });
 test("idle cron probes queue but never attempts an UPDATE or DELETE",async()=>{
   const f=fixture();

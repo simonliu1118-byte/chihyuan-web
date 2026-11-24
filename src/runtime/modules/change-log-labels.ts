@@ -43,7 +43,7 @@ export const actionLabels: Record<string,string> = {
   "hr_bonus.saved":"儲存獎金草稿","hr_bonus.pay":"確認獎金已發放","hr_bonus.void":"作廢獎金發放",
   "hr_payroll_review.updated":"確認特殊出勤原因","hr_leave.payroll_protection":"設定假單法定全勤保護",
   "hr_employee.created":"新增人事資料","hr_employee.updated":"修改人事資料",
-  "hr_employee.status_changed":"異動人事狀態","hr_employee.assignment_changed":"異動門市／職稱／僱用型態／排班方式","hr_employee.national_id.viewed":"查看完整身分證字號",
+  "hr_employee.status_changed":"異動人事狀態","hr_employee.current_values_rolled":"每日更新人事目前值","hr_employee.assignment_changed":"異動門市／職稱／僱用型態／排班方式","hr_employee.national_id.viewed":"查看完整身分證字號",
   "hr_salary_record.created":"新增薪資異動","hr_seniority_exclusion.created":"新增年資不計期間",
   "hr_seniority_exclusion.deleted":"刪除年資不計期間","hr_setting.updated":"修改人事設定",
   "customer.created":"新增客戶","customer.updated":"修改客戶","customer.deleted":"刪除客戶",

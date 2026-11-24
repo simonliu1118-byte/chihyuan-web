@@ -15,12 +15,14 @@ function fixture(t){const f=botCenterFixture();t.after(()=>f.sql.close());
  f.sql.prepare("INSERT INTO hr_employees(employee_no,name,status,hire_date,seniority_start_date,store_id,job_title_id,created_at,updated_at) VALUES('SYNTHETIC-PERSONNEL','合成員工','active','2000-01-01','2000-01-01',1,1,?,?)").run(ctx.now,ctx.now);
  const id=f.sql.prepare("SELECT id FROM hr_employees WHERE employee_no='SYNTHETIC-PERSONNEL'").get().id;
  f.sql.prepare("INSERT INTO hr_status_changes(employee_id,effective_date,previous_status,next_status,reason,handled_by,created_at) VALUES(?,?,?,?,?,?,?)").run(id,'2000-01-01','active','active','建檔',1,ctx.now);
+ for(const [field,value] of [['store_id','1'],['job_title_id','1'],['employment_type','full'],['schedule_mode','shift']])f.sql.prepare("INSERT INTO hr_assignment_changes(employee_id,field,effective_date,previous_value,next_value,reason,handled_by,created_at) VALUES(?,?,?,NULL,?,'建檔',1,?)").run(id,field,'2000-01-01',value,ctx.now);
  f.sql.prepare("INSERT INTO hr_stores(name,cycle_anchor_date,created_at,updated_at) VALUES('合成第二門市','2026-01-05',?,?)").run(ctx.now,ctx.now);
  const store2=f.sql.prepare("SELECT id FROM hr_stores WHERE name='合成第二門市'").get().id;
  f.sql.prepare("INSERT INTO hr_job_titles(name,sort_order,updated_at) VALUES('合成新職稱',9,?)").run(ctx.now);
  const title=f.sql.prepare("SELECT id FROM hr_job_titles WHERE name='合成新職稱'").get().id;
  const service=new HrService(f.db),change=(body,at=ctx)=>service.statusChange(id,{reason:'合成異動',...body},at);
- const rows=(table)=>f.sql.prepare('SELECT * FROM '+table+' WHERE employee_id=? ORDER BY id').all(id);
+ // The fixture employee carries the four assignment 建檔 records a created employee has; rows() lists the records the tests write on top of them.
+ const rows=(table)=>f.sql.prepare('SELECT * FROM '+table+' WHERE employee_id=?'+(table==='hr_assignment_changes'?" AND reason<>'建檔'":'')+' ORDER BY id').all(id);
  return {...f,id,store,store2,title,service,change,rows};
 }
 test('a store change never touches status history: backdated assignment change keeps the 留停 start and the 離職 state',async t=>{
@@ -66,9 +68,10 @@ test('each changed field writes exactly one record and leaves every other field 
  assert.deepEqual(records.slice(1).map(r=>[r.field,r.previous_value,r.next_value,r.effective_date]),[['store_id','1',String(f.store),day(-1)],['employment_type','full','casual',day(-1)],['schedule_mode','shift','hours',day(-1)]]);
  now=await f.service.get(f.id);
  assert.deepEqual([now.status,now.store_id,now.job_title_id,now.employment_type,now.schedule_mode],['leave',f.store,f.title,'casual','hours']);
- assert.deepEqual([...now.assignmentChanges.map(r=>r.recorded_date)],Array(4).fill(day(0)),'異動日期 is the Taipei date the record was written');
+ assert.deepEqual([...now.assignmentChanges.map(r=>r.recorded_date)],Array(8).fill(day(0)),'異動日期 is the Taipei date the record was written');
  assert.equal(now.statusChanges[0].recorded_date,day(0));
- assert.equal(f.sql.prepare('SELECT store_id FROM hr_employees WHERE id=?').get(f.id).store_id,1,'baseline is not overwritten');
+ assert.equal(f.sql.prepare('SELECT store_id FROM hr_employees WHERE id=?').get(f.id).store_id,f.store,'the master column holds today\'s value; the 建檔 record keeps the old one');
+ assert.deepEqual(f.sql.prepare("SELECT next_value FROM hr_assignment_changes WHERE employee_id=? AND field='store_id' AND reason='建檔'").all(f.id).map(r=>r.next_value),['1']);
  assert.equal((await f.service.salaryOverview()).find(x=>x.id===f.id).storeId,f.store);
  await new HrRosterService(f.db).updateStaff(f.store,{employeeId:f.id,rosterSort:7,skipRosterChecks:true},ctx);
  assert.equal(f.sql.prepare('SELECT roster_sort FROM hr_employees WHERE id=?').get(f.id).roster_sort,7);
@@ -177,7 +180,7 @@ test('redundant later records: report, delete exactly those with an audit row ea
  await g.change({effectiveDate:day(15),storeId:g.store2,keepRedundant:true});
  assert.equal(g.rows('hr_assignment_changes').length,3);
  assert.equal(g.sql.prepare("SELECT count(*) n FROM audit_events WHERE action='hr_employee.assignment_change_deleted'").get().n,0);
- const shown=(await g.service.get(g.id)).assignmentChanges;
+ const shown=(await g.service.get(g.id)).assignmentChanges.filter(r=>r.reason!=='建檔');
  assert.deepEqual(shown.map(r=>[r.effective_date,r.no_effect]),[[day(20),true],[day(15),false],[day(10),false]]);
 });
 test('status records follow the same redundancy rule and the cached status ignores deleted records',async t=>{
@@ -203,7 +206,7 @@ test('the previous value shown comes from the preceding record, not from what wa
  await f.change({effectiveDate:day(-8),storeId:f.store});      // back-dated: now sits before it
  const stored=f.rows('hr_assignment_changes');
  assert.equal(stored[0].previous_value,'1','stored value is left as it was written (audit)');
- const shown=(await f.service.get(f.id)).assignmentChanges;
+ const shown=(await f.service.get(f.id)).assignmentChanges.filter(r=>r.reason!=='建檔');
  assert.deepEqual(shown.map(r=>[r.effective_date,r.previous_value,r.next_value]),[[day(-2),String(f.store),String(f.store2)],[day(-8),'1',String(f.store)]]);
  assert.equal(shown[0].stored_previous_value,'1');
  assert.deepEqual(shown.map(r=>r.no_effect),[false,false]);
@@ -276,7 +279,7 @@ test('assignment history survives portable backup and restore; backups without t
  manifest.schemaMigration='0080_store_maintenance_per_machine';manifest.dataByteLength=dataBytes.length;manifest.dataSha256=createHash('sha256').update(dataBytes).digest('hex');
  manifest.recordCounts=Object.fromEntries(Object.entries(data.tables).map(([key,value])=>[key,value.rows.length]));manifest.totalRecordCount=Object.values(manifest.recordCounts).reduce((a,b)=>a+b,0);
  await restoreIntoEmptyDatabase(older.db,{dataBytes,manifestBytes:new TextEncoder().encode(JSON.stringify(manifest))},'synthetic');
- assert.equal(older.sql.prepare('SELECT count(*) n FROM hr_assignment_changes').get().n,0);
+ assert.equal(older.sql.prepare('SELECT count(*) n FROM hr_assignment_changes').get().n,4,'0083 upgrade: one 建檔 record per assignment field');
  assert.equal(older.sql.prepare('SELECT count(*) n FROM hr_status_changes').get().n,2);
  assert.deepEqual(older.sql.prepare('PRAGMA foreign_key_check').all(),[]);
 });
