@@ -1,5 +1,10 @@
 # CY Web Governance Changelog
 
+## 1.1.35 — 2026/11/25
+
+- 同步 CYID 契約鏡像 `docs/contracts/cyid/`（CYapps #646：CYID 0.4.3，`session/resolve` 對 core portal 提供選填已驗證 `email`，consumer 契約 1.4.0，向下相容）。
+- `CYID_CONSUMER_VERSION` 1.3.0 → 1.4.0：CY Web V0.29.2 起「我的資料」顯示帳號綁定的 Email。
+
 ## 1.1.34 — 2026/11/23
 
 - 同步 CYID 契約鏡像 `docs/contracts/cyid/`（CYapps #644：CYID 0.4.2，App 中文名稱與入口可用系統清單，consumer 契約 1.3.0，向下相容）。
