@@ -6,7 +6,7 @@
 ## V0.29.3 視窗寬度全面盤點
 
 - [x] 93 個視窗依 400／560／860 規則盤點，移除 8 個專屬寬度、改 6 個尺寸，保留 5 個寬表並寫明理由。
-- [ ] Claude 依 [handoff](docs/handoff/CYWEB-DIALOG-WIDTH-AUDIT-20261125.md) 審查。
+- [x] Claude 依 [handoff](docs/handoff/CYWEB-DIALOG-WIDTH-AUDIT-20261125.md) 審查通過（2026-11-25），使用者授權合併部署。
 
 ## V0.29.2 身分證就地顯示與我的資料重排
 
