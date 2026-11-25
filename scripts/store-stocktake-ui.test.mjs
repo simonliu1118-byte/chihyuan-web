@@ -36,7 +36,8 @@ test("ignore setup dialog is compact, has inline add and uses ordering table sty
  assert.match(stocktake,/cy-op-table cy-rt cy-stocktake-ignored-table/);
  assert.match(stocktake,/setIgnoreForm\(""\);await loadSheets\(\)/);
  assert.doesNotMatch(stocktake,/新增忽略<\/button>/);
- assert.match(css,/width:min\(496px,calc\(100vw - 32px\)\)/);
+ assert.doesNotMatch(css,/cy-stocktake-ignore-dialog > \.cy-dialog-surface\{width/);
+ assert.match(stocktake,/size="medium" open title="忽略底稿管理"|size="medium"[^>]*忽略底稿管理/);
 });
 
 test("stocktake detail uses shared ordering record header and toolbar",()=>{

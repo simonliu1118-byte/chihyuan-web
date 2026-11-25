@@ -581,7 +581,7 @@ export function ItemOperationalPage({ canViewDefects = false, canViewCustomers =
   return <div className="cy-item-op">
     {confirmationDialog}
     {promptDialog}
-    {selected && relatedDialog?.startsWith("defect") && canViewDefects ? <Dialog open size="large"
+    {selected && relatedDialog?.startsWith("defect") && canViewDefects ? <Dialog open size={relatedDialog === "defectCreate" ? "medium" : "large"}
       showCloseButton={relatedDialog !== "defectCreate"}
       title={relatedDialog === "defectCreate" ? "新增瑕疵紀錄" : "瑕疵紀錄 — " + formatItem(selected.itemNo, selected.name)}
       onClose={() => setRelatedDialog(null)}>

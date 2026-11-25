@@ -59,8 +59,10 @@ test("targeted dialogs have narrower widths and the Threads card shows one row p
  assert.match(cards,/sessions\.map\(session=><button key=\{session\.id\}/);
  assert.match(dialog,/className="cy-bot-push-dialog"/);
  assert.match(page,/className="cy-bot-settings-dialog"/);
- assert.match(css,/\.cy-dialog\.cy-bot-push-dialog > \.cy-dialog-surface\{width:min\(414px/);
- assert.match(css,/\.cy-dialog\.cy-bot-settings-dialog > \.cy-dialog-surface\{width:min\(720px/);
+ assert.match(dialog,/size="small" className="cy-bot-push-dialog"/);
+ assert.doesNotMatch(css,/cy-bot-push-dialog > \.cy-dialog-surface\{width/);
+ assert.match(page,/size="large" className="cy-bot-settings-dialog"/);
+ assert.doesNotMatch(css,/cy-bot-settings-dialog > \.cy-dialog-surface\{width|cy-bot-review-dialog > \.cy-dialog-surface\{width:min/);
  assert.match(css,/\.cy-bot-credential-table\{min-width:680px\}/);
 });
 test("the four summary cards share one structure and order; the timeline sits below them",()=>{

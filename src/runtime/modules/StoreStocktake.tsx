@@ -355,7 +355,7 @@ export function StoreStocktake({role}:{role:string}){
     </>}
    </div>
   </div>
-  {ignoreForm!==null?<Dialog size="small" open title="忽略底稿管理" className="cy-stocktake-ignore-dialog" onClose={()=>setIgnoreForm(null)}>
+  {ignoreForm!==null?<Dialog size="medium" open title="忽略底稿管理" className="cy-stocktake-ignore-dialog" onClose={()=>setIgnoreForm(null)}>
    <form className="cy-stocktake-ignore-form" onKeyDown={enterAdvancesThenSubmits} onSubmit={e=>void addIgnored(e)}>
     <FormSection><div className="cy-stocktake-ignore-input">
      <Field label="底稿編號" size="l" required>

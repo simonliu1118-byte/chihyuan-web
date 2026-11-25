@@ -263,7 +263,7 @@ function AddToOrdering({row,onClose,onAdded}:{row:Row;onClose:()=>void;onAdded:(
   catch(err){setError(err instanceof Error?err.message:"加入失敗")}
   finally{setBusy(false)}
  }
- return <><Dialog open size="small" className="cy-restock-add-dialog" title={"加入叫貨單："+row.itemName} dismissible={false} onClose={onClose}>{error?<p role="alert">{error}</p>:null}
+ return <><Dialog open size="medium" className="cy-restock-add-dialog" title={"加入叫貨單："+row.itemName} dismissible={false} onClose={onClose}>{error?<p role="alert">{error}</p>:null}
  <form onKeyDown={enterAdvancesFields} onSubmit={e=>void submit(e)}>
     <FormSection>
  {holding.drafts.length||holding.pending.length?<div className="cy-restock-in-drafts">

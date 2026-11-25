@@ -1131,7 +1131,7 @@ function SecurityPanel() {
       <dt>同一 Email 同用途</dt><dd>每小時 {policy.otpMaxSentPerEmailPurposeHour} 封</dd>
       <dt>每日 Email 上限</dt><dd>{policy.emailDailyLimit} 封（系統上限 {view.systemEmailDailyCeiling}）</dd>
     </dl> : <Loading />}
-    {draft && view ? <Dialog showCloseButton={false} open title="變更驗證碼與 Email 安全設定" size="small" dismissible={!busy} onClose={close}
+    {draft && view ? <Dialog showCloseButton={false} open title="變更驗證碼與 Email 安全設定" size="medium" dismissible={!busy} onClose={close}
       footer={<div className="cy-dialog-action-row"><button type="button" className="cy-op-button" disabled={busy} onClick={close}>取消</button><button type="submit" form={formId} className="cy-op-button primary" disabled={busy} aria-busy={busy || undefined}>儲存</button></div>}>
       <form onKeyDown={enterAdvancesFields} id={formId} className="cy-identity-policy-form" onSubmit={(event) => void save(event)}>
     <FormSection>
