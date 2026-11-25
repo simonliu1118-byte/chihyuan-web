@@ -178,6 +178,10 @@
 - [ ] 最後走查，使用者確認後正式上線。
 - [ ] 新系統穩定後，由使用者決定停用舊 GAS／Google Sheets 的時間；舊測試資料不搬入。
 
+## 定期檢查
+
+- [ ] 每半年至一年，對正式網站（admin、price、acc）探測常見外洩路徑（`.env`、`.git/config`、`.dev.vars`、`wrangler.jsonc`、`secrets.json`、`.aws/credentials`、`.claude/settings.json`、source map 等），應只回首頁空殼或 404；並確認 GitHub Secret scanning／Push protection 開啟（2026-11-25 首次檢查通過）。
+
 ## 待 Claude 審查
 
 - （目前無；V0.24.0–V0.29.3 均已審查並部署。）

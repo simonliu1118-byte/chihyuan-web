@@ -9,9 +9,9 @@ const MAX_ROWS=3;
 type PatrolSession=BotCenterState["workSummary"]["patrols"]["sessions"][number];
 
 export const patrolStatusTone=(status:BotPatrolStatus)=>PATROL_TONE[status];
-/** 狀態標籤；等待圖片帶則數（「等待圖片（2 則）」）。 */
+/** 狀態標籤（則數只放右側文字，避免重複）。 */
 export function patrolStatusLabel(session:PatrolSession):string{
- return session.status==="waitingImages"?`${BOT_PATROL_STATUS_LABELS.waitingImages}（${session.waitingImages} 則）`:BOT_PATROL_STATUS_LABELS[session.status];
+ return BOT_PATROL_STATUS_LABELS[session.status];
 }
 /** 巡視場次右側文字（V0.30.0）。 */
 export function patrolRightText(session:PatrolSession):string{

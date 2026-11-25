@@ -44,7 +44,7 @@ test('Threads card rows: 待審核, 待留言, 等待圖片, 進行中, 已完�
  assert.deepEqual(rows.map(r=>r.id),[3,2,4]);
  assert.deepEqual(rows.map(cards.patrolRightText),['5 則待審','4 則待留言','2 則等圖']);
  assert.equal(cards.patrolRightText(sess(6,'done',{sent:7})),'送出 7 則');assert.equal(cards.patrolRightText(sess(7,'open')),'進行中');
- assert.equal(cards.patrolStatusLabel(sess(4,'waitingImages',{waitingImages:2})),'等待圖片（2 則）');
+ assert.equal(cards.patrolStatusLabel(sess(4,'waitingImages',{waitingImages:2})),'等待圖片');
  assert.deepEqual(cards.patrolRows([]),[]);
 });
 test('Threads card: a late-delivery row reads 「11/20 早巡（補送）」 with today\'s 送出 N 則, appended after today\'s sessions',()=>{
