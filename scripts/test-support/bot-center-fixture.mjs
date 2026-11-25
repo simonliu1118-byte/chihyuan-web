@@ -3,7 +3,7 @@ import { readFileSync, readdirSync } from "node:fs";
 import { build } from "esbuild";
 
 const compiled = await build({ entryPoints: ["worker/http/bot-center-routes.ts"], bundle: true, write: false, platform: "node", format: "esm" });
-const { handleBotCenterRoute, cleanupReviewImages } = await import("data:text/javascript;base64," + Buffer.from(compiled.outputFiles[0].text).toString("base64"));
+const { handleBotCenterRoute, cleanupReviewImages, purgeOldBotHistory } = await import("data:text/javascript;base64," + Buffer.from(compiled.outputFiles[0].text).toString("base64"));
 
 export function botCenterFixture(role = "SUPER_ADMIN", grant = false, {beforeScopedMigration, beforeRevisionMigration, seedMember = true} = {}) {
   const sql = new DatabaseSync(":memory:");
@@ -52,5 +52,5 @@ export function botCenterFixture(role = "SUPER_ADMIN", grant = false, {beforeSco
     return { status: response.status, body: await response.json() };
   };
   const raw = (path, method, body, headers = {}) => handleBotCenterRoute(new Request("https://acceptance.test" + path, { method, headers: { cookie, ...headers }, body }), env, "bot-center-test");
-  return { sql, call, raw, db, queries, env, cleanupReviewImages };
+  return { sql, call, raw, db, queries, env, cleanupReviewImages, purgeOldBotHistory };
 }

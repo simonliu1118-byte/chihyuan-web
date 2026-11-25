@@ -3,6 +3,11 @@
 > 本檔是 CY Web 唯一的現況與待辦清單，不是永久規則來源。各版本完成內容與驗證見 `CHANGELOG.md`；規格見 `docs/architecture/README.md`。
 > 2026-11-03、2026-11-09、2026-11-25 整理：已完成且已記入 CHANGELOG 的版本段落移除；已結案的交接與工作單移到 Git 固定快照（見 `docs/handoff/README.md`）。
 
+## V0.30.0 BOT 巡視場次狀態、補送、90 天保存與送出內容改版
+
+- [ ] 部署前：正式 D1 在 0084、當日備份已驗證；先部署 WEB（含 0085），再替換 Grok 技能包 5 檔（見 grok-setup「更新至 V0.30.0」）。
+- [ ] 部署後：請小編在 routine 補一句「巡完回報場次則數、每則海巡留言附原文、隔天補送帶原場次」；觀察隔日 03:15 保存期清理沒有報錯。
+- [x] 工程完成（未合併、未部署）；待 Claude 依 [handoff](docs/handoff/CYWEB-BOT-PATROL-STATUS-20261125.md) 審查。
 ## V0.29.4 薪資月份任用值
 
 - [ ] Claude 依 [handoff](docs/handoff/CYWEB-PAYROLL-MONTH-ASSIGNMENTS-20261125.md) 審查。
@@ -176,6 +181,10 @@
 - [ ] 決定問題回報管道。
 - [ ] 最後走查，使用者確認後正式上線。
 - [ ] 新系統穩定後，由使用者決定停用舊 GAS／Google Sheets 的時間；舊測試資料不搬入。
+
+## 定期檢查
+
+- [ ] 每半年至一年，對正式網站（admin、price、acc）探測常見外洩路徑（`.env`、`.git/config`、`.dev.vars`、`wrangler.jsonc`、`secrets.json`、`.aws/credentials`、`.claude/settings.json`、source map 等），應只回首頁空殼或 404；並確認 GitHub Secret scanning／Push protection 開啟（2026-11-25 首次檢查通過）。
 
 ## 待 Claude 審查
 

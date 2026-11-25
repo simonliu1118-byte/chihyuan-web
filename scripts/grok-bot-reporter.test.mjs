@@ -92,7 +92,7 @@ async function setup(t) {
 test('external work uses actual receipts, short sessions and existing safe token without fake review',async t=>{
  const f=await setup(t);
  await f.client.run('patrol-session',{sessionRef:'synthetic-noon',label:'午巡'});
- const input={eventId:'synthetic-external-reply',kind:'patrol',title:'合成已送出回覆',body:'合成回覆全文',approvalSource:'line',approvalNote:'合成外部核准',sessionRef:'synthetic-noon'};
+ const input={eventId:'synthetic-external-reply',kind:'patrol',title:'合成已送出回覆',body:'合成回覆全文',approvalSource:'line',approvalNote:'合成外部核准',sessionRef:'synthetic-noon',sourceText:'合成原文',sourceAuthor:'synthetic_user'};
  const first=await f.client.run('delivery',input);
  assert.equal((await f.client.run('delivery',input)).id,first.id);
  const result=await f.client.run('delivery-status',{eventId:input.eventId});assert.equal(result.item.body,input.body);
@@ -348,6 +348,28 @@ test("submit links a patrol draft to a session; patrol-session can close it; del
  assert.equal(f.sql.prepare("SELECT platform FROM bot_deliveries WHERE event_ref='synthetic-platform'").get().platform,"IG");
  for(const platform of ["Twitter","LINE","","  "])await assert.rejects(f.client.run("delivery",{...receipt,eventId:"synthetic-platform-bad",platform}),code("INPUT_INVALID"),platform);
  assert.equal((await f.client.run("delivery",{...receipt,eventId:"synthetic-no-platform"})).delivered,true,"platform stays optional");
+});
+test("V0.30.0: patrol-session counts, delivery source fields and late delivery are validated and stored",async t=>{
+ const f=await setup(t);
+ const counts={pendingReview:1,toSend:2,waitingImages:0,skipped:3,abandoned:1};
+ const day=n=>new Date(Date.now()+8*3600000-n*86400000).toISOString().slice(0,10);
+ const saved=await f.client.run("patrol-session",{sessionRef:"synthetic-count",label:"夜巡",...counts});
+ assert.deepEqual(saved.counts,counts);
+ for(const bad of [{pendingReview:-1},{toSend:1.5},{waitingImages:"2"},{skipped:1000},{abandoned:null},{unknown:1}])
+  await assert.rejects(f.client.run("patrol-session",{sessionRef:"synthetic-count",label:"夜巡",...bad}),code("INPUT_INVALID"),JSON.stringify(bad));
+ const reply={eventId:"synthetic-src",kind:"patrol",title:"合成回覆",body:"合成留言",approvalSource:"chat",approvalNote:"合成核准",sessionRef:"synthetic-count"};
+ await assert.rejects(f.client.run("delivery",reply),code("INPUT_INVALID"),"patrol deliveries must carry the original text");
+ for(const extra of [{sourceUrl:"javascript:alert(1)"},{sourceUrl:"ftp://example.test/x"},{sourceText:"字".repeat(2001)},{sourceText:"合成原文",sourceAuthor:"a".repeat(81)},{sourceText:"合成原文",sourceUrl:"https://example.test/"+"a".repeat(500)}])
+  await assert.rejects(f.client.run("delivery",{...reply,eventId:"synthetic-src-bad",sourceText:"合成原文",...extra}),code("INPUT_INVALID"),JSON.stringify(extra).slice(0,60));
+ const ok=await f.client.run("delivery",{...reply,sourceText:"合成原文",sourceAuthor:"synthetic_user",sourceUrl:"https://example.test/post/1"});
+ const row=f.sql.prepare("SELECT body,source_text,source_author,source_url FROM bot_deliveries WHERE id=?").get(ok.id);
+ assert.deepEqual({...row},{body:"合成留言",source_text:"合成原文",source_author:"synthetic_user",source_url:"https://example.test/post/1"});
+ // 補送：場次是較早的一天（14 天內）可以收；超過 14 天由伺服器拒絕。
+ await f.client.run("patrol-session",{sessionRef:"synthetic-earlier",label:"早巡",day:day(5)});await f.client.run("patrol-session",{sessionRef:"synthetic-too-old",label:"早巡",day:day(15)});
+ assert.equal((await f.client.run("delivery",{...reply,eventId:"synthetic-late",sessionRef:"synthetic-earlier",sourceText:"合成原文"})).delivered,true);
+ await assert.rejects(f.client.run("delivery",{...reply,eventId:"synthetic-too-late",sessionRef:"synthetic-too-old",sourceText:"合成原文"}),code("BOT_INVALID"));
+ const late=data(await f.call("/api/bot-center")).workSummary.patrols.sessions.find(x=>x.late);assert.deepEqual([late.label,late.sent],["早巡",1]);
+ const post=await f.client.run("delivery",{eventId:"synthetic-post-nosrc",kind:"post",title:"合成貼文",body:"合成全文",approvalSource:"chat",approvalNote:"合成核准"});assert.equal(post.delivered,true,"posts do not need an original");
 });
 test("older tool commands keep working unchanged",async t=>{
  const f=await setup(t);

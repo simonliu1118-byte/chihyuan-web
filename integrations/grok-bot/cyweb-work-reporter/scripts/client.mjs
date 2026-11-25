@@ -292,11 +292,15 @@ function createReporter(config, { fetchImpl = fetch, timeoutMs = 15e3 } = {}) {
     }
   }
   async function delivery(input){
-    fields(input,["eventId","kind","title","body","sentAt","platform","url","approvalSource","approvalNote","externalRef","item","sessionRef"]);
+    fields(input,["eventId","kind","title","body","sentAt","platform","url","approvalSource","approvalNote","externalRef","item","sessionRef","sourceText","sourceAuthor","sourceUrl"]);
     const eventRef=string(input.eventId,"成果固定編號",120),source=input.approvalSource;
     if(!["post","patrol"].includes(input.kind)||!["cyweb","chat","line","other"].includes(source))bad("INPUT_INVALID","請填成果分類與真實核准來源");
     const payload={botCode,eventRef,kind:input.kind,approvalSource:source};
     for(const [key,max]of [["title",120],["body",4000],["url",2048],["approvalNote",200],["sessionRef",120],["sentAt",30]])if(input[key]!==undefined)payload[key]=string(input[key],key,max,false)??"";
+    // V0.30.0：原文（巡到的貼文）。海巡成果必填 sourceText；body 只放我們送出的留言，不放原文、粉專身分、不配圖等內部備註。
+    for(const [key,max]of [["sourceText",2000],["sourceAuthor",80],["sourceUrl",500]])if(input[key]!==undefined)payload[key]=string(input[key],key,max,false)??"";
+    if(payload.sourceUrl&&!/^https?:\/\/\S+$/i.test(payload.sourceUrl))bad("INPUT_INVALID","sourceUrl 須為 http 或 https 網址");
+    if(input.kind==="patrol"&&!payload.sourceText)bad("INPUT_INVALID","海巡成果須附原文 sourceText（巡到的貼文全文，最多2000字）");
     if(input.platform!==undefined)payload.platform=platformOf(input.platform);
     if(source!=="cyweb"&&(!payload.title||!payload.body||!payload.approvalNote))bad("INPUT_INVALID","外部核准成果須填完整標題、內容與核准來源說明");
     if(input.externalRef!==undefined){
@@ -325,7 +329,9 @@ function createReporter(config, { fetchImpl = fetch, timeoutMs = 15e3 } = {}) {
     if(command==="delivery-status")return deliveryStatus(input);
     if(command==="delivery-image")return deliveryImage(input);
     if(command==="patrol-session"){
-      fields(input,["sessionRef","day","label","note","completed"]);
+      fields(input,["sessionRef","day","label","note","completed","pendingReview","toSend","waitingImages","skipped","abandoned"]);
+      // V0.30.0：結構化則數（0 到 999 的整數），場次狀態由它推算，不看 note。登錄場次時先不帶，巡完有結果再帶。
+      for(const key of ["pendingReview","toSend","waitingImages","skipped","abandoned"])if(input[key]!==undefined&&(!Number.isInteger(input[key])||input[key]<0||input[key]>999))bad("INPUT_INVALID",`${key} 須為 0 到 999 的整數`);
       // completed:true 表示這個場次已結束（全部通過的則都送完之前也可以先結束）；不帶或 false 不會重新開啟。
       if(input.completed!==undefined&&typeof input.completed!=="boolean")bad("INPUT_INVALID","completed 須為 true 或 false");
       return checkRecord(await request("/api/bot-ingest/patrol-sessions",{...input,botCode}));

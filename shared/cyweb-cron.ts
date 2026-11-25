@@ -15,6 +15,8 @@ export interface CywebCronTasks {
   programCatalog: boolean;
   /** Taiwan 03:15: ERP queries older than 7 days. */
   erpRetention: boolean;
+  /** Taiwan 03:15 (same slot): BOT 巡視成果與場次超過 90 天的清理。 */
+  botRetention: boolean;
   /** Taiwan 03:30, and 03:45 as a second chance: the daily backup (when its schedule is on). */
   backup: boolean;
   /** Taiwan 04:00: discover effective official payroll tables (one bounded run/day). */
@@ -23,5 +25,5 @@ export function cywebCronTasks(scheduledTime: number): CywebCronTasks {
   if (!Number.isFinite(scheduledTime)) throw new Error("CYWEB_CRON_INVALID_TIME");
   const at = new Date(scheduledTime), h = at.getUTCHours(), m = at.getUTCMinutes();
   return { erp: true, storeMonthly: h === 16 && m === 0, hrCurrentValues: h === 16 && (m === 0 || m === 30), programCatalog: h === 19 && m === 0,
-    erpRetention: h === 19 && m === 15, backup: h === 19 && (m === 30 || m === 45) };
+    erpRetention: h === 19 && m === 15, botRetention: h === 19 && m === 15, backup: h === 19 && (m === 30 || m === 45) };
 }

@@ -1,5 +1,17 @@
 # BOT 管理中心
 
+## V0.30.0 巡視場次狀態、補送、保存期與送出內容（工程實作，未部署，migration 0085）
+
+以下優先於 V0.22.0 的「巡視場次狀態」與 V0.21.3 的場次摘要說明。
+
+- **場次狀態**：進行中（已登錄、BOT 尚未回報結果）、待審核、待留言（已核准未送出）、等待圖片（N 則）、已完成。`POST /api/bot-ingest/patrol-sessions` 選填整數 `pendingReview`、`toSend`、`waitingImages`、`skipped`、`abandoned`（0–999；沒帶的欄位保留原值，五欄皆 NULL＝從未回報）。推算（`shared/bot-center.ts` 的 `derivePatrolStatus`，不看 note）：待審＝回報值與連結稿件待審則數取較大者；有待審→待審核；BOT 已 `completed`→已完成；有待留言（回報值與連結稿件已通過未送出取較大者）→待留言；有等圖→等待圖片；曾回報則數或有連結稿件而上述皆無→已完成；否則進行中。小編重新查核不是獨立狀態，重新送審即算待審核。`sent` 仍來自成果帳本。卡片右側文字：「N 則待審」「N 則待留言」「N 則等圖」「送出 N 則」；排序待審核→待留言→等待圖片→進行中→已完成。
+- **補送**：成果的 `sessionRef` 可指向較早的場次：場次日期（台北）≤ 成果送出日、且不超過 14 天，否則 422。場次的 `sent`／`sentTotal` 計全部成果；卡片標題「今日送出留言」只算今日 `sent_at`。今日卡片另有 `late:true` 的列「M/D 場次（補送）」，`sent`＝今日補送數、`sentTotal`＝全部，不佔今日 3 列名額；其餘舊場次不顯示。`GET /api/bot-center/sent-items?kind=patrol&sessionId=` 看單一場次時列出該場次全部成果（不限當日）。不遷移既有資料。
+- **成果原文**：`POST /api/bot-ingest/deliveries` 選填 `sourceText`（≤2000）、`sourceAuthor`（≤80）、`sourceUrl`（≤500、http／https、無帳密），存 `bot_deliveries.source_text／source_author／source_url`（預設空字串）。重送時有帶就須相同（409），沒帶不比對。伺服器不強制；技能工具要求 kind=patrol 必填 sourceText。`body` 只放我們送出的留言。舊成果為空，畫面顯示「未附原文」，不解析舊內文。
+- **送出內容視窗**（`BotSentPatrolDialog`／`SentPatrolItem`，large 860）：標題＝場次名稱＋狀態＋「YYYY/MM/DD・送出 N 則」；每則「第 N 則　@作者 ↗」連到發布網址，桌機左原文（淡色）右我們的留言，手機上下排（原文在淺色底框）；無作者時用成果標題，無發布網址時不連結；沒有「開啟貼文」連結。
+- **90 天保存期**（`purgeOldBotHistory`，台灣 03:15，與 ERP 保存期同一個排程時段，`cywebCronTasks().botRetention`，沒有新 trigger）：刪除 `sent_at` 早於 90 天的 `bot_deliveries`，以及場次日期早於 90 天且已沒有成果的 `bot_patrol_sessions`；每批 200、每次最多 5 批（成果、場次各自），可重跑。外鍵處理：先刪 `bot_delivery_images`（有 R2 物件則先刪物件；平常已隔日清除），再刪成果；場次刪除前把 `bot_drafts.session_id` 設為 NULL（稿件與審核紀錄不刪、不受 90 天限制）；仍被保存期內成果（含 14 天內補送）引用的場次保留。`bot_completions` 時間軸事件的 `delivery:<id>` 只是文字參照，不動。清除後同一 eventRef 若再重送會被當成新成果（技能收據只防近期重送）。
+- **備份**：0085 新增 `bot_patrol_sessions` 五欄、`bot_deliveries` 三欄，`schema-columns.ts` 與 `CURRENT_MIGRATION=0085_bot_patrol_status` 同步；舊備份缺欄位採預設（則數 NULL＝沿用舊推算、原文空字串），不需新的 UPGRADES 步驟。
+- 技能包 5 檔同步（patrol-session 則數、delivery 原文與補送、升級步驟）；WEB 需先部署。
+
 ## V0.22.0 改版（工程實作，未部署，與 V0.21.6 一起部署）
 
 以下為現行契約，優先於下方歷史沿革（0079）。

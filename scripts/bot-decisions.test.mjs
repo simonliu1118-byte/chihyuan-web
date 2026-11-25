@@ -137,7 +137,7 @@ test('platform is FB, IG or Threads for new deliveries, case-insensitive; stored
 const noon=(f,extra={})=>f.call('/api/bot-ingest/patrol-sessions','POST',{sessionRef:'noon',label:'午巡',...extra},f.auth);
 async function patrolDraft(f,ref,n,sessionRef){return ok(await f.ingest('drafts','POST',{externalRef:ref,title:'巡視 '+ref,body:'說明',kind:'patrol',items:Array.from({length:n},(_,i)=>({title:'回覆'+(i+1),body:'全文'+(i+1)})),...(sessionRef?{sessionRef}:{})}))}
 const sessions=async f=>ok(await f.call('/api/bot-center')).workSummary.patrols.sessions;
-test('patrol session status goes 待審核 → 已審核 → 已完成 as items are reviewed and sent',async t=>{
+test('patrol session status goes 待審核 → 待留言 → 已完成 as items are reviewed and sent',async t=>{
  const f=await setup(t);ok(await noon(f));
  const d=await patrolDraft(f,'noon-1',3,'noon');assert.equal(d.sessionId,f.sql.prepare("SELECT id FROM bot_patrol_sessions").get().id);
  let [s]=await sessions(f);assert.deepEqual([s.label,s.status,s.pendingItems,s.awaitingItems,s.sent,s.draftIds],['午巡','pending',3,0,0,[d.id]]);
@@ -145,9 +145,9 @@ test('patrol session status goes 待審核 → 已審核 → 已完成 as items 
  [s]=await sessions(f);assert.equal(s.status,'pending','one item still pending');assert.equal(s.pendingItems,2);
  ok(await f.call(`/api/bot-center/drafts/${d.id}/items/2/review`,'POST',{decision:'rejected',reason:'不適合'}));
  ok(await f.call(`/api/bot-center/drafts/${d.id}/items/3/review`,'POST',{decision:'approved'}));
- [s]=await sessions(f);assert.deepEqual([s.status,s.pendingItems,s.awaitingItems,s.sent],['approved',0,2,0]);
+ [s]=await sessions(f);assert.deepEqual([s.status,s.pendingItems,s.awaitingItems,s.sent],['toSend',0,2,0]);
  ok(await f.ingest(`drafts/${d.id}/sent`,'POST',{items:[1]}));
- [s]=await sessions(f);assert.deepEqual([s.status,s.awaitingItems],['approved',1],'one approved item is still waiting for the BOT');
+ [s]=await sessions(f);assert.deepEqual([s.status,s.awaitingItems],['toSend',1],'one approved item is still waiting for the BOT');
  const waiting=ok(await f.call(`/api/bot-center/patrol-sessions/${s.id}/items`)).items;assert.deepEqual(waiting.map(x=>[x.seq,x.status]),[[3,'approved']]);
  ok(await f.ingest(`drafts/${d.id}/sent`,'POST',{items:[3]}));
  [s]=await sessions(f);assert.deepEqual([s.status,s.awaitingItems,s.pendingItems],['done',0,0]);
@@ -165,7 +165,7 @@ test('deliveries linked to the session are counted as 送出 N 則 once everythi
 test('the BOT can close a session explicitly; reviewing in CY Web only changes the computed status',async t=>{
  const f=await setup(t);ok(await noon(f));
  const d=await patrolDraft(f,'noon-3',2,'noon');ok(await f.call(`/api/bot-center/drafts/${d.id}/review`,'POST',{decision:'approved'}));
- assert.equal((await sessions(f))[0].status,'approved');
+ assert.equal((await sessions(f))[0].status,'toSend');
  const closed=ok(await noon(f,{completed:true}));assert.equal(closed.completed,true);assert.match(closed.completedAt,/^\d{4}-/);
  assert.equal((await sessions(f))[0].status,'done');
  const again=ok(await noon(f,{note:'補一句'}));assert.equal(again.completedAt,closed.completedAt,'a later update does not reopen or move the end time');

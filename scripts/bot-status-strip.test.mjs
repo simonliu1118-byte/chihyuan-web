@@ -38,12 +38,37 @@ test('status strip: all normal, none, and all needing attention',()=>{
  const all=botAttention([bot('A','blocked',hoursAgo(1)),bot('B','working',hoursAgo(9))],NOW);assert.equal(all.items.length,2);assert.equal(all.normal,0);
  assert.deepEqual(botAttention([bot('X','working','not a date')],NOW).items,[],'an unreadable time never raises a false alarm');
 });
-test('Threads card rows: 待審核 first, then 已審核, then 已完成, at most three, each with its own right-hand text',()=>{
- const s=(id,status,extra={})=>({id,label:'場'+id,note:'',sent:0,status,pendingItems:0,awaitingItems:0,draftIds:[],...extra});
- const rows=cards.patrolRows([s(1,'done',{sent:10}),s(2,'approved',{awaitingItems:4}),s(3,'pending',{pendingItems:5}),s(4,'done',{sent:2})]);
- assert.deepEqual(rows.map(r=>r.id),[3,2,1]);
- assert.deepEqual(rows.map(cards.patrolRightText),['5 則待審','4 則通過・待小編留言','送出 10 則']);
+const sess=(id,status,extra={})=>({id,label:'場'+id,note:'',day:'2026-11-19',sent:0,sentTotal:0,status,pendingItems:0,awaitingItems:0,waitingImages:0,skipped:null,abandoned:null,draftIds:[],...extra});
+test('Threads card rows: 待審核, 待留言, 等待圖片, 進行中, 已完成 in that order, at most three today, each with its own right-hand text',()=>{
+ const rows=cards.patrolRows([sess(1,'done',{sent:10}),sess(2,'toSend',{awaitingItems:4}),sess(3,'pending',{pendingItems:5}),sess(4,'waitingImages',{waitingImages:2}),sess(5,'open')]);
+ assert.deepEqual(rows.map(r=>r.id),[3,2,4]);
+ assert.deepEqual(rows.map(cards.patrolRightText),['5 則待審','4 則待留言','2 則等圖']);
+ assert.equal(cards.patrolRightText(sess(6,'done',{sent:7})),'送出 7 則');assert.equal(cards.patrolRightText(sess(7,'open')),'進行中');
+ assert.equal(cards.patrolStatusLabel(sess(4,'waitingImages',{waitingImages:2})),'等待圖片');
  assert.deepEqual(cards.patrolRows([]),[]);
+});
+test('Threads card: a late-delivery row reads 「11/20 早巡（補送）」 with today\'s 送出 N 則, appended after today\'s sessions',()=>{
+ const late=sess(9,'done',{label:'早巡',day:'2026-11-20',sent:3,sentTotal:8,late:true});
+ const rows=cards.patrolRows([late,sess(1,'done',{sent:2}),sess(2,'open'),sess(3,'pending'),sess(4,'toSend')]);
+ assert.deepEqual(rows.map(r=>r.id),[3,4,2,9],'late row never competes for the three today slots');
+ assert.equal(cards.patrolRowLabel(late),'11/20 早巡（補送）');assert.equal(cards.patrolRightText(late),'送出 3 則');
+ assert.equal(cards.patrolRowLabel(sess(1,'done',{label:''})),'其他');
+});
+test('derivePatrolStatus: counts decide the status in priority order; fallback to the old inference without counts',()=>{
+ const none={pendingReview:null,toSend:null,waitingImages:null,skipped:null,abandoned:null};
+ const d=(o)=>shared.derivePatrolStatus({linked:false,linkedPending:0,linkedAwaiting:0,counts:none,completed:false,...o,counts:{...none,...(o.counts||{})}}).status;
+ assert.equal(d({}),'open','no counts, no draft, not completed');
+ assert.equal(d({completed:true}),'done');
+ assert.equal(d({counts:{pendingReview:2,toSend:3,waitingImages:1}}),'pending');
+ assert.equal(d({counts:{pendingReview:0,toSend:3,waitingImages:1}}),'toSend');
+ assert.equal(d({counts:{pendingReview:0,toSend:0,waitingImages:1}}),'waitingImages');
+ assert.equal(d({counts:{pendingReview:0,toSend:0,waitingImages:0}}),'done','nothing left in the reported counts');
+ assert.equal(d({counts:{skipped:2}}),'done','reported counts with nothing pending are complete');
+ assert.equal(d({completed:true,counts:{toSend:2,waitingImages:1}}),'done','BOT completed explicitly');
+ assert.equal(d({completed:true,counts:{pendingReview:1}}),'pending','pending review still needs a person');
+ assert.equal(d({linked:true,linkedPending:2}),'pending');assert.equal(d({linked:true,linkedAwaiting:2}),'toSend');
+ assert.equal(d({linked:true,linkedAwaiting:2,completed:true}),'done');assert.equal(d({linked:true}),'done');
+ const merged=shared.derivePatrolStatus({linked:true,linkedPending:2,linkedAwaiting:0,counts:{...none,pendingReview:3},completed:false});assert.equal(merged.pending,3,'the larger of linked and reported, never double counted');
 });
 test('deadline text: today shows 今日 HH:MM, other days MM/DD HH:MM, urgent when today or past',()=>{
  const now=Date.parse('2026-11-19T02:00:00.000Z');// 台北 10:00

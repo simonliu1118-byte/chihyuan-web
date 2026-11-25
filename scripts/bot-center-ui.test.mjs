@@ -56,7 +56,7 @@ test("timeline rows collapse to one line and reveal shared expand toggle only fo
 test("targeted dialogs have narrower widths and the Threads card shows one row per session",()=>{
  assert.doesNotMatch(page,/state\.workSummary\.patrols\.latest\?\.detail/);
  assert.match(cards,/count=\{summary\.patrols\.sentToday\} unit="則・今日送出留言"/);
- assert.match(cards,/sessions\.map\(session=><button key=\{session\.id\}/);
+ assert.match(cards,/sessions\.map\(session=><button key=\{`\$\{session\.id\}\$\{session\.late/);
  assert.match(dialog,/className="cy-bot-push-dialog"/);
  assert.match(page,/className="cy-bot-settings-dialog"/);
  assert.match(dialog,/size="small" className="cy-bot-push-dialog"/);

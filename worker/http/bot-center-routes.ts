@@ -4,7 +4,7 @@ import {
   BOT_DECISION_LIMITS, canonicalBotPlatform, BOT_WORK_TYPES, BOT_LIMITS, BOT_DRAFT_KINDS, BOT_ITEM_LIMITS, BOT_IMAGE_LIMITS,
   type BotDeliveryDetail,type BotPatrolSummary,type BotSentItemSummary,type BotSentItemView,type BotSentItemPage,type BotDraftKind, type BotDraftDetail, type BotDraftItemView, type BotReviewImageView, type BotImageType, BOT_PAGE_SIZE, BOT_REVIEW_STATUSES, BOT_STATUSES, INITIAL_BOTS,
   taipeiTodayRange, type BotCenterState, type BotCompletionView, type BotCredentialView,
-  type BotDecisionView, type BotPatrolStatus, type BotPatrolSessionItem, type BotDraftView, type BotProfileView, type BotProgressState, type BotReportView, type BotReviewStatus, type BotStatus, type BotWorkType,
+  type BotDecisionView, BOT_PATROL_COUNT_MAX, derivePatrolStatus, type BotPatrolCounts, type BotPatrolSessionItem, type BotDraftView, type BotProfileView, type BotProgressState, type BotReportView, type BotReviewStatus, type BotStatus, type BotWorkType,
 } from "../../shared/bot-center";
 import { identityClient, type IdentityRuntimeEnv } from "./auth-routes";
 import { failure, success } from "./response";
@@ -197,12 +197,12 @@ async function progress(db: D1Database, canManageCredentials: boolean, ready:boo
 }
 const COMPLETION_SQL = "SELECT c.id,b.code,b.label,c.title,c.detail,c.completed_at,c.work_type,c.event_ref FROM bot_completions c JOIN bot_profiles b ON b.id=c.bot_id";
 
-type DeliveryRow={id:number;bot_id:number;event_ref:string;kind:"post"|"patrol";title:string;body:string;sent_at:string;platform:string;publication_url:string;approval_source:BotSentItemView["approvalSource"];approval_note:string;draft_id:number|null;item_id:number|null;session_id:number|null;seq:number|null;draft_title:string|null;code:string;label:string;session_label:string|null};
+type DeliveryRow={id:number;bot_id:number;event_ref:string;kind:"post"|"patrol";title:string;body:string;sent_at:string;platform:string;publication_url:string;approval_source:BotSentItemView["approvalSource"];approval_note:string;draft_id:number|null;item_id:number|null;session_id:number|null;seq:number|null;draft_title:string|null;code:string;label:string;session_label:string|null;source_text:string;source_author:string;source_url:string};
 const DELIVERY_SQL=`SELECT x.*,i.seq,d.title AS draft_title,b.code,b.label,s.label AS session_label FROM bot_deliveries x
  JOIN bot_profiles b ON b.id=x.bot_id LEFT JOIN bot_drafts d ON d.id=x.draft_id
  LEFT JOIN bot_draft_items i ON i.id=x.item_id LEFT JOIN bot_patrol_sessions s ON s.id=x.session_id`;
 const deliveryView=(r:DeliveryRow):BotSentItemView=>({id:r.id,draftId:r.draft_id,seq:r.seq,title:r.title,body:r.body,sentAt:r.sent_at,
- draftTitle:r.draft_title??"",botCode:r.code,botLabel:r.label,platform:r.platform,url:r.publication_url,approvalSource:r.approval_source,approvalNote:r.approval_note,sessionLabel:r.session_label??""});
+ draftTitle:r.draft_title??"",botCode:r.code,botLabel:r.label,platform:r.platform,url:r.publication_url,approvalSource:r.approval_source,approvalNote:r.approval_note,sessionLabel:r.session_label??"",sourceText:r.source_text??"",sourceAuthor:r.source_author??"",sourceUrl:r.source_url??""});
 async function deliveryDetail(db:D1Database,id:number,owner?:number):Promise<BotDeliveryDetail>{
  const row=await one<DeliveryRow>(db,DELIVERY_SQL+" WHERE x.id=?"+(owner===undefined?"":" AND x.bot_id=?"),id,...(owner===undefined?[]:[owner]));
  if(!row)throw new Bad("BOT_NOT_FOUND","找不到這筆發布紀錄",404);
@@ -216,9 +216,11 @@ async function sentItemsPage(db:D1Database,kind:"post"|"patrol",now:string,befor
  const fields=summaryOnly?"SELECT x.id,x.draft_id,i.seq,x.title,x.sent_at,x.platform FROM bot_deliveries x LEFT JOIN bot_draft_items i ON i.id=x.item_id":DELIVERY_SQL;
  // sessionId 0 = 尚未歸入場次的舊成果；其他為場次編號。
  const sessionClause=sessionId===undefined?"":sessionId===0?"AND x.session_id IS NULL":"AND x.session_id=?";
- const rows=await many<DeliveryRow>(db,fields+` WHERE x.kind=? AND x.sent_at>=? AND x.sent_at<?
+ // V0.30.0：看單一場次時列出該場次全部成果（含補送，不分日期）。
+ const wholeSession=!!sessionId;
+ const rows=await many<DeliveryRow>(db,fields+` WHERE x.kind=? AND (?=1 OR (x.sent_at>=? AND x.sent_at<?))
  AND (?='' OR x.sent_at<? OR (x.sent_at=? AND x.id<?)) ${selectedId===undefined?"":"AND x.bot_id=?"} ${sessionClause}
- ORDER BY x.sent_at DESC,x.id DESC LIMIT ?`,kind,today.start,today.end,position?.at??"",position?.at??"",position?.at??"",position?.id??0,...(selectedId===undefined?[]:[selectedId]),...(sessionId?[sessionId]:[]),BOT_PAGE_SIZE+1);
+ ORDER BY x.sent_at DESC,x.id DESC LIMIT ?`,kind,wholeSession?1:0,today.start,today.end,position?.at??"",position?.at??"",position?.at??"",position?.id??0,...(selectedId===undefined?[]:[selectedId]),...(sessionId?[sessionId]:[]),BOT_PAGE_SIZE+1);
  const visible=rows.slice(0,BOT_PAGE_SIZE),last=visible.at(-1),more=rows.length>BOT_PAGE_SIZE;
  return {day:today.day,more,nextBefore:more&&last?last.sent_at+"|"+last.id:null,items:visible.map(r=>summaryOnly?{id:r.id,draftId:r.draft_id,seq:r.seq,title:r.title,sentAt:r.sent_at,platform:r.platform}:deliveryView(r))};
 }
@@ -226,18 +228,14 @@ async function deliveryCount(db:D1Database,kind:string,start:string,end:string,o
  return (await one<{n:number}>(db,`SELECT count(*) n FROM bot_deliveries WHERE kind=? AND sent_at>=? AND sent_at<? ${owner===undefined?"":"AND bot_id=?"}`,kind,start,end,...(owner===undefined?[]:[owner])))?.n??0;
 }
 /**
- * 場次狀態（V0.22.0）：連結的稿件有待審的則 → 待審核；否則有已通過但還沒有送出成果的則、且場次未被 BOT 明確結束 → 已審核；
- * 其餘 → 已完成。V0.22.1：沒有連結稿件的場次（小編在 CY Web 外審稿）只有 BOT 明確結束才算已完成，否則為進行中；
- * 當日所有場次都列出（含尚未送出者），備註照 BOT 原文顯示。
+ * 場次摘要（V0.30.0）。狀態由 derivePatrolStatus 推算：BOT 回報的結構化則數（pending_review／to_send／waiting_images／skipped／abandoned）
+ * 加上連結稿件，不看 note；沒有回報過則數的場次沿用舊推算。當日場次的 sent 為全部成果；較早場次在今日收到補送成果時，另列「補送」列，
+ * sent 只計今日送出數（卡片標題「今日送出留言」仍是當日 sent_at 的成果數）。
  */
-function patrolStatus(linked:boolean,pending:number,awaiting:number,completed:boolean):BotPatrolStatus{
- if(!linked)return completed?"done":"open";
- return pending>0?"pending":awaiting>0&&!completed?"approved":"done";
-}
 async function patrolSummaries(db:D1Database,day:string,start:string,end:string,owner?:number):Promise<BotPatrolSummary[]>{
- // One row per declared session; counts come from the same delivery ledger as the clickable N.
- const sessions=await many<{id:number;label:string;note:string;completed_at:string|null;sent:number}>(db,`SELECT s.id,s.label,s.note,s.completed_at,(SELECT count(*) FROM bot_deliveries x WHERE x.session_id=s.id AND x.sent_at>=? AND x.sent_at<?) sent
- FROM bot_patrol_sessions s WHERE s.day=? ${owner===undefined?"":"AND s.bot_id=?"} ORDER BY s.updated_at DESC,s.id DESC LIMIT ?`,start,end,day,...(owner===undefined?[]:[owner]),BOT_PAGE_SIZE);
+ const scope=owner===undefined?"":"AND s.bot_id=?",ownerArgs=owner===undefined?[]:[owner];
+ const sessions=await many<{id:number;label:string;note:string;day:string;completed_at:string|null;pending_review:number|null;to_send:number|null;waiting_images:number|null;skipped:number|null;abandoned:number|null;sent:number}>(db,`SELECT s.id,s.label,s.note,s.day,s.completed_at,s.pending_review,s.to_send,s.waiting_images,s.skipped,s.abandoned,(SELECT count(*) FROM bot_deliveries x WHERE x.session_id=s.id) sent
+ FROM bot_patrol_sessions s WHERE s.day=? ${scope} ORDER BY s.updated_at DESC,s.id DESC LIMIT ?`,day,...ownerArgs,BOT_PAGE_SIZE);
  // 連結稿件的待審／待送則數：只看最新版，依 idx_bot_drafts_session 以場次編號取稿。
  const linked=sessions.length?await many<{session_id:number;draft_id:number;pending:number;awaiting:number}>(db,`SELECT d.session_id,d.id AS draft_id,
   (SELECT count(*) FROM bot_draft_items i WHERE i.draft_id=d.id AND i.review_status='pending' AND i.externally_completed_at IS NULL) AS pending,
@@ -245,11 +243,18 @@ async function patrolSummaries(db:D1Database,day:string,start:string,end:string,
   FROM bot_drafts d WHERE d.session_id IN(SELECT value FROM json_each(?)) AND NOT EXISTS(SELECT 1 FROM bot_drafts newer WHERE newer.previous_draft_id=d.id) ORDER BY d.id`,JSON.stringify(sessions.map(x=>x.id))):[];
  const rows:BotPatrolSummary[]=[];
  for(const s of sessions){
-  const mine=linked.filter(x=>x.session_id===s.id),pending=mine.reduce((n,x)=>n+x.pending,0),awaiting=mine.reduce((n,x)=>n+x.awaiting,0);
-  rows.push({id:s.id,label:s.label,note:s.note,sent:s.sent,status:patrolStatus(mine.length>0,pending,awaiting,!!s.completed_at),pendingItems:pending,awaitingItems:awaiting,draftIds:mine.map(x=>x.draft_id)});
+  const mine=linked.filter(x=>x.session_id===s.id);
+  const counts:BotPatrolCounts={pendingReview:s.pending_review,toSend:s.to_send,waitingImages:s.waiting_images,skipped:s.skipped,abandoned:s.abandoned};
+  const derived=derivePatrolStatus({linked:mine.length>0,linkedPending:mine.reduce((n,x)=>n+x.pending,0),linkedAwaiting:mine.reduce((n,x)=>n+x.awaiting,0),counts,completed:!!s.completed_at});
+  rows.push({id:s.id,label:s.label,note:s.note,day:s.day,sent:s.sent,sentTotal:s.sent,status:derived.status,pendingItems:derived.pending,awaitingItems:derived.toSend,waitingImages:derived.waitingImages,skipped:s.skipped,abandoned:s.abandoned,draftIds:mine.map(x=>x.draft_id)});
  }
- const unassigned=await one<{n:number}>(db,`SELECT count(*) n FROM bot_deliveries WHERE kind='patrol' AND session_id IS NULL AND sent_at>=? AND sent_at<? ${owner===undefined?"":"AND bot_id=?"}`,start,end,...(owner===undefined?[]:[owner]));
- if(unassigned?.n)rows.push({id:0,label:"",note:"",sent:unassigned.n,status:"done",pendingItems:0,awaitingItems:0,draftIds:[]});
+ // 較早日期的場次在今日收到補送成果：只列這些場次，sent＝今日送出數。
+ const late=await many<{id:number;label:string;note:string;day:string;today_sent:number;total:number}>(db,`SELECT s.id,s.label,s.note,s.day,count(*) today_sent,(SELECT count(*) FROM bot_deliveries y WHERE y.session_id=s.id) total
+  FROM bot_deliveries x JOIN bot_patrol_sessions s ON s.id=x.session_id WHERE x.kind='patrol' AND x.sent_at>=? AND x.sent_at<? AND s.day<? ${scope}
+  GROUP BY s.id ORDER BY s.day DESC,s.id DESC LIMIT ?`,start,end,day,...ownerArgs,BOT_PAGE_SIZE);
+ for(const s of late)rows.push({id:s.id,label:s.label,note:s.note,day:s.day,sent:s.today_sent,sentTotal:s.total,status:"done",pendingItems:0,awaitingItems:0,waitingImages:0,skipped:null,abandoned:null,draftIds:[],late:true});
+ const unassigned=await one<{n:number}>(db,`SELECT count(*) n FROM bot_deliveries WHERE kind='patrol' AND session_id IS NULL AND sent_at>=? AND sent_at<? ${owner===undefined?"":"AND bot_id=?"}`,start,end,...ownerArgs);
+ if(unassigned?.n)rows.push({id:0,label:"",note:"",day,sent:unassigned.n,sentTotal:unassigned.n,status:"done",pendingItems:0,awaitingItems:0,waitingImages:0,skipped:null,abandoned:null,draftIds:[]});
  return rows;
 }
 function publicationUrl(value:unknown):string{
@@ -258,24 +263,43 @@ function publicationUrl(value:unknown):string{
  if(url.protocol!=="https:"||url.username||url.password)throw new Bad("BOT_INVALID","發布連結需為 HTTPS");
  return url.href;
 }
+/** 補送成果最多可對應幾天前的巡視場次。 */
+const BOT_PATROL_LATE_DAYS=14;
+function sourceLink(value:unknown):string{
+ const raw=text(value,"原文連結",500);if(!raw)return "";
+ let url:URL;try{url=new URL(raw)}catch{throw new Bad("BOT_INVALID","原文連結不正確")}
+ if(url.protocol!=="https:"&&url.protocol!=="http:"||url.username||url.password)throw new Bad("BOT_INVALID","原文連結需為 http 或 https");
+ return url.href;
+}
 async function patrolSession(db:D1Database,botId:number,body:Record<string,unknown>,now:string){
  const ref=text(body.sessionRef,"巡視固定編號",120,true),label=text(body.label,"巡視名稱",12,true),note=text(body.note,"巡視摘要",40);
+ // V0.30.0：結構化則數（選填，0 到 999 的整數）。只更新有帶的欄位；沒帶的保留原值（從未帶過則維持 NULL＝沿用舊推算）。
+ const countOf=(value:unknown,name:string):number|null=>{
+  if(value===undefined)return null;
+  if(typeof value!=="number"||!Number.isInteger(value)||value<0||value>BOT_PATROL_COUNT_MAX)throw new Bad("BOT_INVALID",`${name}須為 0 到 ${BOT_PATROL_COUNT_MAX} 的整數`);
+  return value;
+ };
+ const counts=[countOf(body.pendingReview,"待審核則數"),countOf(body.toSend,"待留言則數"),countOf(body.waitingImages,"等待圖片則數"),countOf(body.skipped,"不發則數"),countOf(body.abandoned,"放棄則數")];
  if(body.completed!==undefined&&body.completed!==true&&body.completed!==false)throw new Bad("BOT_INVALID","completed 須為 true 或 false");
  const completed=body.completed===true?1:0;
  const day=body.day??taipeiTodayRange(new Date(now)).day;
  if(typeof day!=="string"||!/^\d{4}-\d\d-\d\d$/.test(day)||!Number.isFinite(Date.parse(day+"T00:00:00Z"))||new Date(day+"T00:00:00Z").toISOString().slice(0,10)!==day)throw new Bad("BOT_INVALID","巡視日期不正確");
  // completed:true 只在第一次記下結束時間；不傳或 false 不會重新開啟，也不會改動已有的結束時間。
- await db.prepare(`INSERT INTO bot_patrol_sessions(bot_id,session_ref,day,label,note,updated_at,completed_at) VALUES(?,?,?,?,?,?,CASE WHEN ?=1 THEN ? ELSE NULL END)
- ON CONFLICT(bot_id,session_ref) DO UPDATE SET label=excluded.label,note=excluded.note,updated_at=excluded.updated_at,completed_at=CASE WHEN ?=1 THEN COALESCE(bot_patrol_sessions.completed_at,excluded.updated_at) ELSE bot_patrol_sessions.completed_at END WHERE day=excluded.day`).bind(botId,ref,day,label,note,now,completed,now,completed).run();
- const saved=await one<{id:number;day:string;completed_at:string|null}>(db,"SELECT id,day,completed_at FROM bot_patrol_sessions WHERE bot_id=? AND session_ref=?",botId,ref);
+ await db.prepare(`INSERT INTO bot_patrol_sessions(bot_id,session_ref,day,label,note,updated_at,completed_at,pending_review,to_send,waiting_images,skipped,abandoned) VALUES(?,?,?,?,?,?,CASE WHEN ?=1 THEN ? ELSE NULL END,?,?,?,?,?)
+ ON CONFLICT(bot_id,session_ref) DO UPDATE SET label=excluded.label,note=excluded.note,updated_at=excluded.updated_at,
+  pending_review=COALESCE(excluded.pending_review,bot_patrol_sessions.pending_review),to_send=COALESCE(excluded.to_send,bot_patrol_sessions.to_send),waiting_images=COALESCE(excluded.waiting_images,bot_patrol_sessions.waiting_images),
+  skipped=COALESCE(excluded.skipped,bot_patrol_sessions.skipped),abandoned=COALESCE(excluded.abandoned,bot_patrol_sessions.abandoned),completed_at=CASE WHEN ?=1 THEN COALESCE(bot_patrol_sessions.completed_at,excluded.updated_at) ELSE bot_patrol_sessions.completed_at END WHERE day=excluded.day`).bind(botId,ref,day,label,note,now,completed,now,...counts,completed).run();
+ const saved=await one<{id:number;day:string;completed_at:string|null;pending_review:number|null;to_send:number|null;waiting_images:number|null;skipped:number|null;abandoned:number|null}>(db,"SELECT id,day,completed_at,pending_review,to_send,waiting_images,skipped,abandoned FROM bot_patrol_sessions WHERE bot_id=? AND session_ref=?",botId,ref);
  if(saved?.day!==day)throw new Bad("BOT_EVENT_CONFLICT","同一巡視編號不能改日期",409);
- return {id:saved.id,sessionRef:ref,day,label,note,completed:!!saved.completed_at,completedAt:saved.completed_at};
+ return {id:saved.id,sessionRef:ref,day,label,note,completed:!!saved.completed_at,completedAt:saved.completed_at,counts:{pendingReview:saved.pending_review,toSend:saved.to_send,waitingImages:saved.waiting_images,skipped:saved.skipped,abandoned:saved.abandoned}};
 }
 /** Immutable actual-work receipt. External approval is provenance, never a CYWEB review decision. */
 async function saveDelivery(db:D1Database,bot:ProfileRow,body:Record<string,unknown>,now:string){
  const ref=text(body.eventRef,"成果固定編號",120,true),kind=body.kind,source=body.approvalSource;
  if(kind!=="post"&&kind!=="patrol"||!["cyweb","chat","line","other"].includes(String(source)))throw new Bad("BOT_INVALID","成果分類或核准來源不正確");
  const note=text(body.approvalNote,"核准來源說明",200,source!=="cyweb"),url=publicationUrl(body.url);
+ // V0.30.0：原文（巡到的貼文）。皆選填；舊成果沒有，不回溯。
+ const sourceText=text(body.sourceText,"原文",2000),sourceAuthor=text(body.sourceAuthor,"原文作者",80),sourceUrl=sourceLink(body.sourceUrl);
  // V0.22.0：新寫入的平台只收 FB／IG／Threads（不分大小寫），以標準寫法保存；留空維持未填。
  const rawPlatform=text(body.platform,"平台",40),platform=rawPlatform===""?"":canonicalBotPlatform(rawPlatform)??"";
  if(rawPlatform!==""&&!platform)throw new Bad("BOT_INVALID","平台須為 FB、IG 或 Threads",400);
@@ -301,10 +325,13 @@ async function saveDelivery(db:D1Database,bot:ProfileRow,body:Record<string,unkn
  let sessionId:number|null=null;
  if(body.sessionRef!==undefined){
   const session=await one<{id:number;day:string}>(db,"SELECT id,day FROM bot_patrol_sessions WHERE bot_id=? AND session_ref=?",bot.id,text(body.sessionRef,"巡視固定編號",120,true));
-  if(kind!=="patrol"||!session||session.day!==taipeiTodayRange(new Date(at)).day)throw new Bad("BOT_INVALID","請先登錄同日的巡視場次");
+  // V0.30.0：成果可補送較早場次（最多 14 天前）；場次日期晚於送出日（未來）或超過 14 天都拒絕。
+  if(kind!=="patrol"||!session)throw new Bad("BOT_INVALID","請先登錄巡視場次");
+  const lag=(Date.parse(taipeiTodayRange(new Date(at)).day+"T00:00:00Z")-Date.parse(session.day+"T00:00:00Z"))/86400000;
+  if(lag<0||lag>BOT_PATROL_LATE_DAYS)throw new Bad("BOT_INVALID",lag<0?"巡視場次日期不能晚於送出日":`補送只能對應 ${BOT_PATROL_LATE_DAYS} 天內的巡視場次`);
   sessionId=session.id;
  }else if(kind==="patrol")throw new Bad("BOT_INVALID","海巡成果須指定巡視場次");
- const matches=(r:DeliveryRow)=>r.kind===kind&&r.title===title&&r.body===content&&r.sent_at===at&&r.approval_source===source&&r.approval_note===note&&r.platform===platform&&r.publication_url===url&&r.draft_id===(target?.id??null)&&r.item_id===(item?.id??null)&&r.session_id===sessionId;
+ const matches=(r:DeliveryRow)=>r.kind===kind&&r.title===title&&r.body===content&&r.sent_at===at&&r.approval_source===source&&r.approval_note===note&&r.platform===platform&&r.publication_url===url&&r.draft_id===(target?.id??null)&&r.item_id===(item?.id??null)&&r.session_id===sessionId&&(!sourceText||r.source_text===sourceText)&&(!sourceAuthor||r.source_author===sourceAuthor)&&(!sourceUrl||r.source_url===sourceUrl);
  if(existing&&existing.event_ref==='legacy-item-'+existing.item_id&&source==='cyweb'&&existing.kind===kind&&existing.title===title&&existing.body===content&&existing.sent_at===at&&existing.draft_id===(target?.id??null)&&existing.item_id===(item?.id??null)){
   await db.prepare("UPDATE OR IGNORE bot_deliveries SET event_ref=?,platform=?,publication_url=?,session_id=?,approval_note=? WHERE id=? AND event_ref=?").bind(ref,platform,url,sessionId,note,existing.id,existing.event_ref).run();
   const upgraded=await one<DeliveryRow>(db,"SELECT * FROM bot_deliveries WHERE id=?",existing.id);
@@ -313,8 +340,8 @@ async function saveDelivery(db:D1Database,bot:ProfileRow,body:Record<string,unkn
  }
  if(existing){if(!matches(existing))throw new Bad("BOT_EVENT_CONFLICT","這筆成果已有不同內容，請核對原紀錄",409);return {id:existing.id,botCode:bot.code,eventRef:ref,duplicate:true}}
  const writeKey=crypto.randomUUID();
- const statements=[db.prepare(`INSERT INTO bot_deliveries(bot_id,event_ref,write_key,kind,title,body,sent_at,platform,publication_url,approval_source,approval_note,draft_id,item_id,session_id)
- SELECT ?,?,?,?,?,?,?,?,?,?,?,?,?,? WHERE ? IS NULL OR NOT EXISTS(SELECT 1 FROM bot_drafts WHERE previous_draft_id=?) ON CONFLICT DO NOTHING`).bind(bot.id,ref,writeKey,kind,title,content,at,platform,url,source,note,target?.id??null,item?.id??null,sessionId,target?.id??null,target?.id??null)];
+ const statements=[db.prepare(`INSERT INTO bot_deliveries(bot_id,event_ref,write_key,kind,title,body,sent_at,platform,publication_url,approval_source,approval_note,draft_id,item_id,session_id,source_text,source_author,source_url)
+ SELECT ?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,? WHERE ? IS NULL OR NOT EXISTS(SELECT 1 FROM bot_drafts WHERE previous_draft_id=?) ON CONFLICT DO NOTHING`).bind(bot.id,ref,writeKey,kind,title,content,at,platform,url,source,note,target?.id??null,item?.id??null,sessionId,sourceText,sourceAuthor,sourceUrl,target?.id??null,target?.id??null)];
  // Only a winning receipt resolves matching pending work; original reviewer/decision is unchanged.
  if(target){
   if(item)statements.push(db.prepare(`UPDATE bot_draft_items SET sent_at=CASE WHEN review_status='approved' THEN COALESCE(sent_at,?) ELSE sent_at END,externally_completed_at=CASE WHEN ?<>'cyweb' AND review_status='pending' THEN COALESCE(externally_completed_at,?) ELSE externally_completed_at END
@@ -922,4 +949,43 @@ export async function cleanupReviewImages(env: BotEnv, now: string): Promise<num
   await env.HR_FILES.delete(rows.map(row => row.object_key));
   await env.DB.prepare("DELETE FROM bot_review_images WHERE id IN (SELECT value FROM json_each(?))").bind(JSON.stringify(rows.map(row => row.id))).run();
   return rows.length+discarded.length+deliveries.length;
+}
+
+/** 巡視成果與場次的保存天數（V0.30.0，使用者 2026-11-25）。 */
+export const BOT_HISTORY_RETENTION_DAYS = 90;
+const RETENTION_BATCH = 200, RETENTION_MAX_BATCHES = 5;
+/**
+ * 每日保存期清理（台灣 03:15 同一個排程時段，不增加 trigger）：刪除送出時間早於 90 天的成果（bot_deliveries），
+ * 與場次日期早於 90 天、且已沒有成果的場次（bot_patrol_sessions）。每批 200 筆、每次最多 5 批，可重複執行。
+ * 外鍵：先刪成果圖片（bot_delivery_images，R2 物件一併刪；平常隔日已清除）再刪成果；
+ * 稿件以 bot_drafts.session_id 連結場次，刪場次前先把該欄設為 NULL（稿件本身依審稿紀錄保留，不在此刪除）；
+ * 仍有成果（含 90 天內補送）的場次保留。bot_completions 的時間軸事件、稿件與審核紀錄不動。回傳刪除的成果與場次數。
+ */
+export async function purgeOldBotHistory(env: BotEnv, now: string): Promise<{ deliveries: number; sessions: number }> {
+  const cutoffMs = Date.parse(now) - BOT_HISTORY_RETENTION_DAYS * 86400000;
+  const cutoff = new Date(cutoffMs).toISOString(), cutoffDay = taipeiTodayRange(new Date(cutoffMs)).day;
+  let deliveries = 0, sessions = 0;
+  for (let i = 0; i < RETENTION_MAX_BATCHES; i++) {
+    const ids = await many<{ id: number }>(env.DB, "SELECT id FROM bot_deliveries WHERE sent_at<? ORDER BY sent_at,id LIMIT ?", cutoff, RETENTION_BATCH);
+    if (!ids.length) break;
+    const json = JSON.stringify(ids.map(r => r.id));
+    const images = await many<{ object_key: string }>(env.DB, "SELECT object_key FROM bot_delivery_images WHERE delivery_id IN(SELECT value FROM json_each(?))", json);
+    if (images.length) { if (!env.HR_FILES) break; await env.HR_FILES.delete(images.map(r => r.object_key)); }
+    await env.DB.batch([
+      env.DB.prepare("DELETE FROM bot_delivery_images WHERE delivery_id IN(SELECT value FROM json_each(?))").bind(json),
+      env.DB.prepare("DELETE FROM bot_deliveries WHERE id IN(SELECT value FROM json_each(?))").bind(json)]);
+    deliveries += ids.length;
+    if (ids.length < RETENTION_BATCH) break;
+  }
+  for (let i = 0; i < RETENTION_MAX_BATCHES; i++) {
+    const ids = await many<{ id: number }>(env.DB, "SELECT s.id FROM bot_patrol_sessions s WHERE s.day<? AND NOT EXISTS(SELECT 1 FROM bot_deliveries x WHERE x.session_id=s.id) ORDER BY s.day,s.id LIMIT ?", cutoffDay, RETENTION_BATCH);
+    if (!ids.length) break;
+    const json = JSON.stringify(ids.map(r => r.id));
+    await env.DB.batch([
+      env.DB.prepare("UPDATE bot_drafts SET session_id=NULL WHERE session_id IN(SELECT value FROM json_each(?))").bind(json),
+      env.DB.prepare("DELETE FROM bot_patrol_sessions WHERE id IN(SELECT value FROM json_each(?)) AND NOT EXISTS(SELECT 1 FROM bot_deliveries x WHERE x.session_id=bot_patrol_sessions.id)").bind(json)]);
+    sessions += ids.length;
+    if (ids.length < RETENTION_BATCH) break;
+  }
+  return { deliveries, sessions };
 }

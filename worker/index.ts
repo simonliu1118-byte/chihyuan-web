@@ -23,7 +23,7 @@ import { handleUsageRoute } from "./http/usage-routes";
 import { handleBusinessApiPhase2Route } from "./http/business-api-phase2-routes";
 import { handleProgramCatalogRoute } from "./http/program-catalog-routes";
 import { handleErpItemQueryRoute, type ErpBridgeEnv } from "./http/erp-item-query-routes";
-import { handleBotCenterRoute, cleanupReviewImages } from "./http/bot-center-routes";
+import { handleBotCenterRoute, cleanupReviewImages, purgeOldBotHistory } from "./http/bot-center-routes";
 import { handleHomeHubRoute } from "./http/home-hub-routes";
 import {deliverReviewPushes,cleanupReviewPushes,type BotPushEnv} from "./bot/review-push";
 import { runErpHousekeeping } from "./http/erp-housekeeping";
@@ -149,6 +149,7 @@ export default {
     jobs.push(cleanupReviewImages(env, now));
     if (tasks.storeMonthly) jobs.push(ensureMonthlyRows(env.DB, now));
     if (tasks.hrCurrentValues) jobs.push(rollHrCurrentValues(env.DB, now));
+    if (tasks.botRetention) jobs.push(purgeOldBotHistory(env, now));
     if (tasks.programCatalog) jobs.push(updateProgramCatalog(env.DB, now));
     if (tasks.backup) jobs.push(scheduledBackup(env, controller.scheduledTime));
     const failed = (await Promise.allSettled(jobs)).find((r): r is PromiseRejectedResult => r.status === "rejected");

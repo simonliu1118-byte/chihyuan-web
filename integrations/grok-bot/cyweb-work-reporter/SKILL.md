@@ -5,7 +5,7 @@ description: 回報 CYWEB BOT 工作進度、待審稿、實際發布貼文、�
 
 # CYWEB 共用工作回報
 
-先讀 [操作契約](references/wire-contract.md)；首次設定或更新既有 routine 時讀 [Grok 設定](references/grok-setup.md)。本版要求 WEB V0.22.0／0079 先部署，部署前沿用舊工具，不試新寫入。
+先讀 [操作契約](references/wire-contract.md)；首次設定或更新既有 routine 時讀 [Grok 設定](references/grok-setup.md)。本版要求 WEB V0.30.0／0085 先部署，部署前沿用舊工具，不試新寫入。
 
 ## 身分與安全
 
@@ -42,12 +42,15 @@ description: 回報 CYWEB BOT 工作進度、待審稿、實際發布貼文、�
 
 ## 巡視摘要
 
-- 每場先 `patrol-session`，sessionRef 固定、label 只填「早巡／午巡／晚巡」等實際名稱，可指定 day=YYYY-MM-DD。名稱由你回報，不由 CYWEB 猜測。
-- 該場要送審的海巡稿，`submit` 時帶同一個 `sessionRef`（kind=patrol；場次須是你自己、今天已登錄的）。CYWEB 依連結的稿件自動顯示場次狀態：有待審的則＝待審核；都審完、有通過但還沒送出＝已審核（待你留言）；通過的則都已送出，或你明確結束＝已完成。**人在 CYWEB 審核只改變這個狀態，你不必為此另外回報。**
-- 一場全部送完後，若還有不打算送的通過項目，用 `patrol-session` 帶 `completed:true` 明確結束該場；不帶不會重新開啟，已結束的不會被改回。
-- 每則實際送出的 patrol delivery 帶同一 sessionRef。分批送出仍同一場，不重建摘要。系統顯示「午巡｜已送出N則」，N來自真正的逐則成果。
-- note 一般留空；只有需要使用者處理的例外才填一句，最多40字。**不要列帳號、網址、則號、核准人、稿號、逐則清單、重複的待審統計。**這些細節放在逐則成果內容，點 N 即可看。
-- 同一 sessionRef 可更新 note／label，不增加另一行；day 不可改。巡視完成可另用既有 complete.threads_patrol 留時間軸，但 detail 也保持簡短，不為每批重複建立完成事件。
+- 每場先 `patrol-session` 登錄，sessionRef 固定、label 只填「早巡／午巡／晚巡」等實際名稱，可指定 day=YYYY-MM-DD。名稱由你回報，不由 CYWEB 猜測。**登錄時先不要帶則數**：未回報則數＝「進行中」。
+- **巡完、結果出來後**，用同一 sessionRef 再呼叫 `patrol-session`，帶結構化則數（0 到 999 的整數，沒帶的欄位保留上次的值）：`pendingReview` 待審核、`toSend` 待留言（已核准、尚未送出）、`waitingImages` 等待圖片、`skipped` 不發、`abandoned` 放棄。每次進度變動就更新一次（例如送出一則後 `toSend` 減 1）。已送出的則數不用報，由 delivery 自動計算。
+- CYWEB 依則數顯示狀態，**不看 note**：有待審核＝待審核；有待留言＝待留言；只剩等圖＝等待圖片（N 則）；都沒有＝已完成（自動）。小編重新查核（待查核）不是獨立狀態，重新送審就算待審核，照常更新 `pendingReview`。需要時也可帶 `completed:true` 明確結束；不帶不會重新開啟。
+- 走 CYWEB 審核的海巡稿，`submit` 時帶同一個 `sessionRef`（kind=patrol；場次須是你自己、今天已登錄的）；稿件的待審／已通過未送出會與你回報的則數取較大者，人在 CYWEB 審核只改變狀態，你不必另外回報。
+- **每則已送出的海巡留言，用 patrol delivery 回報，並一定要附原文**：`sourceText`（你巡到的貼文全文，最多2000字）必填，`sourceAuthor`（貼文作者帳號，最多80字，可含或不含 @）與 `sourceUrl`（原貼文連結，http／https，最多500字）建議附上。`body` **只放我們實際送出的留言**；粉專身分、不配圖、核准人等內部備註不要放進 body 或 sourceText。畫面會把原文與我們的留言並排顯示，標題連到你填的 `url`（我們送出的留言連結）。
+- 每則 patrol delivery 帶 sessionRef。分批送出仍同一場。**補送**：留言是在隔天（最多 14 天內）才送出，就帶原本那一場的 sessionRef 與真實送出時間；場次日期不可晚於送出日，超過 14 天會被拒絕。補送成果計入該場次的送出數，也計入送出當日的「今日送出留言」。
+- note 一般留空；只有需要使用者處理的例外才填一句，最多40字，狀態不看它。**不要列帳號、網址、則號、核准人、稿號、逐則清單、重複的待審統計。**這些細節放在逐則成果內容，點場次即可看。
+- 同一 sessionRef 可更新 note／label／則數，不增加另一行；day 不可改。巡視完成可另用既有 complete.threads_patrol 留時間軸，但 detail 也保持簡短，不為每批重複建立完成事件。
+- 成果與場次在 CYWEB 保存 90 天，之後自動清除；需要長期留存的內容請自行保存。
 
 ## 失敗、防重複與舊資料
 
