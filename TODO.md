@@ -6,7 +6,8 @@
 ## V0.29.2 身分證就地顯示與我的資料重排
 
 - [x] 身分證字號共用就地顯示元件、本人取號端點（無稽核）、我的資料帳號資料區與人事資料重排、獎金單人視窗改單一表單、關閉視窗確認文案修正。
-- [ ] Claude 依 [handoff](docs/handoff/CYWEB-PROFILE-ID-REVEAL-20261125.md) 審查；通過後由使用者授權合併部署。沒有 migration。
+- [x] Claude 依 [handoff](docs/handoff/CYWEB-PROFILE-ID-REVEAL-20261125.md) 審查通過（2026-11-25），使用者授權合併部署。
+- [ ] 我的資料 Email 明碼：需 CYID 在身分解析回應提供 `email`（CYapps 另案），CY Web 已接好選填欄位。
 - [ ] Email 明碼需 CYID 在身分解析回應提供 `email`（本版已接好選填欄位）；提供前「我的資料」只顯示驗證標籤。
 
 ## V0.29.1 人事介面修正與全面巡檢
