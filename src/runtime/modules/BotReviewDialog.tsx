@@ -31,7 +31,7 @@ export function BotReviewDialog({ids,initialId,canReview,onClose,onChanged,onlyI
  const load=useCallback(async(target:number)=>{const current=request.begin();setBusy(true);setError(null);try{const next=await loadDraftDetail(target);if(current.current())setDetail(next)}catch(e){if(current.current())setError(e instanceof Error?e.message:"無法載入審稿")}finally{if(current.current())setBusy(false)}},[request]);
  useEffect(()=>{setDetail(null);setActiveSeq(1);setShowNote(false);void load(id);return()=>request.invalidate()},[id,load,request]);
  const index=ids.indexOf(id);
- async function reason(){const values=await ask({title:"退回理由",fields:[{name:"reason",label:"退回理由",multiline:true,required:true}],confirmLabel:"退回",confirmTone:"danger",size:"mini"});return values?.reason?.trim()||null}
+ async function reason(){const values=await ask({title:"退回理由",fields:[{name:"reason",label:"退回理由",multiline:true,required:true}],confirmLabel:"退回",confirmTone:"danger"});return values?.reason?.trim()||null}
  async function act(task:()=>Promise<unknown>){setBusy(true);setError(null);try{await task();await load(id);onChanged()}catch(e){setError(e instanceof Error?e.message:"審核失敗")}finally{setBusy(false)}}
  const draft=detail?.draft,pending=!!draft&&draft.status==="pending"&&!draft.supersededById&&canReview&&onlyItemSeq===undefined;
  const imagesOf=(itemId:number|null)=>detail?.images.filter(image=>image.itemId===itemId)??[];

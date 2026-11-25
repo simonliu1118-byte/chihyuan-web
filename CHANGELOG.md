@@ -2,6 +2,8 @@
 
 ## CY Web V0.30.0 — BOT 巡視場次狀態、補送、90 天保存與送出內容改版（使用者 2026-11-25）
 
+- 共用彈窗尺寸改為只作用在視窗本身（`.cy-dialog-<size> > .cy-dialog-surface`）：大視窗內再開的小視窗（如 BOT 審稿的「退回理由」）不再被套成 860px；「退回理由」改用 small 400px。
+
 - 版本選擇：V0.30.0、Build 0。升 Y 的理由（REPOSITORY_RULES §6）：場次狀態改由 BOT 回報的結構化則數驅動（新 API 欄位與兩個新狀態）、成果可補送較早場次、新增 90 天保存期、送出內容視窗改成原文／留言並排並新增原文欄位，是使用者可明顯感受的一組新能力，而非單一介面調整；Z 歸零、Build 歸零。
 - 場次狀態（取代 V0.22.0 的待審核／進行中／已審核／已完成）：進行中、待審核、待留言、等待圖片（N 則）、已完成。`POST /api/bot-ingest/patrol-sessions` 新增選填整數 `pendingReview`、`toSend`、`waitingImages`、`skipped`、`abandoned`（0–999，沒帶的欄位保留原值）；狀態只看則數與連結稿件，不看 note。待審、待留言與連結稿件取較大者以免重複計算；小編重新查核算待審核。從未回報則數的場次沿用舊推算（連結稿件；未連結者進行中直到 completed）。卡片右側：「N 則待審」「N 則待留言」「N 則等圖」「送出 N 則」；排序待審核→待留言→等待圖片→進行中→已完成。
 - 補送：成果可指向較早的場次（台北日 ≤ 送出日且不超過 14 天，否則 422）。場次送出數計全部成果；「今日送出留言」仍只算今日 sent_at。今日卡片另列「11/20 早巡（補送）」與今日補送數，不佔今日 3 列名額；人員 `sent-items?sessionId=` 看單一場次不再限當日。
@@ -9,6 +11,15 @@
 - 送出內容視窗：標題列場次名稱＋狀態＋「YYYY/MM/DD・送出 N 則」；每則「第 N 則　@作者 ↗」連到我們送出的留言，桌機左原文右留言、手機上下排；移除「查看已送出留言」。成果新增選填 `sourceText`（≤2000）、`sourceAuthor`（≤80）、`sourceUrl`（≤500，http／https）；舊成果顯示「未附原文」，不解析舊內文。
 - migration 0085（`bot_patrol_sessions` 五個可為空整數欄、`bot_deliveries` 三個原文欄）；備份欄位與 `CURRENT_MIGRATION` 同步，舊備份缺欄位採預設。技能包 5 檔同步（patrol-session 則數、delivery 原文、補送；海巡成果工具端要求 sourceText）。
 - 測試：新增 `scripts/bot-patrol-status.test.mjs`（8 項）；更新 `bot-decisions`、`bot-status-strip`、`grok-bot-reporter`、`erp-housekeeping` 與兩個備份遷移斷言。未合併、未部署；交接見 [CYWEB-BOT-PATROL-STATUS-20261125](docs/handoff/CYWEB-BOT-PATROL-STATUS-20261125.md)。
+## CY Web V0.29.4 — 薪資讀該月月底任用值、薪資到出勤定位日期（使用者 2026-11-25）
+
+- 版本選擇：V0.29.4、Build 0。兩項修正屬同一個新的獨立修改項目、沒有新的整體能力，依 REPOSITORY_RULES §6 為 Z + 1、Build 歸零；不升 Y。
+- 薪資任用值：計薪來源的僱用型態、排班方式、門市、職稱改為**該薪資月月底**生效的值（原讀今日），算過去月份不再受之後的異動影響；每月薪資清單的門市也是月底門市。月底值與人事「目前值」檢視同一規則（生效日 ≤ 月底的最新一筆，同日取較大 id；沒有則用最早一筆的舊值，再退回主檔），由 `worker/hr/hr-current-values.ts` 的 `asOfProjection(alias, bound)` 單一片段提供，每日推進任務、計薪來源與月份清單共用。
+- 月中任用異動：該月內（月初次日～月底）任一欄位有生效異動時，新增待補「月中任用異動（<欄位> YYYY/MM/DD）：須分段核對」，不能靜默確認；建檔紀錄與月初 1 日生效者不算。不做分段計薪（維持原公式）。人事狀態（留停、離職）仍用有日期的狀態紀錄，未變。
+- 來源比對：月底任用值與當月異動清單都在來源快照內，事後補登影響該月的異動會使草稿失效，需重算。
+- 薪資到出勤：待補事項的日期隨「到出勤補正」帶入，出勤頁捲動到該日期列並短暫標示（桌機列與手機卡片共用同一列）；日期不在該薪資月則只定位員工與月份。
+- 測試：`hr-payroll-flow.test.mjs` +4（過去月份用舊值且月後異動無影響、月中異動出待補、來源比對偵測補登、月份清單月底門市）、`hr-first-batch.test.mjs` +1（出勤日期標示）、`hr-payroll-flow-ui.test.mjs` 更新日期傳遞。
+- 未合併、未部署；交接見 [CYWEB-PAYROLL-MONTH-ASSIGNMENTS-20261125](docs/handoff/CYWEB-PAYROLL-MONTH-ASSIGNMENTS-20261125.md)。
 
 ## CY Web V0.29.3 — 視窗寬度全面盤點（使用者 2026-11-25）
 

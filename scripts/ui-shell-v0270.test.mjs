@@ -47,8 +47,8 @@ test('shell: desktop puts tools after the title, phone puts them in the right cl
 test('dialog widths follow the V0.27.0 rule: small 400, medium 560 (default), large 860',()=>{
  const css=read('src/ui/overlays/overlay.css');
  assert.match(css,/\.cy-dialog-surface \{[^}]*width: min\(560px/);
- assert.match(css,/\.cy-dialog-small \.cy-dialog-surface \{\s*width: min\(400px/);
- assert.match(css,/\.cy-dialog-large \.cy-dialog-surface \{\s*width: min\(860px/);
+ assert.match(css,/\.cy-dialog-small > \.cy-dialog-surface \{\s*width: min\(400px/);
+ assert.match(css,/\.cy-dialog-large > \.cy-dialog-surface \{\s*width: min\(860px/);
 });
 test('人事設定 has the category list, single-table panes and editor dialogs, no inline editable rows',()=>{
  const button=read('src/runtime/modules/HrSettingsButton.tsx');

@@ -7,7 +7,7 @@ import type {FormPromptRequest} from '../../ui/overlays/useFormPrompt';
 import {HrPayrollCorrections} from './HrPayrollCorrections';
 import {HrPayrollLegalCases} from './HrPayrollLegalCases';
 import {ProfileEditor} from './HrPayrollProfileEditor';
-import {FLOW_LABEL,FLOW_TONE,calcPayload,classifyIssue,flowStatus,monthLabel,monthSummary,needsRecalc,rowIssues,shortIssue,slashDate,type IssueAction,type MonthRow,type ReviewKind} from './hr-payroll-flow';
+import {FLOW_LABEL,FLOW_TONE,calcPayload,classifyIssue,issueNavDate,flowStatus,monthLabel,monthSummary,needsRecalc,rowIssues,shortIssue,slashDate,type IssueAction,type MonthRow,type ReviewKind} from './hr-payroll-flow';
 
 const ROOT='/api/business/hr';
 const money=(v:number)=>'$'+(v||0).toLocaleString('zh-TW');
@@ -17,7 +17,7 @@ const reviewLabels:Record<string,string>={absence:'確認曠班',holiday_shifted
 interface RunFull {id:number;employee_id:number;month:string;pay_date:string;status:string;revision:number;result:PayrollResult}
 interface DayReview {work_date:string;kind:string;reason:string;revision:number}
 interface Snapshot {id:number;status:string;revision:number;reason:string|null;updated_at:string;result:PayrollResult}
-export interface PayrollNavTarget {tab:'attendance'|'leave';employeeId:number;month:string}
+export interface PayrollNavTarget {tab:'attendance'|'leave';employeeId:number;month:string;date?:string|null}
 type Ask=(request:FormPromptRequest)=>Promise<Record<string,string>|null>;
 
 export interface PayrollDetailProps {
@@ -108,7 +108,7 @@ export function HrPayrollDetail(props:PayrollDetailProps){
   setDays('');await calculate({paidDays:clear?null:n,reason:v.reason});
  }
  function act(action:IssueAction,date:string|null){
-  if(action.type==='attendance'||action.type==='leave')props.onNavigate({tab:action.type,employeeId:row.employeeId,month});
+  if(action.type==='attendance'||action.type==='leave')props.onNavigate({tab:action.type,employeeId:row.employeeId,month,date:issueNavDate(date,month)});
   else if(action.type==='salary')props.onRaise(row.employeeId,row.name);
   else if(action.type==='profile')setProfileOpen(true);
   else if(action.type==='review'&&date&&action.reviewKind)void confirmReview(date,action.reviewKind,action.label);

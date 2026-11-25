@@ -8,6 +8,10 @@
 - [ ] 部署前：正式 D1 在 0084、當日備份已驗證；先部署 WEB（含 0085），再替換 Grok 技能包 5 檔（見 grok-setup「更新至 V0.30.0」）。
 - [ ] 部署後：請小編在 routine 補一句「巡完回報場次則數、每則海巡留言附原文、隔天補送帶原場次」；觀察隔日 03:15 保存期清理沒有報錯。
 - [x] 工程完成（未合併、未部署）；待 Claude 依 [handoff](docs/handoff/CYWEB-BOT-PATROL-STATUS-20261125.md) 審查。
+## V0.29.4 薪資月份任用值
+
+- [ ] Claude 依 [handoff](docs/handoff/CYWEB-PAYROLL-MONTH-ASSIGNMENTS-20261125.md) 審查。
+- [ ] 月中任用異動目前只提示「須分段核對」；分段計薪（僱用型態／排班方式月中改變）尚未實作，需另案決定。
 
 ## V0.29.3 視窗寬度全面盤點
 

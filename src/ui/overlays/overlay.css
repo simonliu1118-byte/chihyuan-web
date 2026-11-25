@@ -30,15 +30,15 @@
   box-shadow: var(--cy-shadow-lg);
 }
 
-.cy-dialog-mini .cy-dialog-surface {
+.cy-dialog-mini > .cy-dialog-surface {
   width: min(220px, calc(100vw - 32px));
 }
 
-.cy-dialog-small .cy-dialog-surface {
+.cy-dialog-small > .cy-dialog-surface {
   width: min(400px, calc(100vw - 32px));
 }
 
-.cy-dialog-large .cy-dialog-surface {
+.cy-dialog-large > .cy-dialog-surface {
   width: min(860px, calc(100vw - 32px));
 }
 

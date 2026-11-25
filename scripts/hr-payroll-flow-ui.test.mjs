@@ -130,7 +130,7 @@ test('detail issue rows: 到出勤補正／到請假補單 navigate, 確認曠�
  const issues=['2026-11-12 未打卡須先補正或明確確認曠班','2026-11-18 排班假尚未完成正式假單'],r=row(1,{},{issues}),h=new Host(),{props,calls}=detailProps(r);
  globalThis.hrTransport=(u,o)=>{if(o?.method==='POST'){calls.posts.push({u,json:o.json});return Promise.resolve(runBody(r,[]));}if(u.includes('/reviews/'))return Promise.resolve([]);return Promise.resolve(runBody(r,issues));};
  try{h.render(HrPayrollDetail,props);let t=await h.settle(HrPayrollDetail,props);
-  button(t,'到出勤補正').props.onClick();button(t,'到請假補單').props.onClick();assert.deepEqual(calls.nav,[{tab:'attendance',employeeId:1,month:'2026-11'},{tab:'leave',employeeId:1,month:'2026-11'}]);
+  button(t,'到出勤補正').props.onClick();button(t,'到請假補單').props.onClick();assert.deepEqual(calls.nav,[{tab:'attendance',employeeId:1,month:'2026-11',date:'2026-11-12'},{tab:'leave',employeeId:1,month:'2026-11',date:'2026-11-18'}]);
   button(t,'確認曠班').props.onClick();await h.settle(HrPayrollDetail,props);await h.settle(HrPayrollDetail,props);
   assert.equal(calls.asks[0].size,'small');assert.equal(calls.asks[0].fields[0].required,true);assert.equal(calls.asks[0].fields[0].label,'核對原因');
   assert.deepEqual(calls.posts.map(p=>p.u.split('/payroll/')[1]),['reviews/1','calculate']);assert.deepEqual(calls.posts[0].json,{date:'2026-11-12',kind:'absence',reason:'合成核對原因',revision:0});
