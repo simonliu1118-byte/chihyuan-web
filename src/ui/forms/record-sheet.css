@@ -81,3 +81,11 @@ textarea.cy-sheet-input{height:auto;min-height:64px;resize:none}
 .cy-sheet :is(input,select,textarea).cy-op-input[aria-invalid="true"],
 .cy-sheet-table :is(input,select,textarea).cy-op-input[aria-invalid="true"]{box-shadow:inset 0 0 0 1.5px var(--cy-danger)}
 .cy-sheet :is(input,select,textarea).cy-op-input:disabled,.cy-sheet :is(input,select,textarea).cy-op-input[readonly]{color:var(--cy-text-muted)}
+
+/* 身分證字號就地顯示 (NationalIdReveal)：值與按鈕不換行，按鈕寬度固定，顯示／隱藏切換不會讓表格跳動；窄格（六欄之一）以小字級放得下。 */
+.cy-id-reveal{display:inline-flex;align-items:center;flex-wrap:wrap;gap:2px 6px;min-width:0;max-width:100%}
+.cy-id-reveal-main{display:inline-flex;align-items:center;gap:4px;flex-wrap:nowrap;white-space:nowrap;min-width:0;max-width:100%}
+.cy-id-reveal-value{font-size:var(--cy-fs-sm);font-variant-numeric:tabular-nums}
+.cy-id-reveal-btn{flex:none;box-sizing:border-box;width:34px;padding:0;text-align:center}
+.cy-id-reveal-hint{color:var(--cy-text-muted);font-size:var(--cy-fs-xs);white-space:nowrap}
+.cy-id-reveal-hint.danger{color:var(--cy-danger)}

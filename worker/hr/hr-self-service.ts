@@ -19,6 +19,11 @@ export class HrSelfService {
  async employeeOf(memberId:number):Promise<number|null>{
   return (await this.db.prepare("SELECT id FROM hr_employees WHERE member_id=?").bind(memberId).first<{id:number}>())?.id??null;
  }
+ /** The bound employee's own full ID number. Keyed by the bound row only; writes no access audit (the person is reading their own record). */
+ async nationalId(id:number):Promise<{nationalId:string|null}>{
+  const row=await this.db.prepare("SELECT national_id FROM hr_employee_current WHERE id=?").bind(id).first<{national_id:string|null}>();
+  return {nationalId:row?.national_id??null};
+ }
  async profile(id:number,today:string){
   const e=await new HrService(this.db).get(id);
   const names=await this.db.prepare("SELECT s.name AS store_name,j.name AS job_title FROM hr_employee_current e LEFT JOIN hr_stores s ON s.id=e.store_id LEFT JOIN hr_job_titles j ON j.id=e.job_title_id WHERE e.id=?").bind(id)
@@ -38,10 +43,9 @@ export class HrSelfService {
    return {month:r.month,payDate:r.pay_date,status:r.status as "confirmed"|"paid",gross:x.gross,deductions:x.deductions,net:x.net,
     lines:x.lines.filter(l=>l.kind!=="employer"&&l.amount!==0).map(l=>({kind:l.kind as "earning"|"deduction",label:l.label,amount:l.amount,date:l.date||null}))};});
   return {
-   employee:{...pick(e,["employee_no","name","status","gender","birth_date","mobile","phone","mailing_address","registered_address","hire_date","seniority_start_date","employment_type","nationalIdMasked"]),
+   employee:{...pick(e,["employee_no","name","status","gender","birth_date","mobile","phone","mailing_address","registered_address","hire_date","seniority_start_date","employment_type","schedule_mode","nationalIdMasked"]),
     store_name:text(names?.store_name),job_title:text(names?.job_title)},
    contacts:((e.contacts as Row[])??[]).map(c=>pick(c,["name","relationship","phone"])),
-   education:((e.education as Row[])??[]).map(c=>pick(c,["school","department","start_month","end_month","note"])),
    statusChanges:((e.statusChanges as Row[])??[]).filter(c=>c.is_creation!==true).map(c=>pick(c,["effective_date","previous_status","next_status"])),
    salaries,insurance,payslips
   };

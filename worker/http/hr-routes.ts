@@ -29,7 +29,9 @@ export async function handleHrRoute(request:Request,env:IdentityRuntimeEnv & HrF
  }
  if(url.pathname==="/api/business/hr/me"||url.pathname.startsWith("/api/business/hr/me/")){
   // 我的資料: any signed-in account, scoped to the HR row bound to that account only.
-  if(request.method!=="GET")return failure({code:"METHOD_NOT_ALLOWED",message:"不支援此操作"},requestId,405);
+  // The only write-shaped call is the self-only ID reveal (POST); everything else is read-only.
+  const selfReveal=url.pathname==="/api/business/hr/me/national-id/reveal";
+  if(selfReveal?request.method!=="POST":request.method!=="GET")return failure({code:"METHOD_NOT_ALLOWED",message:"不支援此操作"},requestId,405);
   const member=await resolveAppMember(env.DB,gate.principal);
   if(!member.isActive)return failure({code:"ACCESS_DENIED",message:"使用者已停用"},requestId,403);
   const self=new HrSelfService(env.DB),employee=await self.employeeOf(member.id);
@@ -37,6 +39,8 @@ export async function handleHrRoute(request:Request,env:IdentityRuntimeEnv & HrF
   try{
    if(url.pathname==="/api/business/hr/me")return success(employee?{bound:true,...await self.profile(employee,today)}:{bound:false},requestId);
    if(!employee)return failure({code:"HR_NOT_BOUND",message:"帳號尚未綁定人事資料"},requestId,404);
+   // 本人身分證字號：只依登入帳號綁定的那一列回傳，不接受任何員工參數，也不留存取紀錄（本人看自己的資料）。
+   if(selfReveal)return success(await self.nationalId(employee),requestId);
    if(url.pathname==="/api/business/hr/me/leave")return success(await self.leave(employee,selfYear(url.searchParams.get("year"),today),today),requestId);
    if(url.pathname==="/api/business/hr/me/attendance")return success(await self.attendance(employee,url.searchParams.get("month")??today.slice(0,7)),requestId);
    return failure({code:"NOT_FOUND",message:"找不到資料"},requestId,404);

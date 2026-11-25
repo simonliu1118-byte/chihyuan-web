@@ -64,12 +64,12 @@ test('education 備註: migration 0084, saved and returned, 200-character limit,
  const ok=await service.update(id,profile('SYNTH-UI',{education:[{school:'甲',note:'字'.repeat(200)}],revision:e.revision}),ctx);
  assert.equal(ok.education[0].note.length,200);
  const me=await new HrSelfService(f.db).profile(id,day(0));
- assert.equal(me.education[0].note.length,200,'the self-service profile returns the note too');
+ assert.equal(me.education,undefined,'V0.29.2: 我的資料 no longer shows or receives 學歷');
 });
 test('education 備註 survives backup and restore; a pre-0084 backup (no note column) restores with NULL notes',async t=>{
  const f=botCenterFixture(),target=botCenterFixture('SUPER_ADMIN',false,{seedMember:false}),older=botCenterFixture('SUPER_ADMIN',false,{seedMember:false});t.after(()=>{f.sql.close();target.sql.close();older.sql.close()});
  const {id}=await created(f,{education:[{school:'合成大學',department:'合成系',startMonth:'2010/09',endMonth:'2014/06',note:'學士'}]});
- const bundle=await exportPortableBackup(f.db,{workspaceScope:'synthetic',appVersion:'0.29.1'});
+ const bundle=await exportPortableBackup(f.db,{workspaceScope:'synthetic',appVersion:'0.29.2'});
  assert.equal(JSON.parse(new TextDecoder().decode(bundle.manifestBytes)).schemaMigration,'0084_hr_education_note');
  await restoreIntoEmptyDatabase(target.db,bundle,'synthetic');
  assert.deepEqual(target.sql.prepare('SELECT * FROM hr_education').all(),f.sql.prepare('SELECT * FROM hr_education').all());

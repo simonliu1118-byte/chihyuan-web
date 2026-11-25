@@ -54,7 +54,7 @@
 V0.26.0 員工紀錄卡新增獎金，狀態異動移到年資不計左方、寬度兩格；發放流程及資料保存依 [薪資與獎金契約](HR_PAYROLL_CONTRACT.md#v0260-獨立獎金發放)。有獎金紀錄的員工視為已有業務活動，不可刪除主檔。
 - `/api/business/hr/*` API 由 CYID Session 驗證，薪資及完整人事**僅 SUPER_ADMIN**。V0.21.0僅對兩條`attendance-corrections`路徑新增「ADMIN且具名門市授權」例外，詳見[每月薪資契約](HR_PAYROLL_CONTRACT.md)；不放行原月出勤／加班或薪資API。
 - 此模組不列入 `CYWEB_MODULES`、模組授權或權限群組。三期完成前不得開放一般使用者。
-- `national_id` 儲存在人事主檔，**一般 GET 一律移除原文並提供 `nationalIdMasked`**。明確 `POST /employees/:id/national-id/reveal` 才提供原文，並寫稽核；稽核不含原文身分證／統一證號。
+- `national_id` 儲存在人事主檔，**一般 GET 一律移除原文並提供 `nationalIdMasked`**。明確 `POST /employees/:id/national-id/reveal` 才提供原文，並寫稽核；稽核不含原文身分證／統一證號。前端以共用 `NationalIdReveal` 就地顯示，10 秒、按隱藏、離開頁面或換員工即清除原文。員工本人只能經 `POST /me/national-id/reveal` 看自己的完整號碼（以登入帳號綁定的人事列取得，不留存取稽核）。我的資料不顯示、自助 API 不回傳學歷、工作經歷、綁定使用者與備註。
 - 所有人事稽核 `hr_*` 對非 SUPER_ADMIN 在 Worker 稽核查詢層排除，不可用篩選繞過。
 - 測試僅使用「測試員工甲」等虛構資料及公開範例身分證號碼。
 
@@ -75,6 +75,7 @@ V0.26.0 員工紀錄卡新增獎金，狀態異動移到年資不計左方、寬
 | POST | `/employees/:id/salary-records` | 新增薪資紀錄及津貼，檢查最低工資 |
 | GET | `/employees/:id/annual-leave` | 週年制特休，支援 `asOf` |
 | POST | `/employees/:id/national-id/reveal` | 取得完整證號並稽核 |
+| POST | `/me/national-id/reveal` | 我的資料：已登入帳號只取自己綁定那一列的完整證號；不接受員工參數、不寫存取稽核；未綁定 404 |
 | GET / POST / PATCH | `/settings/salary-item-types` | 津貼類型管理 |
 | GET / POST | `/settings/minimum-wages` | 不可覆寫的最低工資生效日清單 |
 

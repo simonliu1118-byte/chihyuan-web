@@ -184,7 +184,7 @@ export function SelfServicePanel({ session, render }: { session: AuthSession; re
   const cells: AccountCells = {
     password: <span className="cy-account-cell"><span aria-label="密碼已隱藏">••••••••</span>
       <button type="button" className="cy-op-button compact soft" onClick={() => setDialog("password")}>變更密碼</button></span>,
-    email: <span className="cy-account-cell"><StatusChip tone={session.user.emailVerified ? "success" : "warning"}>{session.user.emailVerified ? "已驗證" : "待驗證"}</StatusChip>{emailButton}</span>,
+    email: <span className="cy-account-cell">{session.user.email ? <span className="cy-account-email">{session.user.email}</span> : null}<StatusChip tone={session.user.emailVerified ? "success" : "warning"}>{session.user.emailVerified ? "已驗證" : "待驗證"}</StatusChip>{emailButton}</span>,
   };
   return <>
     {reloadDialog}

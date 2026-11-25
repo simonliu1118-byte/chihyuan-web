@@ -42,6 +42,7 @@ function user(principal: IdentityPrincipal) {
     workspaceRole: principal.workspaceRole,
     isIdentityAdmin: principal.isIdentityAdmin,
     emailVerified: principal.emailVerified,
+    ...(principal.email ? { email: principal.email } : {}),
     isWorkspaceSuperAdmin: principal.isWorkspaceSuperAdmin,
   };
 }

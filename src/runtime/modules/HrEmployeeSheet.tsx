@@ -5,6 +5,7 @@ import {CheckField} from "../../ui/forms/Field";
 import {Dialog} from "../../ui/overlays/Dialog";
 import {StatusChip} from "../../ui/primitives/StatusChip";
 import {formatDate} from "../../ui/foundation/format";
+import {NationalIdReveal} from "./NationalIdReveal";
 import {PhoneInput,PhoneText} from "../../ui/forms/PhoneInput";
 import type {Draft,EmployeeDetail,MemberOption} from "./HrOperationalPage";
 
@@ -12,10 +13,10 @@ import type {Draft,EmployeeDetail,MemberOption} from "./HrOperationalPage";
 const HISTORY_GRID=["15%","11%","29%","29%","16%"];
 
 /** The single HR employee renderer: edit switches cells into controls, never a second layout. */
-export function HrEmployeeSheet({value,detail,editing,creating,busy,members,stores,jobTitles,patch,onReveal}:{
+export function HrEmployeeSheet({value,detail,editing,creating,busy,members,stores,jobTitles,patch,loadNationalId}:{
  value:Draft;detail:EmployeeDetail|null;editing:boolean;creating:boolean;busy:boolean;
  members:MemberOption[];stores:{id:number;name:string}[];jobTitles:{id:number;name:string}[];
- patch:(value:Partial<Draft>)=>void;onReveal:()=>void;
+ patch:(value:Partial<Draft>)=>void;loadNationalId:()=>Promise<string|null>;
 }){
  const [picking,setPicking]=useState(false);
  const input=(key:keyof Draft,type="text")=><input className="cy-sheet-input" type={type} disabled={busy}
@@ -28,7 +29,7 @@ export function HrEmployeeSheet({value,detail,editing,creating,busy,members,stor
    </select>;
  const cell=(label:string,view:ReactNode,edit?:ReactElement,required=false,span?:number)=>({label,view,edit:!creating&&["門市","職稱","僱用型態","排班方式","人事狀態"].includes(label)?undefined:edit,required,span});
  /** Every row shares one six-column grid, so the cell lines line up (user 2026-11-10). */
- const grid="repeat(6,minmax(0,1fr))";
+ const grid="minmax(0,1fr) minmax(0,1fr) minmax(0,1.4fr) repeat(3,minmax(0,1fr))";
  const contact=value.contacts[0]??{name:"",relationship:"",phone:""};
  const setContact=(key:"name"|"relationship"|"phone",next:string)=>patch({contacts:[{...contact,[key]:next}]});
  const shownContact=editing?contact:detail?.contacts[0]?{name:detail.contacts[0].name,relationship:detail.contacts[0].relationship||"",phone:detail.contacts[0].phone}:contact;
@@ -39,7 +40,7 @@ export function HrEmployeeSheet({value,detail,editing,creating,busy,members,stor
    <button type="button" className="cy-op-button soft compact" disabled={busy}
      onClick={()=>patch({changeNationalId:true,nationalId:""})}>變更</button></span>;
  const nationalView=detail?.nationalIdMasked
-   ?<span className="cy-hr-id">{detail.nationalIdMasked}<button type="button" className="cy-op-button mini soft" onClick={onReveal}>顯示</button></span>
+   ?<NationalIdReveal masked={detail.nationalIdMasked} resetKey={detail.id} load={loadNationalId}/>
    :value.nationalId||"";
  const rows:SheetRow[]=[
   {columns:grid,cells:[

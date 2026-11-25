@@ -10,6 +10,7 @@ interface ProviderPrincipal {
   workspaceRole?: unknown;
   isIdentityAdmin?: unknown;
   emailVerified?: unknown;
+  email?: unknown;
   isWorkspaceSuperAdmin?: unknown;
   credentialVersion?: unknown;
   employeeRevision?: unknown;
@@ -152,6 +153,7 @@ function normalizePrincipal(value: ProviderPrincipal | undefined): IdentityPrinc
     workspaceRole,
     isIdentityAdmin: value.isIdentityAdmin,
     emailVerified: value.emailVerified,
+    ...(typeof value.email === "string" && value.email.length > 0 && value.email.length <= 320 ? { email: value.email } : {}),
     isWorkspaceSuperAdmin: value.isWorkspaceSuperAdmin,
     credentialVersion,
     employeeRevision,

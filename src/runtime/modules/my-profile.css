@@ -11,3 +11,12 @@
 .cy-my-profile-minus{color:var(--cy-danger,#b42318)}
 .cy-my-profile .cy-sheet-rows{margin:0}
 .cy-account-cell{display:inline-flex;align-items:center;gap:8px;flex-wrap:wrap}
+.cy-account-email{overflow-wrap:anywhere}
+/* 手機版唯讀卡片：標籤在上、值在下，同列並排，地址整列 (user 2026-11-24 mock u3)。 */
+.cy-my-cards{border:1px solid var(--cy-border);border-radius:var(--cy-radius-sm);background:var(--cy-surface);overflow:hidden}
+.cy-my-cards-row{display:grid;gap:0 12px;padding:8px 12px}
+.cy-my-cards-row+.cy-my-cards-row{border-top:1px solid var(--cy-border)}
+.cy-my-cards-cell{display:flex;flex-direction:column;gap:2px;min-width:0}
+.cy-my-cards-label{color:var(--cy-text-muted);font-size:var(--cy-fs-sm)}
+.cy-my-cards-value{overflow-wrap:anywhere;min-height:24px;display:flex;align-items:center;flex-wrap:wrap}
+.cy-my-cards-value.mono{font-family:var(--cy-font-mono);font-size:var(--cy-fs-sm)}

@@ -12,6 +12,8 @@ export interface AuthUser {
   workspaceRole: WorkspaceRole;
   isIdentityAdmin: boolean;
   emailVerified: boolean;
+  /** The account's CYID Email in plain text, when the identity provider supplies it. */
+  email?: string | null;
   isWorkspaceSuperAdmin: boolean;
 }
 

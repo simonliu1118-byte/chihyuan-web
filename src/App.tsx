@@ -44,7 +44,7 @@ import {NotificationBell} from "./runtime/modules/NotificationBell";
 import { HrOperationalPage } from "./runtime/modules/HrOperationalPage";
 import {HrAttendanceCorrections} from './runtime/modules/HrAttendanceCorrections';
 import { HrSettingsButton } from "./runtime/modules/HrSettingsButton";
-import { UnsavedChangesBoundary, useNavigationGuard } from "./ui/foundation/useUnsavedChangesGuard";
+import { MODULE_SWITCH_COPY, UnsavedChangesBoundary, useNavigationGuard } from "./ui/foundation/useUnsavedChangesGuard";
 import { createGuardedHashNavigation } from "./ui/foundation/guarded-hash-navigation";
 import { FeedbackProvider, useFeedback, useFeedbackMessage } from "./ui/feedback/FeedbackProvider";
 
@@ -245,7 +245,8 @@ function OperationalApp({
   const [moduleAccessError, , setModuleAccessError] = useFeedbackMessage<string | null>(null);
   const [routeAccess, setRouteAccess] = useState<"idle" | "checking" | "allowed" | "denied">("idle");
   const [checkedRoute, setCheckedRoute] = useState<AppRoute | null>(null);
-  const { canLeave, cancel } = useNavigationGuard();
+  const { canLeave: guardCanLeave, cancel } = useNavigationGuard();
+  const canLeave = useCallback(() => guardCanLeave(MODULE_SWITCH_COPY), [guardCanLeave]);
   const compact = useCompactLayout();
   const pendingRecordHash = useRef<string | null>(null);
   const guardedNavigation = useMemo(() => createGuardedHashNavigation<AppRoute>({
