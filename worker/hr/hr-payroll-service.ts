@@ -1,6 +1,7 @@
 import {calculatePayroll,overtimePay,type PayrollProfile,type PayrollRule,type PayrollInput,type PayrollSalary,type PayrollLeave,type PayrollResult,type PayrollDay,type PayrollCashout} from '../../shared/hr-payroll';
 import {annualLeaveSchedule,annualLeaveLedger} from '../../shared/hr-annual-leave';
 import {evaluateAttendance,type AttendanceSchedule} from '../../shared/hr-attendance';
+import {asOfProjection} from './hr-current-values';
 import {AuditService} from '../audit/audit-service';
 import {HrValidationError,date,integer,object,required,nullableDate} from './hr-validation';
 import type {HrContext} from './hr-service';
@@ -39,7 +40,8 @@ const array=(table:string,cols:string,where:string,order:string,limit:number)=>`
 // so a concurrent change to ANY input cannot confirm an old calculation.
 const SOURCE_SQL=`WITH p AS (SELECT ?1 AS eid,?2 AS month,?3 AS last,?4 AS paid)
  SELECT json_object(
- 'employee',json((SELECT json_object('id',id,'employee_no',employee_no,'name',name,'hire_date',hire_date,'seniority_start_date',seniority_start_date,'termination_date',termination_date,'employment_type',employment_type,'schedule_mode',schedule_mode,'skip_roster_checks',skip_roster_checks,'store_id',store_id,'revision',revision) FROM hr_employee_current,p WHERE id=p.eid)),
+ 'employee',json((SELECT json_object('id',id,'employee_no',employee_no,'name',name,'hire_date',hire_date,'seniority_start_date',seniority_start_date,'termination_date',termination_date,'employment_type',p_employment_type,'schedule_mode',p_schedule_mode,'skip_roster_checks',skip_roster_checks,'store_id',p_store_id,'job_title_id',p_job_title_id,'revision',revision) FROM (SELECT e.id,e.employee_no,e.name,e.hire_date,e.seniority_start_date,e.termination_date,e.skip_roster_checks,e.revision,${asOfProjection('e','p.last')} FROM hr_employees e,p WHERE e.id=p.eid))),
+ 'assignmentChanges',${array('hr_assignment_changes,p','id,field,effective_date,previous_value,next_value',"employee_id=p.eid AND effective_date>p.month||'-01' AND effective_date<=p.last AND NOT (reason='建檔' AND previous_value IS NULL)",'effective_date,id',201)},
  'salaries',${array('hr_salary_records,p','id,effective_date,payment_type,base_amount','employee_id=p.eid AND effective_date<=p.last','effective_date,id',501)},
  'allowances',${array('hr_salary_allowances','id,salary_record_id,item_type_id,amount,is_regular','salary_record_id IN (SELECT id FROM hr_salary_records,p WHERE employee_id=p.eid AND effective_date<=p.last)','id',2001)},
  'types',${array('hr_salary_item_types','id,name','1=1','id',201)},
@@ -69,7 +71,7 @@ const SOURCE_SQL=`WITH p AS (SELECT ?1 AS eid,?2 AS month,?3 AS last,?4 AS paid)
  ) AS body FROM p`;
 type Row=Record<string,string|number|null>;
 interface RunRow extends Row {id:number;employee_id:number;month:string;pay_date:string;status:'draft'|'confirmed'|'paid'|'void';revision:number;input_json:string;result_json:string;source_json:string}
-interface Snapshot {corrections:Row[];nhiPolicies:Row[];paidIncome:Row[];legalCases:Row[];employee:Row|null;salaries:Row[];allowances:Row[];types:Row[];profiles:Row[];status:Row[];punches:Row[];schedules:Row[];shifts:Row[];leaves:Row[];leaveTypes:Row[];overtime:Row[];holidays:Row[];reviews:Row[];settlements:Row[];rules:Row[];syncBlocks:Row[];annualYears:Row[];exclusions:Row[];annualUses:Row[];history:Row[];consumed:Row[];wages:{effective_date:string;monthly_amount:number;hourly_amount:number}[]}
+interface Snapshot {assignmentChanges:Row[];corrections:Row[];nhiPolicies:Row[];paidIncome:Row[];legalCases:Row[];employee:Row|null;salaries:Row[];allowances:Row[];types:Row[];profiles:Row[];status:Row[];punches:Row[];schedules:Row[];shifts:Row[];leaves:Row[];leaveTypes:Row[];overtime:Row[];holidays:Row[];reviews:Row[];settlements:Row[];rules:Row[];syncBlocks:Row[];annualYears:Row[];exclusions:Row[];annualUses:Row[];history:Row[];consumed:Row[];wages:{effective_date:string;monthly_amount:number;hourly_amount:number}[]}
 /** 預設原因：首次計算、計算全部、重算草稿、確認、標記已發薪不需填原因，後端存「YYYY/MM 月薪」。 */
 export const defaultReason=(month:string)=>month.slice(0,4)+'/'+month.slice(5,7)+' 月薪';
 const end=(month:string)=>new Date(Date.UTC(+month.slice(0,4),+month.slice(5),0)).toISOString().slice(0,10);
@@ -96,7 +98,7 @@ export class HrPayrollService {
   const args=[input.employeeId,input.month,end(input.month),input.payDate] as const;
   const row=await this.db.prepare(SOURCE_SQL).bind(...args).first<{body:string}>();if(!row?.body||row.body.length>700000)throw new HrValidationError('source','計薪來源超過安全上限');
   const data=JSON.parse(row.body) as Snapshot;if(!data.employee)throw new HrValidationError('employeeId','員工不存在',404);
-  for(const [key,max] of Object.entries({salaries:500,allowances:2000,profiles:500,status:500,types:200,leaveTypes:200,shifts:200,leaves:3000,rules:200,settlements:500,annualYears:100,exclusions:100,annualUses:5000,history:500,consumed:1000,wages:100,legalCases:500,paidIncome:500,corrections:200}))if((data[key as keyof Snapshot] as Row[]).length>max)throw new HrValidationError('limit','計薪來源 '+key+' 超過單次安全上限');
+  for(const [key,max] of Object.entries({assignmentChanges:200,salaries:500,allowances:2000,profiles:500,status:500,types:200,leaveTypes:200,shifts:200,leaves:3000,rules:200,settlements:500,annualYears:100,exclusions:100,annualUses:5000,history:500,consumed:1000,wages:100,legalCases:500,paidIncome:500,corrections:200}))if((data[key as keyof Snapshot] as Row[]).length>max)throw new HrValidationError('limit','計薪來源 '+key+' 超過單次安全上限');
   return {json:row.body,data,args,hash:await sha256(row.body)};
  }
  private compute(input:PayrollInput,s:Snapshot):PayrollResult{
@@ -164,6 +166,7 @@ export class HrPayrollService {
   if(s.paidIncome.some(p=>String(p.pay_date)>input.payDate))result.issues.push('已有較晚給付的已發薪／獎金，請先核對給付順序');
   if(s.paidIncome.some(p=>String(p.pay_date).slice(0,7)===input.payDate.slice(0,7)&&p.regular==null))result.issues.push('同給付月有舊版薪資缺少扣繳累計基準，須先核對，不能將其當0');
   if(terminated&&e.employment_type!=='full'&&periods.some(p=>!p.entitledMinutes))result.issues.push('離職特休結清缺少部分工時歷年固定額度，請先補齊特休年度');
+  {const labels:Record<string,string>={employment_type:'僱用型態',schedule_mode:'排班方式',store_id:'門市',job_title_id:'職稱'},seen=new Set<string>();for(const row of s.assignmentChanges){const key=String(row.field)+row.effective_date;if(seen.has(key))continue;seen.add(key);const d=String(row.effective_date).replace(/-/g,'/');result.issues.push('月中任用異動（'+(labels[String(row.field)]??String(row.field))+' '+d+'）：須分段核對');}}
   for(const row of s.syncBlocks)result.issues.push(String(row.kind)+' 官方資料驗證異常，須先處理更新狀態');
   for(const d of days){
    if(d.anomalies.includes('曠職')&&review.get(d.date)?.kind!=='absence')result.issues.push(d.date+' 未打卡須先補正或明確確認曠班');
@@ -199,12 +202,12 @@ export class HrPayrollService {
   */
  async monthOverview(month:string){
   payrollMonth(month);const first=month+'-01',last=end(month);
-  const rows=(await this.db.prepare(`SELECT e.id AS employee_id,e.employee_no,e.name,e.store_id,s.name AS store_name,
+  const rows=(await this.db.prepare(`SELECT e.id AS employee_id,e.employee_no,e.name,e.p_store_id AS store_id,s.name AS store_name,
    r.id AS run_id,r.status,r.revision,r.pay_date,json_extract(r.result_json,'$.gross') AS gross,json_extract(r.result_json,'$.deductions') AS deductions,json_extract(r.result_json,'$.net') AS net,
    json_extract(r.result_json,'$.issues') AS issues_json,json_extract(r.input_json,'$.paidDays') AS paid_days,json_extract(r.input_json,'$.reason') AS input_reason,
    (SELECT COUNT(*) FROM hr_payroll_runs v WHERE v.employee_id=e.id AND v.month=?1 AND v.status='void') AS void_count,
    EXISTS(SELECT 1 FROM hr_salary_records sr WHERE sr.employee_id=e.id AND sr.effective_date<=?2) AS has_salary
-   FROM hr_employee_current e LEFT JOIN hr_stores s ON s.id=e.store_id
+   FROM (SELECT e.id,e.employee_no,e.name,e.hire_date,e.termination_date,${asOfProjection('e','?2')} FROM hr_employees e) e LEFT JOIN hr_stores s ON s.id=e.p_store_id
    LEFT JOIN hr_payroll_runs r ON r.employee_id=e.id AND r.month=?1 AND r.status!='void'
    WHERE (e.hire_date<=?2 AND (e.termination_date IS NULL OR e.termination_date>=?3)) OR r.id IS NOT NULL
    ORDER BY e.employee_no,e.id LIMIT 501`).bind(month,last,first).all<Row>()).results??[];

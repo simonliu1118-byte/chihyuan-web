@@ -83,3 +83,46 @@ test('GET /payroll/month is read-only SUPER_ADMIN data behind the existing route
   assert.equal((await call('/payroll/month?month=2026-11','POST')).status,405);
  }finally{f.sql.close();}
 });
+// 月份任用值：薪資讀「該月月底」生效的僱用型態／排班方式／門市／職稱，不讀今日主檔欄位。
+const asg=(f,id,field,eff,prev,next,reason='合成')=>f.sql.prepare("INSERT INTO hr_assignment_changes(employee_id,field,effective_date,previous_value,next_value,reason,handled_by,created_at) VALUES(?,?,?,?,?,?,1,?)").run(id,field,eff,prev,next,reason,ctx.now);
+const sourceOf=(f,month='2026-11')=>JSON.parse(f.sql.prepare("SELECT source_json FROM hr_payroll_runs WHERE month=? AND status!='void'").get(month).source_json).employee;
+async function monthFixture(){
+ const f=botCenterFixture();seed(f);const s=new HrPayrollService(f.db);await s.saveProfile(1,{settings:profile,effectiveDate:'2026-01-01',reason:'合成測試',expectedId:0},ctx);
+ f.sql.prepare("INSERT INTO hr_stores(id,name,cycle_anchor_date,created_at,updated_at) VALUES(2,'合成二店','2026-01-05',?,?) ON CONFLICT(id) DO NOTHING").run(ctx.now,ctx.now);
+ for(const [field,v] of [['employment_type','full'],['schedule_mode','shift'],['store_id','1']])asg(f,1,field,'2025-01-01',null,v,'建檔');
+ return {f,s};
+}
+test('a past month keeps the old values after a later change; a change after the month does not touch it',async()=>{
+ const {f,s}=await monthFixture();try{
+  asg(f,1,'employment_type','2026-12-10','full','half');asg(f,1,'store_id','2026-12-10','1','2');f.sql.prepare("UPDATE hr_employees SET employment_type='half',store_id=2 WHERE id=1").run();
+  const r=await s.calculate(input,ctx);const e=sourceOf(f);
+  assert.equal(e.employment_type,'full');assert.equal(e.store_id,1);assert.ok(!r.result.issues.some(x=>/月中任用異動/.test(x)),'a change after the month raises nothing');
+  const dec=await s.calculate({...input,month:'2026-12',payDate:'2027-01-05'},ctx);assert.equal(sourceOf(f,'2026-12').employment_type,'half');assert.equal(sourceOf(f,'2026-12').store_id,2);
+  assert.ok(dec.result.issues.some(x=>x==='月中任用異動（僱用型態 2026/12/10）：須分段核對'));assert.ok(dec.result.issues.some(x=>x==='月中任用異動（門市 2026/12/10）：須分段核對'));
+ }finally{f.sql.close();}
+});
+test('a change inside the month uses the month-end value and raises the split-check issue; the first of the month and 建檔 do not',async()=>{
+ const {f,s}=await monthFixture();try{
+  asg(f,1,'schedule_mode','2026-11-15','shift','hours');asg(f,1,'job_title_id','2026-11-01',null,'3');
+  const r=await s.calculate(input,ctx);assert.equal(sourceOf(f).schedule_mode,'hours');
+  assert.deepEqual(r.result.issues.filter(x=>/月中任用異動/.test(x)),['月中任用異動（排班方式 2026/11/15）：須分段核對']);
+  await assert.rejects(s.transition(r.id,{action:'confirm',revision:r.revision},ctx),/待補|確認/);
+ }finally{f.sql.close();}
+});
+test('the stale-source guard sees a back-dated assignment change that affects the month',async()=>{
+ const {f,s}=await monthFixture();try{
+  let r=await s.calculate(input,ctx);assert.equal(r.result.issues.some(x=>/月中任用異動/.test(x)),false);
+  asg(f,1,'employment_type','2026-12-20','full','casual');r=await s.get(r.id);r=await s.transition(r.id,{action:'confirm',revision:r.revision},ctx);assert.equal(r.status,'confirmed','a change after the month leaves the draft valid');
+  const second=await monthFixture();try{
+   let d=await second.s.calculate(input,ctx);asg(second.f,1,'employment_type','2026-11-10','full','half');
+   await assert.rejects(second.s.transition(d.id,{action:'confirm',revision:d.revision},ctx),/來源|重算|變更|已變/);
+  }finally{second.f.sql.close();}
+ }finally{f.sql.close();}
+});
+test('the month list shows the store effective at month end',async()=>{
+ const {f,s}=await monthFixture();try{
+  asg(f,1,'store_id','2026-11-20','1','2');asg(f,1,'store_id','2026-12-15','2','1');
+  const nov=(await s.monthOverview('2026-11')).rows.find(r=>r.employeeId===1);assert.equal(nov.storeId,2);assert.equal(nov.storeName,'合成二店');
+  const oct=(await s.monthOverview('2026-10')).rows.find(r=>r.employeeId===1);assert.equal(oct.storeId,1);
+ }finally{f.sql.close();}
+});
