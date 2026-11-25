@@ -8,6 +8,8 @@ export interface IdentityPrincipal {
   workspaceRole: WorkspaceRole;
   isIdentityAdmin: boolean;
   emailVerified: boolean;
+  /** Optional: provider-supplied account Email, shown to its owner on 我的資料. */
+  email?: string | null;
   isWorkspaceSuperAdmin: boolean;
   /** Legacy descriptive compatibility only; never use for authorization. */
   credentialVersion: number;

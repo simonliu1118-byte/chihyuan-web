@@ -5,7 +5,9 @@ import type {AuthSession} from "../../auth/auth-client";
 import {SelfServicePanel,type AccountCells} from "../../identity/SharedIdentityPage";
 import {ModuleSections} from "../../ui/mobile/ModuleSections";
 import {useCompactLayout} from "../../ui/foundation/useCompactLayout";
-import {RecordSheet,RecordRows,type RowColumn} from "../../ui/forms/RecordSheet";
+import {RecordSheet,RecordRows,type RowColumn,type SheetRow} from "../../ui/forms/RecordSheet";
+import {NationalIdReveal} from "./NationalIdReveal";
+import {PhoneText} from "../../ui/forms/PhoneInput";
 import {useLatestRequest} from "../../ui/foundation/useLatestRequest";
 import {Loading} from "../../ui/feedback/Loading";
 import {formatDate} from "../../ui/foundation/format";
@@ -19,9 +21,8 @@ interface Profile {
  bound:true;
  employee:{employee_no:string;name:string;status:string;gender:string|null;birth_date:string|null;mobile:string|null;phone:string|null;
   mailing_address:string|null;registered_address:string|null;hire_date:string;seniority_start_date:string|null;employment_type:string;
-  nationalIdMasked:string|null;store_name:string|null;job_title:string|null};
+  schedule_mode:string;nationalIdMasked:string|null;store_name:string|null;job_title:string|null};
  contacts:{name:string;relationship:string|null;phone:string}[];
- education:{school:string;department:string|null;start_month:string|null;end_month:string|null;note?:string|null}[];
  statusChanges:{effective_date:string;previous_status:string;next_status:string}[];
  salaries:{effectiveDate:string;paymentType:"monthly"|"hourly";baseAmount:number;allowances:{name:string;amount:number;regular:boolean}[]}[];
  insurance:null|{effectiveDate:string;laborEnabled:boolean;employmentInsurance:boolean;laborBasis:number;healthEnabled:boolean;healthBasis:number;dependents:number;
@@ -43,6 +44,7 @@ type Allowance=Salary["allowances"][number];
 type Line=Profile["payslips"][number]["lines"][number];
 const STATUS:Record<string,string>={probation:"試用",active:"在職",leave:"留職停薪",terminated:"離職"};
 const EMPLOYMENT:Record<string,string>={full:"正職",half:"半職",casual:"兼職"};
+const SCHEDULE:Record<string,string>={shift:"班別",hours:"時段或時數",none:"不排班"};
 const WEEK="日一二三四五六";
 const money=(n:number)=>(n||0).toLocaleString("zh-TW");
 const noop=()=>undefined;
@@ -57,9 +59,27 @@ const day=(value:string)=>value.slice(5).replace("-","/")+"（"+WEEK[new Date(va
 function rows<T>(title:string,columns:RowColumn<T>[],data:readonly T[],key:(row:T,index:number)=>string|number){
  return <RecordRows title={title} editing={false} columns={columns} rows={data} rowKey={key} onInsert={noop} onRemove={noop}/>;
 }
-/** 員工編號｜密碼｜Email on one six-column row (user 2026-11-16). */
-const accountRow=(employeeNo:string,cells:AccountCells)=>({columns:"repeat(6,minmax(0,1fr))",cells:[
- {label:"員工編號",view:employeeNo,mono:true},{label:"密碼",view:cells.password,span:2},{label:"Email",view:cells.email,span:3}]});
+/** One field of a read-only sheet; `span` is the desktop column span (six columns), `phone` the share of a phone row. */
+interface Field {label:string;view:ReactNode;span?:number;mono?:boolean}
+/** 帳號資料 (user 2026-11-24): 員工編號｜密碼｜Email in plain text. */
+const accountRows=(employeeNo:string,cells:AccountCells,compact:boolean):Field[][]=>compact
+ ?[[{label:"員工編號",view:employeeNo,mono:true},{label:"密碼",view:cells.password}],[{label:"Email",view:cells.email}]]
+ :[[{label:"員工編號",view:employeeNo,mono:true},{label:"密碼",view:cells.password,span:2},{label:"Email",view:cells.email,span:3}]];
+/** Same six columns as the HR employee sheet (the 身分證字號 column is wider so the number and its button fit). */
+const SIX="minmax(0,1fr) minmax(0,1fr) minmax(0,1.4fr) repeat(3,minmax(0,1fr))";
+const sheetRows=(rows:Field[][]):SheetRow[]=>rows.map(cells=>({columns:SIX,cells:cells.map(c=>({label:c.label,view:c.view,mono:c.mono,span:c.span}))}));
+/** Phone card: label above value, fields side by side per row, long ones take the whole row (mock u3). */
+function Cards({label,rows}:{label:string;rows:Field[][]}){
+ return <div className="cy-my-cards" role="group" aria-label={label}>
+  {rows.map((row,i)=><div key={i} className="cy-my-cards-row" style={{gridTemplateColumns:"repeat("+row.length+",minmax(0,1fr))"}}>
+   {row.map(f=><div key={f.label} className="cy-my-cards-cell"><span className="cy-my-cards-label">{f.label}</span>
+    <span className={"cy-my-cards-value"+(f.mono?" mono":"")}>{f.view===null||f.view===undefined||f.view===""?"—":f.view}</span></div>)}
+  </div>)}
+ </div>;
+}
+function FieldSheet({label,rows,compact}:{label:string;rows:Field[][];compact:boolean}){
+ return compact?<Cards label={label} rows={rows}/>:<RecordSheet label={label} editing={false} rows={sheetRows(rows)}/>;
+}
 const col=<T,>(label:string,view:(row:T)=>ReactNode,width?:string):RowColumn<T>=>({label,view,width,edit:()=><span/>});
 
 export function MyProfilePage({session}:{session:AuthSession}){
@@ -73,14 +93,14 @@ export function MyProfilePage({session}:{session:AuthSession}){
  // Without an HR record only the account row is shown: 員工編號, 密碼, Email.
  if(!profile.bound)return <div className="cy-my-profile">
   {error?<p role="alert" className="cy-op-notice danger">{error}</p>:<p className="cy-my-profile-unbound">帳號尚未綁定人事資料</p>}
-  <section className="cy-op-panel cy-my-profile-stack"><SelfServicePanel session={session} render={cells=><RecordSheet label="帳號" editing={false} rows={[accountRow(session.user.employeeNo,cells)]}/>}/></section>
+  <section className="cy-op-panel cy-my-profile-stack"><SelfServicePanel session={session} render={cells=><FieldSheet label="帳號" compact={compact} rows={accountRows(session.user.employeeNo,cells,compact)}/>}/></section>
  </div>;
  return <div className="cy-my-profile">
   {compact?<ModuleSections label="我的資料" sections={TABS} value={tab} onChange={setTab}/>
    :<div className="cy-op-tabs" role="tablist" aria-label="我的資料">
     {TABS.map(t=><button key={t.key} type="button" role="tab" aria-selected={tab===t.key} className={tab===t.key?"active":""} onClick={()=>setTab(t.key)}>{t.label}</button>)}
    </div>}
-  {tab==="profile"?<SelfServicePanel session={session} render={cells=><ProfileTab profile={profile} account={cells}/>}/>
+  {tab==="profile"?<SelfServicePanel session={session} render={cells=><ProfileTab profile={profile} account={cells} accountNo={session.user.employeeNo} compact={compact}/>}/>
    :tab==="leave"?<LeaveTab since={profile.employee.seniority_start_date||profile.employee.hire_date}/>:<SalaryTab profile={profile}/>}
  </div>;
 }
@@ -177,21 +197,36 @@ function SalaryTab({profile}:{profile:Profile}){
  </div>;
 }
 
-function ProfileTab({profile,account}:{profile:Profile;account:AccountCells}){
- const e=profile.employee,grid="repeat(6,minmax(0,1fr))";
+function ProfileTab({profile,account,accountNo,compact}:{profile:Profile;account:AccountCells;accountNo:string;compact:boolean}){
+ const e=profile.employee,c=profile.contacts[0],date=(v:string|null)=>v?formatDate(v):"";
+ const id=<NationalIdReveal masked={e.nationalIdMasked} resetKey={e.employee_no}
+  load={async()=>(await apiRequest<{nationalId:string|null}>("/api/business/hr/me/national-id/reveal",{method:"POST",json:{}})).nationalId}/>;
+ const mobile=e.mobile?<PhoneText value={e.mobile} kind="mobile"/>:"",phone=e.phone?<PhoneText value={e.phone}/>:"";
+ const status=STATUS[e.status]??e.status,type=EMPLOYMENT[e.employment_type]??e.employment_type,schedule=SCHEDULE[e.schedule_mode]??e.schedule_mode;
+ const seniority=e.seniority_start_date?formatDate(e.seniority_start_date):"同到職日";
+ const contactPhone=c?.phone||"";
+ // Desktop: one six-column grid lined up with the HR sheet. Phone: the order the user chose, two per row, addresses full width.
+ const desktop:Field[][]=[
+  [{label:"姓名",view:e.name},{label:"身分證字號",view:id},{label:"性別",view:e.gender},{label:"出生日期",view:date(e.birth_date)},{label:"人事狀態",view:status,span:2}],
+  [{label:"門市",view:e.store_name},{label:"職稱",view:e.job_title},{label:"僱用型態",view:type},{label:"排班方式",view:schedule},{label:"到職日",view:date(e.hire_date)},{label:"年資起算日",view:seniority}],
+  [{label:"手機",view:mobile},{label:"市話",view:phone},{label:"戶籍地址",view:e.registered_address,span:2},{label:"通訊地址",view:e.mailing_address,span:2}],
+  [{label:"緊急聯絡人姓名",view:c?.name},{label:"關係",view:c?.relationship},{label:"緊急聯絡人電話",view:contactPhone},{label:"",view:<span/>,span:3}],
+ ];
+ const phoneRows:Field[][]=[
+  [{label:"姓名",view:e.name},{label:"身分證字號",view:id}],
+  [{label:"性別",view:e.gender},{label:"出生日期",view:date(e.birth_date)}],
+  [{label:"門市",view:e.store_name},{label:"職稱",view:e.job_title}],
+  [{label:"人事狀態",view:status},{label:"僱用型態",view:type},{label:"排班方式",view:schedule}],
+  [{label:"到職日",view:date(e.hire_date)},{label:"年資起算日",view:seniority}],
+  [{label:"手機",view:mobile},{label:"市話",view:phone}],
+  [{label:"戶籍地址",view:e.registered_address}],
+  [{label:"通訊地址",view:e.mailing_address}],
+  [{label:"緊急聯絡人",view:c?c.name+(c.relationship?"（"+c.relationship+"）":""):""},{label:"緊急聯絡人電話",view:contactPhone}],
+ ];
  return <div className="cy-my-profile-stack">
+  <section className="cy-op-panel"><h2>帳號資料</h2><FieldSheet label="帳號資料" compact={compact} rows={accountRows(accountNo,account,compact)}/></section>
   <section className="cy-op-panel"><h2>人事資料</h2>
-   <RecordSheet label="人事資料" editing={false} rows={[
-    accountRow(e.employee_no,account),
-    {columns:grid,cells:[{label:"姓名",view:e.name},{label:"身分證字號",view:e.nationalIdMasked,mono:true},{label:"性別",view:e.gender},
-     {label:"出生日期",view:e.birth_date?formatDate(e.birth_date):""},{label:"狀態",view:STATUS[e.status]??e.status},{label:"僱用型態",view:EMPLOYMENT[e.employment_type]??e.employment_type}]},
-    {columns:grid,cells:[{label:"門市",view:e.store_name},{label:"職稱",view:e.job_title},{label:"到職日",view:formatDate(e.hire_date)},
-     {label:"年資起算日",view:e.seniority_start_date?formatDate(e.seniority_start_date):"同到職日"},{label:"手機",view:e.mobile},{label:"市話",view:e.phone}]},
-    {columns:grid,cells:[{label:"通訊地址",view:e.mailing_address,span:6}]},
-    {columns:grid,cells:[{label:"戶籍地址",view:e.registered_address,span:6}]},
-   ]}/>
-   {rows<Profile["contacts"][number]>("緊急聯絡人",[col("姓名",c=>c.name),col("關係",c=>c.relationship,"8em"),col("電話",c=>c.phone,"12em")],profile.contacts,(c,i)=>c.name+i)}
-   {rows<Profile["education"][number]>("學歷",[col("學校",c=>c.school),col("科系",c=>c.department),col("期間",c=>[c.start_month,c.end_month].filter(Boolean).join("～"),"12em"),col("備註",c=>c.note)],profile.education,(c,i)=>c.school+i)}
+   <FieldSheet label="人事資料" compact={compact} rows={compact?phoneRows:desktop}/>
    {rows<Profile["statusChanges"][number]>("異動紀錄",[col("生效日",c=>formatDate(c.effective_date),"9em"),col("異動",c=>(STATUS[c.previous_status]??c.previous_status)+" → "+(STATUS[c.next_status]??c.next_status))],profile.statusChanges,(c,i)=>c.effective_date+i)}
   </section>
  </div>;

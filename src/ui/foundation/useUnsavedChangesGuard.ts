@@ -12,11 +12,17 @@ export interface NavigationDecision {
   reason: "clean" | "confirmed" | "cancelled";
 }
 
+/** Copy for one confirmation. The default is about the editor in front of the user (closing a dialog, switching a record). */
+export interface LeaveCopy { title: string; description: string; confirmLabel?: string; cancelLabel?: string }
+/** Copy for really leaving the module; only App-level navigation passes this. */
+export const MODULE_SWITCH_COPY: LeaveCopy = { title: "切換模組？", description: "切換模組會放棄目前尚未儲存的內容。你也可以留在目前模組繼續編輯。",
+  confirmLabel: "確定切換", cancelLabel: "放棄切換，繼續編輯" };
+const DISCARD_COPY: LeaveCopy = { title: "放棄未儲存的內容？", description: "目前輸入的內容尚未儲存，放棄後將無法復原。", confirmLabel: "放棄", cancelLabel: "繼續編輯" };
 const DEFAULT_MESSAGE = "尚有未儲存的變更，確定要離開嗎？";
 type GuardState = Required<UnsavedChangesGuardOptions>;
 const NavigationGuardContext = createContext<{
   guards: Map<symbol, GuardState>;
-  canLeave: (options?: {title:string;description:string}) => Promise<boolean>;
+  canLeave: (options?: LeaveCopy) => Promise<boolean>;
   cancel: () => void;
 } | null>(null);
 
@@ -24,7 +30,7 @@ const NavigationGuardContext = createContext<{
 export function UnsavedChangesBoundary({ children }: PropsWithChildren) {
   const guards = useRef(new Map<symbol, GuardState>()).current;
   const { confirm, confirmationDialog, cancel } = useConfirmation();
-  const canLeave = useCallback(async (options?: {title:string;description:string}) => {
+  const canLeave = useCallback(async (options?: LeaveCopy) => {
     const states = [...guards.values()];
     if (states.some(state => state.blocked)) {
       await confirm({ title: "操作處理中", description: "請等待目前操作完成後再切換頁面。", confirmLabel: "知道了" });
@@ -32,8 +38,8 @@ export function UnsavedChangesBoundary({ children }: PropsWithChildren) {
     }
     const dirty = states.find(state => state.active);
     if (!dirty) return true;
-    const accepted = await confirm({ title: options?.title ?? "切換模組？", description: options?.description ?? "切換模組會放棄目前尚未儲存的內容。你也可以留在目前模組繼續編輯。",
-      confirmLabel: "確定切換", cancelLabel: "放棄切換，繼續編輯", confirmTone: "danger" });
+    const copy = { ...DISCARD_COPY, ...options };
+    const accepted = await confirm({ ...copy, confirmTone: "danger" });
     return accepted && ![...guards.values()].some(state => state.blocked);
   }, [guards, confirm]);
   const value = useMemo(() => ({ guards, canLeave, cancel }), [guards, canLeave, cancel]);

@@ -175,7 +175,6 @@ export function HrOperationalPage() {
   const [salaryItems, setSalaryItems] = useState<SalaryItem[]>([]);
   const [minimumWageSet, setMinimumWageSet] = useState(true);
   const [browse, setBrowse] = useState<BrowseKind | null>(null);
-  const [revealed, setRevealed] = useState<string | null>(null);
   const [deleteNo, setDeleteNo] = useState<string | null>(null);
   const editing = draft !== null;
   const unsavedGuard = useUnsavedChangesGuard({ active: editing || action !== null, blocked: busy||actionLoading, message: "人事資料尚未儲存，確定放棄？" });
@@ -183,11 +182,11 @@ export function HrOperationalPage() {
     title: "放棄尚未儲存的修改", description, confirmLabel: "放棄修改", cancelLabel: "繼續編輯", confirmTone: "danger",
   }))).allowed;
 
-  const listRequest=useLatestRequest(query+'|'+statusFilter+'|'+storeFilter+'|'+typeFilter),detailRequest=useLatestRequest(selectedId),revealRequest=useLatestRequest(selectedId+"|"+tab),actionRequest=useLatestRequest("hr-action");
+  const listRequest=useLatestRequest(query+'|'+statusFilter+'|'+storeFilter+'|'+typeFilter),detailRequest=useLatestRequest(selectedId),actionRequest=useLatestRequest("hr-action");
   const navigation=useNavigationGuard();
   async function switchTab(next:typeof tab){
     if(next===tab)return;
-    if(!(await navigation.canLeave({title:'切換人事頁籤？',description:'切換會放棄尚未儲存的內容，確定繼續？'})))return;
+    if(!(await navigation.canLeave({title:'切換人事頁籤？',description:'切換會放棄尚未儲存的內容，確定繼續？',confirmLabel:'確定切換',cancelLabel:'繼續編輯'})))return;
     actionRequest.invalidate();setDraft(null);setCreating(false);setAction(null);setActionEmployeeId(null);if(next!=="attendance")setAttendanceFocus(null);setTab(next);
   }
   async function loadList(append = false) {
@@ -462,12 +461,11 @@ export function HrOperationalPage() {
     finally { setBusy(false); }
   }
 
-  async function reveal() {
-    if (!detail) return;const request=revealRequest.begin();
-    try {
-      const result = await apiRequest<{ nationalId: string | null }>(`${ROOT}/employees/${detail.id}/national-id/reveal`, { method: "POST", json: {} });
-      if(request.current())setRevealed(result.nationalId ?? "未填寫");
-    } catch (error) { if(request.current())reportError(errorText(error)); }
+  /** 人事管理端取完整身分證字號：沿用既有 API，後端照舊留存取紀錄。 */
+  async function loadNationalId(): Promise<string | null> {
+    if (!detail) return null;
+    const result = await apiRequest<{ nationalId: string | null }>(`${ROOT}/employees/${detail.id}/national-id/reveal`, { method: "POST", json: {} });
+    return result.nationalId;
   }
 
   const today = taipeiToday();
@@ -534,7 +532,7 @@ export function HrOperationalPage() {
             {compact?<ActionBar><button type="button" className="cy-op-button primary" disabled={busy} onClick={()=>{setCreating(false);setDraft(draftFrom(detail))}}>修改</button></ActionBar>:null}
             <div className="cy-hr-detail-body">
               <HrEmployeeSheet value={draftFrom(detail)} detail={detail} editing={false} creating={false} busy={busy}
-                members={members} stores={stores} jobTitles={jobTitles} patch={patch} onReveal={()=>void reveal()}/>
+                members={members} stores={stores} jobTitles={jobTitles} patch={patch} loadNationalId={loadNationalId}/>
               <section className="cy-customer-cards" aria-label="人事紀錄">
                 <HrEmployeeLeaveOverview employeeId={detail.id} onManage={()=>{setInitialLeaveEmployeeId(detail.id);void switchTab("leave")}} />
                 <RelatedCard title="薪資" count={detail.salaryRecords.length} empty="尚無薪資異動。"
@@ -567,9 +565,6 @@ export function HrOperationalPage() {
 
     </Dialog> : null}
 
-    {revealed !== null ? <Dialog open size="small" title="身分證字號" onClose={() => setRevealed(null)}>
-      <p className="cy-hr-revealed">{revealed}</p>
-    </Dialog> : null}
     {deleteNo !== null && detail ? <Dialog showCloseButton={false} open size="small" title="刪除人事資料" onClose={() => setDeleteNo(null)}>
       <form onKeyDown={enterAdvancesThenSubmits} className="cy-op-form" onSubmit={event => void removeEmployee(event)}>
     <>
@@ -677,7 +672,7 @@ function EmployeeForm({draft,detail,creating,busy,members,stores,jobTitles,patch
   </div>
   <div className="cy-hr-form-body">
    <HrEmployeeSheet value={draft} detail={detail} editing creating={creating} busy={busy}
-    members={members} stores={stores} jobTitles={jobTitles} patch={patch} onReveal={()=>{}}/>
+    members={members} stores={stores} jobTitles={jobTitles} patch={patch} loadNationalId={async()=>null}/>
   </div>
  </form>;
 }
