@@ -841,7 +841,7 @@ export function OrderingPage({canRestock=false,canQueryItem=false,canCnPurchase=
      <td><button className="cy-op-button compact" type="button" disabled={busy} onClick={()=>void updateVisibility(s)}>恢復</button></td></tr>)}</tbody></table>
     {!sources.some(x=>!x.isActive)?<p className="cy-op-empty">目前沒有已隱藏的來源。</p>:null}</div>
   </Dialog>:null}
-  {sourceForm?<Dialog size="small" showCloseButton={false} open title={sourceForm.id?"修改叫貨來源":"新增叫貨來源"} onClose={()=>setSourceForm(null)}><form onKeyDown={enterAdvancesFields} onSubmit={e=>void saveSource(e)}>
+  {sourceForm?<Dialog size="medium" showCloseButton={false} open title={sourceForm.id?"修改叫貨來源":"新增叫貨來源"} onClose={()=>setSourceForm(null)}><form onKeyDown={enterAdvancesFields} onSubmit={e=>void saveSource(e)}>
     <FormSection>
      <Field label="名稱" size="m" required><input className="cy-op-input" maxLength={40} required value={sourceForm.name} onChange={e=>setSourceForm(s=>s?{...s,name:e.target.value}:s)}/></Field>
      {!sourceForm.id?<Field label="類型" size="s"><select className="cy-op-input" value={sourceForm.kind} onChange={e=>setSourceForm(s=>s?{...s,kind:e.target.value as "GENERAL"|"VENDOR"}:s)}><option value="GENERAL">公司內部</option><option value="VENDOR">外部廠商</option></select></Field>:null}

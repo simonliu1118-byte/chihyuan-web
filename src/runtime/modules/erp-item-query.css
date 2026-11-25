@@ -197,6 +197,7 @@
 .cy-ordering-closed-note:first-child { padding-top: 7px; }
 .cy-ordering-grid td[data-locked], .cy-ordering-grid td[data-locked] .cy-ordering-cell-text { background: var(--cy-surface-muted); color: var(--cy-text-muted); cursor: not-allowed; }
 .cy-ordering-receipt-table { table-layout: fixed; min-width: 900px; }
+/* 刻意寬於 large(860)：登記到貨品項表有 9 欄以上（品號、品名、廠商品號、廠商品名、數量等），維持 1120px；窄螢幕在表格區內捲動。 */
 .cy-dialog.cy-ordering-receipt-dialog > .cy-dialog-surface { width: min(1120px, calc(100vw - 32px)); }
 .cy-ordering-receipt-table th { white-space: nowrap; }
 .cy-ordering-receipt-table .cy-f,.cy-ordering-receipt-table .cy-f-check { margin: 0; min-height: 0; }

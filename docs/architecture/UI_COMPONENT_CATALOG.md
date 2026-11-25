@@ -56,7 +56,7 @@
 
 ### 彈窗、抽屜、回饋
 - `overlays/Dialog.tsx`：`Dialog`（精簡框、右上 X 圖示）、`Drawer`（右側抽屜，客戶頁為 380px）、`BottomSheet`。不要巢狀面板。`closeOnBackdrop`：點外面關閉，只給純導覽面板（手機模組選單）用，表單視窗不開。手機不再有側邊欄抽屜與左緣滑動手勢（V0.27.0，使用者 2026-11-24）：頂端列左側 CY 標誌回首頁，頁名按鈕「人事 ▾」開 `BottomSheet` 圖示格（`AppShell`）。
-  - **寬度一定要指定 `size`**（2026-11-09 盤點後定）：V0.27.0 起寬度規則（使用者 2026-11-24）：`small` **400px**＝確認、理由、單一欄位；`medium` **560px**（未指定時的預設）＝一般表單，約 6 個欄位以內，表單不要被撐得比內容寬；`large` **860px**＝只給多欄表格或明細（清單、審核表、列印預覽）。一般表單不要用 `large`；欄位多於 6 個才考慮 `large`，且表單格優先用 2 欄（`EntryFields columns={2}`）。既有的視窗專屬寬度（維修單、出機、訂購、盤點紀錄、BOT 審稿等密集表格）屬例外，維持原樣。V0.18.2 起 `size` 是必填（TypeScript 會擋），`Drawer`／`BottomSheet` 例外。只有內容真的需要時，才在該視窗 class 加專屬寬度，而且**一定要寫成 `.該視窗class > .cy-dialog-surface`**（子層選擇器）；寫成空白（後代選擇器）會把在它裡面開的確認框、理由框一起撐寬（2026-11-10 BOT 退回理由變 1040px 的原因）。
+  - **寬度一定要指定 `size`**（2026-11-09 盤點後定）：V0.27.0 起寬度規則（使用者 2026-11-24）：`small` **400px**＝確認、理由、單一欄位；`medium` **560px**（未指定時的預設）＝一般表單，約 6 個欄位以內，表單不要被撐得比內容寬；`large` **860px**＝只給多欄表格或明細（清單、審核表、列印預覽）。一般表單不要用 `large`；欄位多於 6 個才考慮 `large`，且表單格優先用 2 欄（`EntryFields columns={2}`）。V0.29.3 盤點後，仍保留專屬寬度的只有維修單 1080、月度待辦設定 1080、出機單 1160、過去盤點紀錄 1700、登記到貨 1120（對齊網格或寬表，並在 CSS 註解寫明理由）；small 表單欄位達 4 個以上改 medium。V0.18.2 起 `size` 是必填（TypeScript 會擋），`Drawer`／`BottomSheet` 例外。只有內容真的需要時，才在該視窗 class 加專屬寬度，而且**一定要寫成 `.該視窗class > .cy-dialog-surface`**（子層選擇器）；寫成空白（後代選擇器）會把在它裡面開的確認框、理由框一起撐寬（2026-11-10 BOT 退回理由變 1040px 的原因）。
 - `overlays/ConfirmDialog`、`useConfirmation`、`useFormPrompt`（要理由的確認）。
 - 有未儲存變更的畫面：`foundation/useUnsavedChangesGuard`；設定視窗關閉前自己確認（見 `ModuleSettingsPanel`）。
 - `feedback/FeedbackProvider`：`useFeedbackMessage`＋`FeedbackBanner`（頁面訊息）；`Loading`；`ToastRegion`。

@@ -252,7 +252,7 @@ export function BotCenterPage(){
     </table></div>}
     {state.draftsMore?<div className="cy-bot-more"><button type="button" className="cy-op-button compact" disabled={busy} onClick={()=>void loadMore("drafts")}>載入更多審稿</button></div>:null}
    </section>
-   {timelineOpen?<Dialog open title="今日完成時間軸－全部" size="large" dismissible={false} showCloseButton={false}
+   {timelineOpen?<Dialog open title="今日完成時間軸－全部" size="medium" dismissible={false} showCloseButton={false}
     onClose={()=>setTimelineOpen(false)} footer={<button type="button" className="cy-op-button" onClick={()=>setTimelineOpen(false)}>關閉</button>}>
     {state.timeline.length?<TimelineList items={state.timeline}/>:<p className="cy-bot-empty">今天還沒有完成項目</p>}
     {state.timelineMore?<div className="cy-bot-more"><button type="button" className="cy-op-button compact" disabled={busy} onClick={()=>void loadMore("timeline")}>載入更多今日完成項目</button></div>:null}

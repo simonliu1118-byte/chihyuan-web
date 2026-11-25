@@ -10,7 +10,6 @@
 .cy-equipment-category-cell{display:flex;align-items:center;gap:4px;min-width:0}
 .cy-equipment-category-cell select{flex:0 1 auto;min-width:0}
 .cy-equipment-category-other{flex:1 0 10em;min-width:10em!important}
-.cy-equipment-asset-dialog > .cy-dialog-surface{width:min(620px,calc(100vw - 24px))}
 .cy-equipment-asset-dialog .cy-entry-table{table-layout:fixed}
 .cy-equipment-asset-dialog .cy-entry-table th:first-child{width:55px}
 .cy-equipment-asset-dialog .cy-entry-table th:nth-child(2){width:36%}
@@ -20,6 +19,7 @@
 .cy-equipment-detail>td{padding:8px!important}
 .cy-equipment-detail .cy-entry-table td{background:var(--cy-surface)!important;text-align:left}
 .cy-equipment-detail .cy-entry-table td:first-child{text-align:center}
+/* 刻意寬於 large(860)：出機單是 18 欄對齊網格（保固、機身序號、定期維護同列），表格最小寬 1060px；窄螢幕在視窗內捲動。 */
 .cy-equipment-form-dialog > .cy-dialog-surface{width:min(1160px,calc(100vw - 24px))}
 .cy-equipment-entry{min-width:1060px;table-layout:fixed}
 .cy-equipment-entry td{padding:2px}
