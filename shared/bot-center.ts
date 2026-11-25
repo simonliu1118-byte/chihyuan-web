@@ -150,12 +150,47 @@ export interface BotCompletionView {
 }
 
 export interface BotSentItemSummary {id:number;draftId:number|null;seq:number|null;title:string;sentAt:string;platform:string}
-export interface BotSentItemView extends BotSentItemSummary {body:string;draftTitle:string;botCode:string;botLabel:string;platform:string;url:string;approvalSource:"cyweb"|"chat"|"line"|"other";approvalNote:string;sessionLabel:string}
+export interface BotSentItemView extends BotSentItemSummary {body:string;draftTitle:string;botCode:string;botLabel:string;platform:string;url:string;approvalSource:"cyweb"|"chat"|"line"|"other";approvalNote:string;sessionLabel:string;sourceText:string;sourceAuthor:string;sourceUrl:string}
 export interface BotDeliveryDetail {item:BotSentItemView;images:(BotReviewImageView & {deliveryImage?:boolean})[]}
-/** 場次狀態（V0.22.0）：pending 待審核、approved 已審核（待 BOT 留言）、done 已完成。 */
-export type BotPatrolStatus = "pending" | "open" | "approved" | "done";
-export const BOT_PATROL_STATUS_LABELS: Record<BotPatrolStatus, string> = { pending: "待審核", open: "進行中", approved: "已審核", done: "已完成" };
-export interface BotPatrolSummary {id:number;label:string;note:string;sent:number;status:BotPatrolStatus;pendingItems:number;awaitingItems:number;draftIds:number[]}
+/**
+ * 場次狀態（V0.30.0）：open 進行中（已登錄、BOT 尚未回報結果）、pending 待審核、toSend 待留言、
+ * waitingImages 等待圖片、done 已完成。小編重新查核（待查核）不是獨立狀態，BOT 會重新送審，故算待審核。
+ */
+export type BotPatrolStatus = "open" | "pending" | "toSend" | "waitingImages" | "done";
+export const BOT_PATROL_STATUS_LABELS: Record<BotPatrolStatus, string> = { open: "進行中", pending: "待審核", toSend: "待留言", waitingImages: "等待圖片", done: "已完成" };
+/** BOT 回報的場次則數上限（防止異常值）。 */
+export const BOT_PATROL_COUNT_MAX = 999;
+export interface BotPatrolCounts {pendingReview:number|null;toSend:number|null;waitingImages:number|null;skipped:number|null;abandoned:number|null}
+export interface BotPatrolStatusInput {
+  /** 連結的 CY Web 稿件（只看最新版）：待審則數、已通過尚未送出則數；沒有連結稿件時 linked=false。 */
+  linked: boolean; linkedPending: number; linkedAwaiting: number;
+  counts: BotPatrolCounts; completed: boolean;
+}
+export interface BotPatrolDerived {status: BotPatrolStatus; pending: number; toSend: number; waitingImages: number}
+/** 是否曾回報任何則數（五欄皆 null＝從未回報，沿用舊推算）。 */
+export const patrolCountsReported = (c: BotPatrolCounts) => [c.pendingReview, c.toSend, c.waitingImages, c.skipped, c.abandoned].some(v => v !== null);
+/**
+ * 狀態只看結構化則數與連結稿件，不看 note。待審／待留言取「連結稿件」與「BOT 回報」較大者（避免同一則算兩次）。
+ * 有待審 → 待審核；BOT 已明確結束 → 已完成；有待留言 → 待留言；有待圖 → 等待圖片；
+ * 已回報則數而三者皆 0 → 已完成；沒有回報則數：有連結稿件 → 已完成，否則進行中。
+ */
+export function derivePatrolStatus(input: BotPatrolStatusInput): BotPatrolDerived {
+  const c = input.counts, reported = patrolCountsReported(c);
+  const pending = Math.max(input.linkedPending, c.pendingReview ?? 0), toSend = Math.max(input.linkedAwaiting, c.toSend ?? 0), waitingImages = c.waitingImages ?? 0;
+  const status: BotPatrolStatus = pending > 0 ? "pending" : input.completed ? "done" : toSend > 0 ? "toSend" : waitingImages > 0 ? "waitingImages"
+    : reported || input.linked ? "done" : "open";
+  return { status, pending, toSend, waitingImages };
+}
+export interface BotPatrolSummary {
+  id:number;label:string;note:string;day:string;
+  /** 卡片右側「送出 N 則」：當日場次＝全部成果；補送列＝今日送出數。 */
+  sent:number;
+  /** 場次累計全部成果（不分日期），視窗標題使用。 */
+  sentTotal:number;
+  status:BotPatrolStatus;pendingItems:number;awaitingItems:number;waitingImages:number;skipped:number|null;abandoned:number|null;draftIds:number[];
+  /** 較早日期場次在今日收到補送成果的列。 */
+  late?:boolean;
+}
 export interface BotPatrolSessionItem {id:number;draftId:number;seq:number;title:string;body:string;status:BotReviewStatus}
 export interface BotSentItemPage<T=BotSentItemView> {day:string;items:T[];more:boolean;nextBefore:string|null}
 

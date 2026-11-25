@@ -45,7 +45,29 @@ decision 範例（合成資料）：
 - category 1–20 字自由填寫；amount 為新台幣**元**（≥0、最多兩位小數），工具轉成「分」送出，伺服器以整數分儲存；deadline 為含時區的 ISO 時間，工具轉為 UTC；options 2–5 個、每個 1–80 字、不可重複。只有 category 必填。
 - 線路（`POST /api/bot-ingest/drafts`）的 `decision` 物件為 `{category,amount?(分),deadline?(UTC ISO),options?}`，只能用在一般單篇，不可與 items、kind=post／patrol 併用，錯誤回 400。同 externalRef 重送回原紀錄、不覆寫。改稿用 previousDraftId＋新 externalRef，**新版必須再帶 decision**（缺少回 400，普通稿改成拍板回 409）。
 - 讀回（`GET /api/bot-ingest/drafts/:id`、`?externalRef=`、工具 `review`）含 `decision:{category,amount,deadline,options,chosenOption,expired}`；工具的 amount 已換回元並多一個 `chosenOptionText`。人決定：approved＝同意（有 options 時 `chosenOption` 為選項序號，從 0 起）、rejected＝不同意（reason 為備註，必填）。**期限已過且仍待決定時 `expired:true`，人員端回 409 `BOT_DECISION_EXPIRED`，不能再決定。**
-- 場次狀態由伺服器推算，BOT 不回報：連結的稿件有待審的則＝待審核；否則有通過但尚無送出成果的則、且場次未被明確結束＝已審核；其餘＝已完成。沒有連結稿件的舊場次：有送出成果＝已完成，沒有成果也沒有結束者不列在主頁。人員 API：`GET /api/bot-center/sent-items?kind=patrol&sessionId=`、`GET /api/bot-center/patrol-sessions/:id/items`。
+- 場次狀態（V0.22.0 版本的推算已由 V0.30.0 取代，見下節「V0.30.0 變更」）。人員 API：`GET /api/bot-center/sent-items?kind=patrol&sessionId=`、`GET /api/bot-center/patrol-sessions/:id/items`。
+
+## V0.30.0 變更（WEB 0085）
+
+|命令|新增輸入|用途|
+|---|---|---|
+|patrol-session|選填 pendingReview、toSend、waitingImages、skipped、abandoned|場次則數；0 到 999 的整數，沒帶的欄位保留原值；全部都沒帶過＝沿用舊推算（進行中，直到有連結稿件或 completed）|
+|delivery|選填 sourceText（≤2000）、sourceAuthor（≤80）、sourceUrl（≤500，http／https）|成果的原文；**kind=patrol 時工具要求 sourceText**；body 只放我們送出的留言|
+
+patrol-session 範例（合成資料）：
+```json
+{"sessionRef":"synthetic-noon-01","label":"午巡","pendingReview":0,"toSend":2,"waitingImages":1,"skipped":4,"abandoned":0}
+```
+patrol delivery 範例（合成資料）：
+```json
+{"eventId":"synthetic-reply-01","kind":"patrol","sessionRef":"synthetic-noon-01","approvalSource":"chat","approvalNote":"合成核准","title":"合成留言","body":"合成留言全文","sourceText":"合成原文全文","sourceAuthor":"synthetic_user","sourceUrl":"https://example.test/post/1","platform":"Threads","url":"https://example.test/reply/1"}
+```
+
+- 場次狀態（伺服器推算，只看則數與連結稿件，不看 note）：有待審核（回報的 pendingReview 與連結稿件待審則數取較大者）＝待審核；否則已 `completed` ＝已完成；有待留言（toSend 與連結稿件已通過未送出取較大者）＝待留言；有 waitingImages＝等待圖片（N 則）；都沒有且曾回報則數（或有連結稿件）＝已完成；從未回報則數、沒有連結稿件、未結束＝進行中。小編重新查核算待審核，不是獨立狀態。
+- sent 來自成果帳本，與回報的則數無關。成果的 sessionRef 可指向較早的場次：場次日期須在送出日（台北時間）當天或之前、且不超過 14 天，否則回 422 `BOT_INVALID`。補送成果計入該場次全部送出數，也計入送出當日卡片的「今日送出留言」；主頁當日卡片另列「11/20 早巡（補送）」，只顯示當日補送數。
+- 原文欄位在重送時：有帶就必須與原紀錄相同（衝突 409），沒帶則不比對。舊成果沒有原文，畫面顯示「未附原文」，不回頭解析舊內文。
+- 保存期：送出時間早於 90 天的成果、以及日期早於 90 天且已沒有成果的場次，每日台灣 03:15 自動清除；仍在保存期內的補送成果會保留其場次。
+- 人員 API `GET /api/bot-center/sent-items?kind=patrol&sessionId=` 看單一場次時列出該場次全部成果（不限當日）。
 
 ## 原有命令維持
 

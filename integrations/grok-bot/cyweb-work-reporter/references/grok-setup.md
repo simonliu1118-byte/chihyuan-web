@@ -78,6 +78,17 @@ Grok Bots 共用雲端電腦；持久檔案放在 `/workspace`，不要放臨時
 
 保留原 token、原收據目錄與既有 routine；只替換工具與技能檔。更新後 check 確認 SOCIAL_EDITOR，routine 繼續把同一四欄喚醒交給 review-notification，已有新版的舊喚醒會安靜略過。改稿 submit 要帶 previousDraftId，圖片每則最多 10 張。新版已改為 delivery 一次回報，詳見下方 V0.21.3 更新；不要再重複呼叫 sent＋article_published。
 
+## 更新至 V0.30.0（先部署 WEB／0085）
+
+先部署 WEB V0.30.0 並確認 migration 0085，再替換工具。只替換本包既定 5 檔（SKILL.md、scripts/cyweb-reporter.mjs、scripts/client.mjs、references/grok-setup.md、references/wire-contract.md）；原 token、安全環境、收據目錄、固定工作編號、webhook 與 routine 都保留，不重做 pilot。
+
+1. 更新後先 `check`，確認身分仍是自己的 BOT。
+2. **場次則數**：`patrol-session` 登錄時先不帶則數；巡完有結果再帶 `pendingReview`、`toSend`、`waitingImages`、`skipped`、`abandoned`（0–999 的整數），每次進度變動就更新。狀態（進行中／待審核／待留言／等待圖片／已完成）由則數自動決定，note 不影響。
+3. **每則海巡留言一定附原文**：`delivery` 的 `sourceText`（必填）、`sourceAuthor`、`sourceUrl`；`body` 只放我們送出的留言，內部備註（粉專身分、不配圖等）不要放進去。舊成果不需補。
+4. **補送**：隔天才送出的留言，帶原本場次的 sessionRef 與真實送出時間（14 天內）。
+5. 小編 routine 的指示補一句：「巡完回報場次則數；每則海巡留言附原文 sourceText；隔天補送帶原場次。」只是文字，不改憑證與排程。
+6. 驗收：主頁 Threads 卡片看得到各場次狀態與「N 則待審／待留言／等圖」；點場次看到標題（第 N 則＋@作者，連到我們的留言）與左原文、右留言。
+
 ## 更新至 V0.22.0（先部署 WEB／0079）
 
 WEB V0.22.0 與 V0.21.6 一起部署；部署並確認 migration 0079 後再替換工具。只替換本包既定 5 檔，原 token、安全環境、收據目錄、固定工作編號、webhook 與 routine 全部保留；不重跑 pilot、不輪換憑證、不重發已送出的內容。舊命令的輸入輸出不變，可直接沿用。
