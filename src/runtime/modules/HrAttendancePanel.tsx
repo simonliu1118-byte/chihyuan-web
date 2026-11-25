@@ -20,14 +20,15 @@ type OvertimeEdit={date:string;minutes:number;settlement:"pay"|"comp";revision:n
 type Exception={employeeId:number;employeeNo:string;name:string;date:string;anomalies:string[]};
 const ROOT="/api/business/hr",punchFields=["in1","out1","in2","out2"] as const,weekdays=["日","一","二","三","四","五","六"];
 const hrs=(v:number)=>(Math.round(v/30)/2).toFixed(1);
-/** initialEmployeeId／initialMonth：從每月薪資的待補事項「到出勤補正」進入時，直接定位到該員工與月份。 */
-export function HrAttendancePanel({initialEmployeeId,initialMonth}:{initialEmployeeId?:number|null;initialMonth?:string}={}){
+/** initialEmployeeId／initialMonth／initialDate：從每月薪資的待補事項「到出勤補正」進入時，定位到該員工與月份，並捲動到該日期列短暫標示。 */
+export function HrAttendancePanel({initialEmployeeId,initialMonth,initialDate}:{initialEmployeeId?:number|null;initialMonth?:string;initialDate?:string|null}={}){
  const [employees,setEmployees]=useState<Employee[]>([]),[selected,setSelected]=useState(initialEmployeeId??0),[month,setMonth]=useState(initialMonth??taipeiToday().slice(0,7));
  const [data,setData]=useState<Report|null>(null),[changes,setChanges]=useState<Record<string,Change>>({}),[otChanges,setOtChanges]=useState<Record<string,OvertimeEdit>>({});
  const [error,setError]=useState(""),[notice,setNotice]=useState(""),[busy,setBusy]=useState(false);
  const [exceptions,setExceptions]=useState<Exception[]|null>(null),[filter,setFilter]=useState("");
  const [search,setSearch]=useState("");
  const shownDays=(data?.days??[]).filter(day=>!search.trim()||(day.date+" "+day.schedule?.code+" "+day.anomalies.join(" " )).includes(search.trim()));
+ const [flashDate,setFlashDate]=useState<string|null>(null),focusDone=useRef<string|null>(null);
  const request=useLatestRequest(selected+"|"+month),saving=useRef(false);
  const dirty=Object.keys(changes).length>0||Object.keys(otChanges).length>0;
  const {confirm,confirmationDialog}=useConfirmation();
@@ -49,6 +50,13 @@ export function HrAttendancePanel({initialEmployeeId,initialMonth}:{initialEmplo
   catch(e){if(ticket.current())setError(e instanceof Error?e.message:"出勤查詢失敗")}finally{if(ticket.current())setBusy(false)}
  },[selected,month,request]);
  useEffect(()=>{void reload()},[reload]);
+ useEffect(()=>{
+  if(!initialDate||!data||data.employeeId!==selected||!data.days.some(d=>d.date===initialDate)||focusDone.current===initialDate+'|'+selected)return;
+  focusDone.current=initialDate+'|'+selected;setFlashDate(initialDate);
+  const raf=typeof requestAnimationFrame==='function'?requestAnimationFrame(()=>document.querySelector('.hr-attendance-table tr[data-date="'+initialDate+'"]')?.scrollIntoView?.({block:'center'})):0;
+  const timer=setTimeout(()=>setFlashDate(null),2500);
+  return()=>{if(raf&&typeof cancelAnimationFrame==='function')cancelAnimationFrame(raf);clearTimeout(timer)};
+ },[initialDate,data,selected]);
 
  function change(day:Day,key:keyof Punch,value:string){
   const before=changes[day.date]??{date:day.date,in1:day.punches?.in1??null,out1:day.punches?.out1??null,in2:day.punches?.in2??null,out2:day.punches?.out2??null,revision:day.punches?.revision??0,note:day.punches?.note??""};
@@ -86,7 +94,7 @@ export function HrAttendancePanel({initialEmployeeId,initialMonth}:{initialEmplo
 
   {error?<p role="alert" className="cy-notice cy-notice-danger">{error}</p>:null}{notice?<p role="status" className="cy-notice">{notice}</p>:null}
   <div className="cy-op-table-wrap"><table className="cy-op-table cy-rt hr-attendance-table"><thead><tr><th>日期</th><th>星期</th><th>排定</th><th>上班 1</th><th>下班 1</th><th>上班 2</th><th>下班 2</th><th>工時</th><th>加班／結算</th><th>遲到</th><th>早退</th><th>異常</th><th>備註</th></tr></thead>
-   <tbody>{shownDays.map(row=>{const punch=changes[row.date]??row.punches;return <tr key={row.date}>
+   <tbody>{shownDays.map(row=>{const punch=changes[row.date]??row.punches;return <tr key={row.date} data-date={row.date} className={flashDate===row.date?'hr-attendance-flash':undefined}>
     <td role="rowheader" data-label="日期" data-priority="title">{row.date.replaceAll("-","/")}</td><td data-label="星期">{weekdays[new Date(row.date+"T00:00:00Z").getUTCDay()]}</td>
     <td data-label="排定">{row.schedule?.kind==="off"?row.schedule.off_mark==="x"?"X":row.schedule.rest_label==="regular"?"例":"/":row.schedule?.kind==="shift"?row.schedule.code??"班":row.schedule?.kind==="hours"?String(row.schedule.hours)+"h":row.schedule?.kind==="leave"?row.schedule.code??"假":"—"}</td>
     {punchFields.map(k=><td key={k} className="hr-sheet-cell" data-label={k==="in1"?"上班1":k==="out1"?"下班1":k==="in2"?"上班2":"下班2"}><input disabled={busy} data-clock={k} className="cy-sheet-input hr-attendance-clock" placeholder="HH:mm" aria-label={row.date+" "+k} value={punch?.[k]??""}

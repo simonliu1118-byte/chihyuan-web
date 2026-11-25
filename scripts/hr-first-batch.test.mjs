@@ -101,3 +101,15 @@ test('shared boundary refuses local tab changes while blocked and asks before dr
  confirm=walk(tree).find(n=>n.props.title==='切換人事頁籤？');assert.ok(confirm);confirm.props.onCancel();assert.equal(await pending,false);
  }finally{host.close();delete globalThis.hrHost}
 });
+test('opening attendance from a payroll issue highlights that date row (desktop row and phone card share the row) and only that row',async()=>{
+ const host=new Host(),day=date=>({date,overtimeSuggestion:{minutes:0},overtime:null,schedule:null,punches:null,workedMinutes:0,lateMinutes:0,earlyMinutes:0,anomalies:[]});
+ globalThis.hrTransport=(url)=>url.includes('/employees?')?Promise.resolve({items:[{id:7,employee_no:'7',name:'合成7',store_id:1}],nextCursor:null}):Promise.resolve({employeeId:7,storeId:1,days:[day('2026-11-11'),day('2026-11-12'),day('2026-11-13')],totals:{workedMinutes:0,lateCount:0,lateMinutes:0,missingCard:0,absent:0,overtimeMinutes:0},overtimeWarnings:[]});
+ try{
+  const props={initialEmployeeId:7,initialMonth:'2026-11',initialDate:'2026-11-12'};host.render(HrAttendancePanel,props);const tree=await host.settle(HrAttendancePanel,props);
+  const rows=walk(tree).filter(n=>n.type==='tr'&&n.props?.['data-date']);
+  assert.deepEqual(rows.map(r=>r.props['data-date']),['2026-11-11','2026-11-12','2026-11-13']);
+  assert.deepEqual(rows.filter(r=>r.props.className==='hr-attendance-flash').map(r=>r.props['data-date']),['2026-11-12']);
+  host.close();const other=new Host(),plain={initialEmployeeId:7,initialMonth:'2026-11'};other.render(HrAttendancePanel,plain);
+  assert.equal(walk(await other.settle(HrAttendancePanel,plain)).filter(n=>n.props?.className==='hr-attendance-flash').length,0);
+ }finally{host.close();delete globalThis.hrTransport;delete globalThis.hrHost}
+});

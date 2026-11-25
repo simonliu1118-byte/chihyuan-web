@@ -28,7 +28,8 @@
 .hr-roster-cell small{display:block;font-size:12px;line-height:1.1}
 .hr-roster-cell:focus-visible{outline:2px solid var(--cy-accent)}
 .hr-cell-choices{display:flex;flex-wrap:wrap;gap:6px;padding:6px 8px}
-.hr-attendance-table{width:100%}.hr-attendance-clock{width:78px}
+.hr-attendance-table{width:100%}
+.hr-attendance-table tr.hr-attendance-flash>*{background:var(--cy-warning-soft,#fff3cd);box-shadow:inset 0 0 0 1px var(--cy-warning,#e0a800);transition:background 1s}.hr-attendance-clock{width:78px}
 /* Edited right in the table cell (shared cy-sheet-input), no boxed inputs inside the table (user rule). */
 .hr-attendance-table td.hr-sheet-cell,.hr-attendance-table td.hr-overtime-cell{padding:0}
 .hr-attendance-table td.hr-overtime-cell{padding-right:4px}

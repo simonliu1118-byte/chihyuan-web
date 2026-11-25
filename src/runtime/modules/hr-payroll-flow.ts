@@ -115,6 +115,8 @@ const rules: [RegExp, IssueAction[]][] = [
   [/請先新增本月有效的薪資計算／投保設定|半職／兼職月薪需填約定每週正常工時|時薪津貼／全勤須填約定月正常工時|薪資主檔已有同名全勤津貼|月中全勤／約定工時異動須分段核對/, [SET_PROFILE]],
   [/未滿月／月中調薪|手填計薪天數|本月含留職停薪/, [{ type: "days", label: "調整計薪天數" }]],
 ];
+/** 待補事項日期須落在該薪資月才帶到出勤頁（否則只定位員工與月份）。 */
+export const issueNavDate = (date: string | null, month: string): string | null => date && date.startsWith(month + "-") ? date : null;
 /** 把後端的待補文字對應到可執行的動作；沒有對應的只顯示文字。 */
 export function classifyIssue(text: string): IssueInfo {
   const date = DATE.exec(text)?.[1] ?? null;

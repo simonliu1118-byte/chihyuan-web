@@ -8,6 +8,7 @@
 
 ## V0.29.0 人事目前值（使用者 2026-11-24）
 
+- **as-of 投影共用（V0.29.4）**：`asOfProjection(alias, bound)` 匯出自 `hr-current-values.ts`，以任意日期運算式求同一投影（欄位 `p_status`、`p_store_id`、`p_job_title_id`、`p_employment_type`、`p_schedule_mode`）；每日推進、薪資來源與月份清單共用。薪資待補事項「到出勤補正」帶日期，出勤頁（`HrAttendancePanel` 的 `initialDate`）捲動並短暫標示該列。
 - **一個欄位只有一個目前值**：`hr_employees` 的 `status`、`store_id`、`job_title_id`、`employment_type`、`schedule_mode` 永遠存「台北今日」的值，`termination_date`／`termination_reason` 與今日狀態一致。直接讀主檔欄位不會再讀到過期值；`hr_employee_current` 仍保留，其值與主檔欄位相同（測試斷言）。
 - **建檔值也是紀錄**：建立員工時，人事狀態與四個任用欄位各寫一筆「建檔」紀錄（原因「建檔」、生效日＝到職日、`previous_value` 為 NULL）。歷史完整，不再靠主檔欄位當「建檔基準」。狀態異動卡與完整清單因此多出建檔列；建檔列沒有舊值，顯示為單純的值（不顯示箭頭）。員工是否可刪除只看建檔以外的紀錄。
 - **寫入時**：`POST /employees` 與 `POST /employees/:id/status-changes` 在寫入紀錄的同一個 `db.batch`、同一個 revision 守門下，把受影響欄位設成台北今日投影（含冗餘紀錄刪除路徑）；較舊日期的紀錄不會覆蓋較新的值；稽核列不變。離職日期與原因只由決定今日狀態的紀錄或未來離職紀錄設定；今日狀態不是離職且沒有尚未生效的離職紀錄時清空。

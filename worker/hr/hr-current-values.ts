@@ -18,20 +18,22 @@ export function taipeiDate(iso: string): string {
 /**
  * The projection as of ?1: the latest record dated on or before it (ties by larger id), else the starting value of the
  * earliest record (its previous value, or its own value for a 建檔 record), else the master column. Same rule as
- * migration 0083's hr_employee_current view, with the date bound instead of "today".
+ * migration 0083's hr_employee_current view, with the date bound instead of "today". Exported so payroll reads the month-end
+ * values through this one fragment: `bound` is the SQL expression of the as-of date (default placeholder ?1).
+ * Yields columns p_status, p_store_id, p_job_title_id, p_employment_type, p_schedule_mode.
  */
-function projection(alias: string): string {
+export function asOfProjection(alias: string, bound = "?1"): string {
   const assignment = (field: string) => {
-    const latest = `(SELECT a.next_value FROM hr_assignment_changes a WHERE a.employee_id=${alias}.id AND a.field='${field}' AND a.effective_date<=?1 ORDER BY a.effective_date DESC,a.id DESC LIMIT 1)`;
+    const latest = `(SELECT a.next_value FROM hr_assignment_changes a WHERE a.employee_id=${alias}.id AND a.field='${field}' AND a.effective_date<=${bound} ORDER BY a.effective_date DESC,a.id DESC LIMIT 1)`;
     const first = `(SELECT COALESCE(a.previous_value,a.next_value) FROM hr_assignment_changes a WHERE a.employee_id=${alias}.id AND a.field='${field}' ORDER BY a.effective_date,a.id LIMIT 1)`;
     return NUMERIC.has(field) ? `COALESCE(CAST(${latest} AS INTEGER),CAST(${first} AS INTEGER),${alias}.${field})` : `COALESCE(${latest},${first},${alias}.${field})`;
   };
-  const status = `COALESCE((SELECT c.next_status FROM hr_status_changes c WHERE c.employee_id=${alias}.id AND c.effective_date<=?1 ORDER BY c.effective_date DESC,c.id DESC LIMIT 1),(SELECT c.previous_status FROM hr_status_changes c WHERE c.employee_id=${alias}.id ORDER BY c.effective_date,c.id LIMIT 1),${alias}.status)`;
+  const status = `COALESCE((SELECT c.next_status FROM hr_status_changes c WHERE c.employee_id=${alias}.id AND c.effective_date<=${bound} ORDER BY c.effective_date DESC,c.id DESC LIMIT 1),(SELECT c.previous_status FROM hr_status_changes c WHERE c.employee_id=${alias}.id ORDER BY c.effective_date,c.id LIMIT 1),${alias}.status)`;
   return `${status} AS p_status, ${ASSIGNMENT_COLUMNS.map(f => `${assignment(f)} AS p_${f}`).join(", ")}`;
 }
 const MISMATCHES = `SELECT * FROM (
   SELECT e.id,e.employee_no,e.revision,e.status,e.store_id,e.job_title_id,e.employment_type,e.schedule_mode,e.termination_date,e.termination_reason,
-    ${projection("e")},
+    ${asOfProjection("e")},
     EXISTS(SELECT 1 FROM hr_status_changes c WHERE c.employee_id=e.id AND c.next_status='terminated' AND c.effective_date>?1) AS pending_termination
   FROM hr_employees e WHERE e.id>?2)
 WHERE status IS NOT p_status OR store_id IS NOT p_store_id OR job_title_id IS NOT p_job_title_id OR employment_type IS NOT p_employment_type OR schedule_mode IS NOT p_schedule_mode
