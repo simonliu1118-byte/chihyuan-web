@@ -182,6 +182,13 @@
 - [ ] 最後走查，使用者確認後正式上線。
 - [ ] 新系統穩定後，由使用者決定停用舊 GAS／Google Sheets 的時間；舊測試資料不搬入。
 
+## AI 代理接口（使用者 2026-11-26）
+
+- [x] 階段 0：[設計文件](docs/architecture/AGENT_API_DESIGN.md)。
+- [ ] 全模組伺服器端規則盤點：前端鎖定／條件／選項限制逐一確認伺服器有同等檢查與測試，缺口補到伺服器（Claude，下週額度重置後）。
+- [ ] 使用者決定第一個開放模組、代理想先做的事、到期日上限、可直接生效的寫入。
+- [ ] 階段 1（Claude）→ 階段 2（GPT 工單）→ 階段 3，見設計文件 §8。
+
 ## 定期檢查
 
 - [ ] 每半年至一年，對正式網站（admin、price、acc）探測常見外洩路徑（`.env`、`.git/config`、`.dev.vars`、`wrangler.jsonc`、`secrets.json`、`.aws/credentials`、`.claude/settings.json`、source map 等），應只回首頁空殼或 404；並確認 GitHub Secret scanning／Push protection 開啟（2026-11-25 首次檢查通過）。
