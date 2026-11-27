@@ -100,7 +100,7 @@ export function HrRosterPanel() {
  }
  function moveStaff(id:number,target:number){
   setStaff(old=>{if(!old||id===target)return old;const from=old.findIndex(x=>x.id===id),to=old.findIndex(x=>x.id===target);
-   if(from<0||to<0||old[from].job_title_id!==old[to].job_title_id)return old;
+   if(from<0||to<0)return old;
    const next=[...old];const [person]=next.splice(from,1);next.splice(to,0,person);return next;
   });
  }
@@ -223,20 +223,21 @@ export function HrRosterPanel() {
     }}>{data.leaveForms.some(x=>x.employee_id===cell.employeeId&&x.work_date===cell.date)?"查看／補填假單":"補假單"}</button>:null}
    </form>:null}
   </Dialog>
-  <Dialog dismissible={!loading} open={staff!==null} title="門市人員設定" size="small" onClose={closeStaff}
+  <Dialog dismissible={!loading} open={staff!==null} title="門市人員設定" size="medium" onClose={closeStaff}
    footer={<><button type="button" className="cy-op-button" disabled={loading} onClick={closeStaff}>取消</button><button type="submit" form="hr-roster-staff-form" className="cy-op-button primary" disabled={loading}>儲存</button></>}>
    {staff?<form id="hr-roster-staff-form" className="cy-op-form cy-hr-staff-form" onKeyDown={enterAdvancesFields} onSubmit={e=>{e.preventDefault();void saveStaff()}}>
     {staffError?<p role="alert" className="cy-notice cy-notice-danger">{staffError}</p>:null}
-    <EntryTable label="門市人員設定"><colgroup><col className="hr-staff-grip"/><col className="hr-staff-number"/><col/><col className="hr-staff-role"/><col className="hr-staff-rule"/></colgroup>
-     <thead><tr><th className="hr-staff-center">項次</th><th className="hr-staff-center">員工編號</th><th>姓名</th><th>職稱</th><th>排班規則</th></tr></thead><tbody>{staff.map((x,i)=>{
-      const sameGroup=staff.filter(e=>e.job_title_id===x.job_title_id), movable=sameGroup.length>1;
-      return <tr key={x.id} data-roster-staff-id={x.id} onDragOver={e=>{if(draggingStaff.current!==null&&sameGroup.some(y=>y.id===draggingStaff.current))e.preventDefault()}}
-       onDrop={e=>{e.preventDefault();if(draggingStaff.current!==null)moveStaff(draggingStaff.current,x.id);draggingStaff.current=null}}>
-       <td className="hr-staff-center"><div className="hr-staff-seq"><ReorderHandle label={x.name+(movable?"，拖拉排序（上下方向鍵亦可）":"，同職稱無其他人員可排序")} disabled={loading||!movable} draggable={!loading&&movable}
+    <EntryTable label="門市人員設定"><colgroup><col className="hr-staff-grip"/><col className="hr-staff-sequence"/><col className="hr-staff-number"/><col/><col className="hr-staff-role"/><col className="hr-staff-rule"/></colgroup>
+     <thead><tr><th aria-label="拖拉排序"></th><th className="hr-staff-center">項次</th><th className="hr-staff-center">員工編號</th><th>姓名</th><th>職稱</th><th>排班規則</th></tr></thead><tbody>{staff.map((x,i)=>{
+      const movable=staff.length>1;
+      return <tr key={x.id} data-roster-staff-id={x.id} onDragOver={e=>{if(!loading&&draggingStaff.current!==null){e.preventDefault();e.dataTransfer.dropEffect="move"}}}
+       onDrop={e=>{e.preventDefault();if(!loading&&draggingStaff.current!==null)moveStaff(draggingStaff.current,x.id);draggingStaff.current=null}}>
+       <td className="hr-staff-center hr-staff-handle"><ReorderHandle label={x.name+"，拖拉排序（上下方向鍵亦可）"} disabled={loading||!movable} draggable={!loading&&movable}
         onDragStart={e=>{draggingStaff.current=x.id;e.dataTransfer.effectAllowed="move";e.dataTransfer.setData("text/plain",String(x.id))}} onDragEnd={()=>{draggingStaff.current=null}}
         onPointerDown={e=>{if(e.pointerType!=="mouse"&&!loading)e.currentTarget.setPointerCapture(e.pointerId)}}
         onPointerUp={e=>{if(e.pointerType==="mouse"||loading)return;const target=document.elementFromPoint(e.clientX,e.clientY)?.closest("[data-roster-staff-id]");if(target)moveStaff(x.id,Number(target.getAttribute("data-roster-staff-id")))}}
-        onKeyDown={e=>{if(e.key!=="ArrowUp"&&e.key!=="ArrowDown")return;e.preventDefault();const j=sameGroup.findIndex(y=>y.id===x.id)+(e.key==="ArrowUp"?-1:1);if(sameGroup[j])moveStaff(x.id,sameGroup[j].id)}}/><span>{i+1}</span></div></td>
+        onKeyDown={e=>{if(e.key!=="ArrowUp"&&e.key!=="ArrowDown")return;e.preventDefault();const j=i+(e.key==="ArrowUp"?-1:1);if(staff[j])moveStaff(x.id,staff[j].id)}}/></td>
+       <td className="hr-staff-center">{i+1}</td>
        <td className="hr-staff-center">{x.employee_no}</td><td>{x.name}</td><td>{x.job_title_name??"未設定"}</td>
        <td className="hr-staff-select"><Field label={x.name+"排班規則"} presentation="cell"><select className="cy-sheet-input" disabled={loading} value={x.skip_roster_checks} onChange={e=>setStaff(old=>old?.map(y=>y.id===x.id?{...y,skip_roster_checks:Number(e.target.value)}:y)??null)}><option value={0}>檢查</option><option value={1}>不檢查</option></select></Field></td>
       </tr>

@@ -34,6 +34,20 @@ export async function acceptHrPhase2a(db:D1Database){
  try{await roster.updateStaff(store,{staff:[{employeeId:id,rosterSort:3,skipRosterChecks:false},{employeeId:999999999,rosterSort:0,skipRosterChecks:false}]},ctx);throw Error("STAFF_INVALID_NOT_REJECTED")}catch(e){check(e instanceof Error&&e.message.includes("不屬於門市"),"STAFF_BATCH_ATOMIC")}
  check((await roster.get(store,"2026-10")).employees.find(x=>x.id===id)?.roster_sort===2,"STAFF_BATCH_NO_PARTIAL_WRITE");
  await roster.updateStaff(store,{staff:[{employeeId:id,rosterSort:0,skipRosterChecks:false}]},ctx);
+ // Different titles must be reorderable: store-specific roster_sort is the primary ordering key.
+ const title=await db.prepare("SELECT id FROM hr_job_titles ORDER BY sort_order,id LIMIT 1").first<{id:number}>();
+ check(title?.id,"STAFF_TITLE_EXISTS");
+ const other=await db.prepare("INSERT INTO hr_employees(employee_no,name,status,hire_date,seniority_start_date,store_id,job_title_id,employment_type,schedule_mode,skip_roster_checks,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)")
+  .bind("HR2ATEST002","測試員工乙","active","2025-01-01","2025-01-01",store,title.id,"casual","none",1,ctx.now,ctx.now).run();
+ const otherId=Number(other.meta.last_row_id);
+ const members=(await roster.get(store,"2026-10")).employees;
+ check(members.find(x=>x.id===id)?.job_title_id!==members.find(x=>x.id===otherId)?.job_title_id,"STAFF_DISTINCT_TITLES");
+ await roster.updateStaff(store,{staff:[{employeeId:id,rosterSort:1,skipRosterChecks:false},{employeeId:otherId,rosterSort:0,skipRosterChecks:true}]},ctx);
+ const firstOrder=(await roster.get(store,"2026-10")).employees.map(x=>x.id);
+ check(firstOrder.indexOf(otherId)<firstOrder.indexOf(id),"STAFF_CROSS_TITLE_ORDER");
+ await roster.updateStaff(store,{staff:[{employeeId:id,rosterSort:0,skipRosterChecks:false},{employeeId:otherId,rosterSort:1,skipRosterChecks:true}]},ctx);
+ const secondOrder=(await roster.get(store,"2026-10")).employees.map(x=>x.id);
+ check(secondOrder.indexOf(id)<secondOrder.indexOf(otherId),"STAFF_CROSS_TITLE_REVERSE");
  const shift=await db.prepare("SELECT id FROM hr_shift_types WHERE code='早'").first<{id:number}>();
  check(shift?.id,"SHIFT_EXISTS");
  const seven=dates.map(date=>({employeeId:id,date,kind:"shift",shiftTypeId:shift!.id}));
