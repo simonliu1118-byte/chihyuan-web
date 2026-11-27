@@ -768,3 +768,5 @@ details[open]>summary::before{transform:rotate(90deg)}
   .cy-account-popover { width: max-content; min-width: 200px; max-width: 220px; }
   .cy-account-popover > button { min-height: 44px; white-space: nowrap; }
 }
+
+.cy-expand-down[aria-expanded="true"] .cy-icon{transform:rotate(180deg)}

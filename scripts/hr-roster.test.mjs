@@ -82,3 +82,36 @@ test("skip checks and no-roster casual bypass all constraints",()=>{
  assert.deepEqual(classifyRoster(input,null,{...opts,skipChecks:true}).violations,[]);
  assert.deepEqual(classifyRoster(input,null,{...opts,employmentType:"casual",scheduleMode:"none"}).violations,[]);
 });
+
+test("whole-month gate defers new labels until all days are filled, without disabling violations",()=>{
+ const monthOpts={...opts,classificationMonth:"2027-02"};
+ const input=make("2027-02-01",28,i=>i%7>=5?off:shift);
+ const partial=input.map((d,i)=>i===27?{...d,kind:"unscheduled"}:d);
+ const pending=classifyRoster(partial,null,monthOpts);
+ assert.equal(pending.labels["2027-02-06"],"off");
+ assert.equal(pending.labels["2027-02-07"],"off");
+ const done=classifyRoster(input,null,monthOpts);
+ assert.equal(done.labels["2027-02-06"],"rest_day");
+ assert.equal(done.labels["2027-02-07"],"regular_off");
+ assert.equal(done.labels["2027-02-28"],"regular_off");
+ assert.deepEqual(done.violations,[]);
+ const invalid=partial.map((d,i)=>i<7?{...d,...shift}:d);
+ assert.ok(classifyRoster(invalid,null,monthOpts).violations.some(x=>x.code==="CONSECUTIVE_7"));
+});
+test("unchecked roster has neutral off labels even when complete or previously labeled",()=>{
+ const input=make("2027-02-01",28,i=>i%7>=5?{...off,restLabel:i%7===6?"regular":"rest"}:shift);
+ const r=classifyRoster(input,null,{...opts,classificationMonth:"2027-02",skipChecks:true});
+ assert.equal(r.labels["2027-02-06"],"off");
+ assert.equal(r.labels["2027-02-07"],"off");
+ assert.deepEqual(r.violations,[]);assert.deepEqual(r.consecutive,[]);
+});
+test("month boundary defers unfinished week, retains previously saved labels outside eligible weeks",()=>{
+ const monthOpts={...opts,classificationMonth:"2026-11"};
+ const input=make("2026-10-26",37,i=>i%7>=5?off:shift);
+ const partial=input.map(d=>d.date==="2026-10-31"?{...d,kind:"unscheduled"}:d);
+ const r=classifyRoster(partial,null,monthOpts);
+ assert.equal(r.labels["2026-11-01"],"off");
+ assert.equal(r.labels["2026-11-08"],"regular_off");
+ const saved=partial.map(d=>d.date==="2026-11-08"?{...d,restLabel:"regular"}:d.date==="2026-11-30"?{...d,kind:"unscheduled"}:d);
+ assert.equal(classifyRoster(saved,null,monthOpts).labels["2026-11-08"],"regular_off");
+});

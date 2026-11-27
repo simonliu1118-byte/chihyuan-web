@@ -2,10 +2,12 @@
 export type RosterKind="shift"|"hours"|"off"|"leave"|"unscheduled";
 export type RosterLabel="regular_off"|"rest_day"|"off"|"work"|"unscheduled";
 export type EmploymentType="full"|"half"|"casual";
-export interface RosterDay { date:string;kind:RosterKind;offMark?:"slash"|"x"|null;minutes?:number;leaveCode?:string|null;shiftCode?:string|null }
+export interface RosterDay { date:string;kind:RosterKind;offMark?:"slash"|"x"|null;restLabel?:"regular"|"rest"|null;minutes?:number;leaveCode?:string|null;shiftCode?:string|null }
 export interface RosterOptions {anchorMonday:string;employmentType?:EmploymentType;partTime?:boolean;skipChecks?:boolean;scheduleMode?:"shift"|"hours"|"none";
  /** Saved 例假 dates of past weeks: such a week keeps its saved 例假 instead of being relabelled. */
- fixedRegularOff?:ReadonlySet<string>}
+ fixedRegularOff?:ReadonlySet<string>;
+ /** When supplied, new 例／休 labels are finalized only after this whole calendar month is filled. */
+ classificationMonth?:string}
 export interface RosterViolation {code:string;from:string;to:string;dates:string[];message:string}
 export interface ConsecutiveSegment {startDate:string;endDate:string;days:number;suggestion:string}
 export interface RosterResult {labels:Record<string,RosterLabel>;violations:RosterViolation[];consecutive:ConsecutiveSegment[];sixthDays:string[];overEight:string[]}
@@ -41,12 +43,20 @@ export function classifyRoster(days:readonly RosterDay[],previousRegularOff:stri
   labels[iso(t)]=!d||d.kind==="unscheduled"?(casual?"off":"unscheduled"):
    d.kind==="off"?(casual?"off":"rest_day"):"work";
  }
- if(options.skipChecks||options.scheduleMode==="none")return answer();
+ if(options.skipChecks||options.scheduleMode==="none"){
+  for(const d of sorted)if(d.kind==="off")labels[d.date]="off";
+  return answer();
+ }
+ const month=options.classificationMonth;
+ const monthStart=month?time(month+"-01"):first,monthEnd=month?Date.UTC(Number(month.slice(0,4)),Number(month.slice(5,7)),0):last;
+ const monthComplete=!month||Array.from({length:Math.round((monthEnd-monthStart)/DAY)+1},(_,i)=>iso(monthStart+i*DAY)).every(d=>byDate.has(d)&&byDate.get(d)?.kind!=="unscheduled");
+ const eligible=new Set<string>();
  let previous=previousRegularOff?time(previousRegularOff):null;
  for(let w=weekStart(first);w<=last;w+=7*DAY){
   const dates=Array.from({length:7},(_,i)=>iso(w+i*DAY));
   const complete=dates.every(d=>labels[d]&&labels[d]!=="unscheduled");
   if(!complete)continue;
+  if(!month||monthComplete&&w<=monthEnd&&w+6*DAY>=monthStart)for(const d of dates)eligible.add(d);
   if(!casual){
    const offs=dates.filter(d=>labels[d]==="rest_day");
    if(!offs.length)violations.push({code:"WEEK_NO_REGULAR",from:dates[0],to:dates[6],dates,message:"每週至少要有一天例假"});
@@ -86,6 +96,11 @@ export function classifyRoster(days:readonly RosterDay[],previousRegularOff:stri
   sequence=[];
  }
  for(let t=first;t<=last;t+=DAY){const d=iso(t);if(labels[d]==="work")sequence.push(d);else endSequence()}endSequence();
+ // Keep validation independent of the monthly classification gate. For incomplete months or
+ // unrelated weeks, retain previously saved classification but do not assign a new one.
+ if(month&&!casual)for(const d of sorted)if(d.kind==="off"&&!eligible.has(d.date)){
+  labels[d.date]=d.offMark==="x"?"off":d.restLabel==="regular"?"regular_off":d.restLabel==="rest"?"rest_day":"off";
+ }
  return answer();
 }
 export function rosterViolations(days:readonly RosterDay[],previousRegularOff:string|null,options:RosterOptions){return classifyRoster(days,previousRegularOff,options).violations}
