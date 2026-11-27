@@ -79,11 +79,11 @@ td.hr-sheet-cell>textarea.cy-sheet-input{min-height:64px}
 }
 
 /* 項次／員工編號置中；姓名與職稱為獨立欄位，表身保留內距。 */
-.cy-hr-staff-form .cy-entry-table :is(td,th){vertical-align:middle;text-align:left;padding:6px 8px}
+.cy-hr-staff-form .cy-entry-table :is(td,th){vertical-align:middle;text-align:left;padding:6px 5px;overflow-wrap:anywhere}
 .cy-hr-staff-form .cy-entry-table :is(td,th).hr-staff-center{text-align:center}
 .cy-hr-staff-form .cy-entry-table td.hr-staff-select{padding:0 4px}
-.hr-staff-seq{display:flex;align-items:center;justify-content:center;gap:4px}
-.hr-staff-seq .cy-lookup-handle{width:24px;flex:none}
+.hr-staff-seq{display:flex;align-items:center;justify-content:center;gap:2px}
+.hr-staff-seq .cy-lookup-handle{width:18px;flex:none}
 .hr-staff-seq .cy-lookup-handle:disabled{opacity:.4;cursor:default}
-.hr-staff-grip{width:66px}.hr-staff-number{width:86px}.hr-staff-role{width:92px}.hr-staff-rule{width:110px}
+.hr-staff-grip{width:48px}.hr-staff-number{width:68px}.hr-staff-role{width:68px}.hr-staff-rule{width:88px}
 @media(max-width:820px){.cy-hr-staff-form .cy-entry-table td{align-items:center}}

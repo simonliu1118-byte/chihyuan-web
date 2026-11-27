@@ -223,7 +223,7 @@ export function HrRosterPanel() {
     }}>{data.leaveForms.some(x=>x.employee_id===cell.employeeId&&x.work_date===cell.date)?"查看／補填假單":"補假單"}</button>:null}
    </form>:null}
   </Dialog>
-  <Dialog dismissible={!loading} open={staff!==null} title="門市人員設定" size="medium" onClose={closeStaff}
+  <Dialog dismissible={!loading} open={staff!==null} title="門市人員設定" size="small" onClose={closeStaff}
    footer={<><button type="button" className="cy-op-button" disabled={loading} onClick={closeStaff}>取消</button><button type="submit" form="hr-roster-staff-form" className="cy-op-button primary" disabled={loading}>儲存</button></>}>
    {staff?<form id="hr-roster-staff-form" className="cy-op-form cy-hr-staff-form" onKeyDown={enterAdvancesFields} onSubmit={e=>{e.preventDefault();void saveStaff()}}>
     {staffError?<p role="alert" className="cy-notice cy-notice-danger">{staffError}</p>:null}
