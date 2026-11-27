@@ -16,7 +16,7 @@ import {HrLeaveDialog,type LeavePerson,type LeaveTypeOption,type CompletedLeaveI
 import {classifyRoster,type RosterDay,type RosterResult,type RosterViolation} from "../../../shared/hr-roster";
 import "./hr-phase2a.css";
 type Store={id:number;name:string;cycle_anchor_date:string;rules_template:string};
-type Staff={id:number;employee_no:string;name:string;job_title_id:number|null;job_title_name:string|null;roster_sort:number;employment_type:"full"|"half"|"casual";schedule_mode:"shift"|"hours"|"none";skip_roster_checks:number};
+type Staff={id:number;employee_no:string;name:string;job_title_id:number|null;job_title_name:string|null;roster_sort:number;employment_type:"full"|"half"|"casual";schedule_mode:"shift"|"hours"|"none";skip_roster_checks:number;hire_date?:string|null;termination_date?:string|null};
 type Shift={id:number;code:string;name:string;is_active:number;normal_minutes:number};
 type Leave={id:number;code:string;name:string;is_active:number};
 type Cell={employee_id:number;work_date:string;kind:"shift"|"hours"|"off"|"leave";rest_label?:string|null;shift_type_id:number|null;leave_type_id:number|null;off_mark:string|null;hours:number|null;marker:string|null;note:string};
@@ -94,7 +94,7 @@ export function HrRosterPanel() {
     if(row.kind==="hours")return {date,kind:"hours",minutes:Math.round((row.hours??0)*60)};
     return {date,kind:"leave",minutes:0};
    });
-   result[String(e.id)]=classifyRoster(input,context.previousRegular[String(e.id)]??null,{anchorMonday:data.store.cycle_anchor_date,employmentType:e.employment_type,skipChecks:e.skip_roster_checks===1,scheduleMode:e.schedule_mode,fixedRegularOff,classificationMonth:data.month});
+   result[String(e.id)]=classifyRoster(input,context.previousRegular[String(e.id)]??null,{anchorMonday:data.store.cycle_anchor_date,employmentType:e.employment_type,skipChecks:e.skip_roster_checks===1,scheduleMode:e.schedule_mode,fixedRegularOff,classificationMonth:data.month,employedFrom:e.hire_date??null,employedTo:e.termination_date??null});
   }
   return result;
  },[data,changes,staged]);

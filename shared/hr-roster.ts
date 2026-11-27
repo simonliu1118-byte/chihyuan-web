@@ -7,7 +7,10 @@ export interface RosterOptions {anchorMonday:string;employmentType?:EmploymentTy
  /** Saved 例假 dates of past weeks: such a week keeps its saved 例假 instead of being relabelled. */
  fixedRegularOff?:ReadonlySet<string>;
  /** When supplied, new 例／休 labels are finalized only after this whole calendar month is filled. */
- classificationMonth?:string}
+ classificationMonth?:string;
+ /** Employment range (inclusive). Days outside it need no schedule: they neither block the monthly
+  *  classification nor make a week incomplete, and partial weeks/cycles are not checked for rest days. */
+ employedFrom?:string|null;employedTo?:string|null}
 export interface RosterViolation {code:string;from:string;to:string;dates:string[];message:string}
 export interface ConsecutiveSegment {startDate:string;endDate:string;days:number;suggestion:string}
 export interface RosterResult {labels:Record<string,RosterLabel>;violations:RosterViolation[];consecutive:ConsecutiveSegment[];sixthDays:string[];overEight:string[]}
@@ -47,19 +50,21 @@ export function classifyRoster(days:readonly RosterDay[],previousRegularOff:stri
   for(const d of sorted)if(d.kind==="off")labels[d.date]="off";
   return answer();
  }
+ const outside=(d:string)=>!!options.employedFrom&&d<options.employedFrom||!!options.employedTo&&d>options.employedTo;
  const month=options.classificationMonth;
  const monthStart=month?time(month+"-01"):first,monthEnd=month?Date.UTC(Number(month.slice(0,4)),Number(month.slice(5,7)),0):last;
- const monthComplete=!month||Array.from({length:Math.round((monthEnd-monthStart)/DAY)+1},(_,i)=>iso(monthStart+i*DAY)).every(d=>byDate.has(d)&&byDate.get(d)?.kind!=="unscheduled");
+ const monthComplete=!month||Array.from({length:Math.round((monthEnd-monthStart)/DAY)+1},(_,i)=>iso(monthStart+i*DAY)).every(d=>outside(d)||byDate.has(d)&&byDate.get(d)?.kind!=="unscheduled");
  const eligible=new Set<string>();
  let previous=previousRegularOff?time(previousRegularOff):null;
  for(let w=weekStart(first);w<=last;w+=7*DAY){
   const dates=Array.from({length:7},(_,i)=>iso(w+i*DAY));
-  const complete=dates.every(d=>labels[d]&&labels[d]!=="unscheduled");
+  const complete=dates.every(d=>outside(d)||labels[d]&&labels[d]!=="unscheduled");
   if(!complete)continue;
+  const partial=dates.some(outside);
   if(!month||monthComplete&&w<=monthEnd&&w+6*DAY>=monthStart)for(const d of dates)eligible.add(d);
   if(!casual){
    const offs=dates.filter(d=>labels[d]==="rest_day");
-   if(!offs.length)violations.push({code:"WEEK_NO_REGULAR",from:dates[0],to:dates[6],dates,message:"每週至少要有一天例假"});
+   if(!offs.length){if(!partial)violations.push({code:"WEEK_NO_REGULAR",from:dates[0],to:dates[6],dates,message:"每週至少要有一天例假"});}
    else {
     // Past weeks keep their saved 例假; otherwise prefer the latest 例休日 within 7 days of the previous 例假.
     const preceding=previous;
@@ -78,9 +83,9 @@ export function classifyRoster(days:readonly RosterDay[],previousRegularOff:stri
  }
  if(!casual)for(const cycle of cyclesFor(options.anchorMonday,iso(first),iso(last))){
   const dates=cycle.weeks.flat();
-  if(!dates.every(d=>labels[d]&&labels[d]!=="unscheduled"))continue;
+  if(!dates.every(d=>outside(d)||labels[d]&&labels[d]!=="unscheduled"))continue;
   const rests=dates.filter(d=>labels[d]==="rest_day"||labels[d]==="regular_off").length;
-  if(rests<4)violations.push({code:"CYCLE_OFF",from:cycle.start,to:cycle.end,dates,message:"雙週只有 "+rests+" 天例休日（應至少 4 天）"});
+  if(rests<4&&!dates.some(outside))violations.push({code:"CYCLE_OFF",from:cycle.start,to:cycle.end,dates,message:"雙週只有 "+rests+" 天例休日（應至少 4 天）"});
   const mins=dates.reduce((n,d)=>n+(labels[d]==="work"?(byDate.get(d)?.kind==="leave"?0:byDate.get(d)?.minutes??0):0),0);
   if(mins>4800)violations.push({code:"CYCLE_HOURS",from:cycle.start,to:cycle.end,dates,message:"雙週正常工時超過 80 小時"});
  }
