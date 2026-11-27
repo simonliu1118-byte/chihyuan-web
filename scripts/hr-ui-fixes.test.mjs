@@ -171,3 +171,13 @@ test('settings, attendance, leave and phone fixes are in place',()=>{
  const flow=read('src/runtime/modules/hr-payroll-flow.css');assert.match(flow,/\.cy-hr-profile-form \.cy-entry-table td\[data-entry-label\]\{grid-template-columns:minmax\(0,1fr\)\}/);assert.match(flow,/grid-template-areas:"d b" "p p" "a a" "r r"!important/);
  assert.match(read('src/runtime/modules/HrPayrollProfileEditor.tsx'),/cy-hr-profile-form/);
 });
+
+
+test("roster quick picker and staff table use agreed compact controls",()=>{
+ const roster=read("src/runtime/modules/HrRosterPanel.tsx"),css=read("src/runtime/modules/hr-phase2a.css");
+ const picker=roster.slice(roster.indexOf('<Dialog open={cell!==null}'),roster.indexOf('<Dialog dismissible={!loading} open={staff'));
+ assert.match(picker,/size="small"/);assert.match(picker,/休假／請假/);assert.match(picker,/例假日/);assert.match(picker,/休假日/);assert.match(picker,/套用並下一格/);assert.match(picker,/label="備註"/);assert.doesNotMatch(picker,/註記|EntryFields/);
+ assert.match(roster,/<th className="hr-staff-center">項次<\/th><th className="hr-staff-center">員工編號<\/th><th>姓名<\/th><th>職稱<\/th>/);
+ assert.match(roster,/title="門市人員設定" size="small"/);
+ assert.match(css,/vertical-align:middle;text-align:left;padding:6px 5px/);
+});

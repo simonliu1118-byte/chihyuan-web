@@ -27,7 +27,17 @@
 .hr-roster-cell{display:block;background:transparent;color:inherit;border:0;width:100%;min-height:38px;font:inherit;cursor:pointer}
 .hr-roster-cell small{display:block;font-size:12px;line-height:1.1}
 .hr-roster-cell:focus-visible{outline:2px solid var(--cy-accent)}
-.hr-cell-choices{display:flex;flex-wrap:wrap;gap:6px;padding:6px 8px}
+.hr-cell-choices{display:flex;flex-wrap:wrap;gap:4px;align-items:center}
+.hr-cell-title,.hr-cell-date{display:flex;align-items:center;gap:4px;flex-wrap:wrap}
+.hr-cell-title{justify-content:space-between}
+.hr-cell-date{font-variant-numeric:tabular-nums}
+.hr-cell-form{gap:10px}
+.hr-cell-form h3{margin:0 0 5px;font-size:var(--cy-fs-sm);font-weight:600}
+.hr-cell-form section .hr-cell-choices+.hr-cell-choices{margin-top:5px}
+.hr-cell-hint{margin:4px 0 0;font-size:var(--cy-fs-sm);color:var(--cy-text-muted)}
+.hr-cell-note .cy-f{display:flex;align-items:center;gap:8px;max-width:none;width:100%}
+.hr-cell-note .cy-f-label{flex:none}
+.hr-cell-note .cy-op-input{flex:1;min-width:0}
 .hr-attendance-table{width:100%}
 .hr-attendance-table tr.hr-attendance-flash>*{background:var(--cy-warning-soft,#fff3cd);box-shadow:inset 0 0 0 1px var(--cy-warning,#e0a800);transition:background 1s}.hr-attendance-clock{width:78px}
 /* Edited right in the table cell (shared cy-sheet-input), no boxed inputs inside the table (user rule). */
@@ -68,8 +78,12 @@ td.hr-sheet-cell>textarea.cy-sheet-input{min-height:64px}
  .hr-attendance-table td.hr-sheet-cell .cy-sheet-input,.hr-attendance-table td.hr-overtime-cell .cy-sheet-input{padding-left:0;padding-right:0}
 }
 
-/* 門市人員設定：每格內容垂直置中、靠左；手機卡片同樣置中對齊。 */
-.cy-hr-staff-form .cy-entry-table :is(td,th){vertical-align:middle;text-align:left}
+/* 項次／員工編號置中；姓名與職稱為獨立欄位，表身保留內距。 */
+.cy-hr-staff-form .cy-entry-table :is(td,th){vertical-align:middle;text-align:left;padding:6px 5px;overflow-wrap:anywhere}
+.cy-hr-staff-form .cy-entry-table :is(td,th).hr-staff-center{text-align:center}
+.cy-hr-staff-form .cy-entry-table td.hr-staff-select{padding:0 4px}
+.hr-staff-seq{display:flex;align-items:center;justify-content:center;gap:2px}
+.hr-staff-seq .cy-lookup-handle{width:18px;flex:none}
+.hr-staff-seq .cy-lookup-handle:disabled{opacity:.4;cursor:default}
+.hr-staff-grip{width:48px}.hr-staff-number{width:68px}.hr-staff-role{width:68px}.hr-staff-rule{width:88px}
 @media(max-width:820px){.cy-hr-staff-form .cy-entry-table td{align-items:center}}
-
-.hr-staff-grip{width:36px}.hr-staff-number{width:92px}.hr-staff-rule{width:120px}.hr-staff-title{display:block;color:var(--cy-text-muted)}
