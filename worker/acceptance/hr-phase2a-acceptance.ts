@@ -89,6 +89,26 @@ export async function acceptHrPhase2a(db:D1Database){
  catch{conflict=true}check(conflict,"ATTENDANCE_REVISION");
  const settings=new HrSettingsService(db);
  check((await settings.list("stores")).length>=1,"SETTINGS_READ");
+ await settings.write("stores",{name:"合成排序門市",cycleAnchorDate:"2026-09-28",sortOrder:999},ctx);
+ for(const kind of ["stores","job-titles","shift-types"] as const){
+  const before=await settings.list(kind);
+  check(before.length>=2,"LOOKUP_REORDER_FIXTURE_"+kind);
+  const ids=before.map(x=>Number(x.id)).reverse();
+  await settings.reorder(kind,{ids},ctx);
+  check((await settings.list(kind)).map(x=>x.id).join()===ids.join(),"LOOKUP_REORDER_"+kind);
+  let rejected=false;
+  try{await settings.reorder(kind,{ids:ids.map(()=>ids[0])},ctx)}catch{rejected=true}
+  check(rejected&&(await settings.list(kind)).map(x=>x.id).join()===ids.join(),"LOOKUP_REORDER_ATOMIC_"+kind);
+  await settings.reorder(kind,{ids:before.map(x=>x.id)},ctx);
+ }
+ await db.prepare("DELETE FROM hr_stores WHERE name=?").bind("合成排序門市").run();
+ await settings.saveHoliday({date:"2099-12-25",name:"合成假日",note:"合成備註"},ctx);
+ await settings.saveHoliday({date:"2099-01-01",name:"合成假日二"},ctx);
+ const holidays=await settings.holidays(2099);
+ check(holidays[0]?.date==="2099-01-01"&&holidays[1]?.note==="合成備註","HOLIDAY_DATE_ORDER_NOTE");
+ await settings.saveHoliday({date:"2099-12-25",name:"合成假日",note:"已更新"},ctx);
+ check((await settings.holidays(2099))[1]?.note==="已更新","HOLIDAY_NOTE_UPDATE");
+ await settings.deleteHoliday("2099-12-25",ctx);await settings.deleteHoliday("2099-01-01",ctx);
  const env={DB:db,IDENTITY_APPLICATION_ID:"APP_TEST",IDENTITY_WORKSPACE_ID:"workspace-test",IDENTITY:{
   async fetch(){return Response.json({ok:true,principal:{workspaceId:"workspace-test",employeeId:"hr2a-test",employeeNo:"9911",
     displayName:"測試員工乙",workspaceRole:"ADMIN",isIdentityAdmin:false,emailVerified:true,isWorkspaceSuperAdmin:false,

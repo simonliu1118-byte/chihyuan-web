@@ -24,9 +24,9 @@ export function SettingsPane({ title, hint, actionLabel, onAction, actionDisable
 export const ActiveChip = ({ active }: { active: boolean }) => <StatusChip tone={active ? "success" : "neutral"}>{active ? "啟用" : "停用"}</StatusChip>;
 
 /** Table shell: plain scrolling wrapper so wide settings tables never widen the dialog. */
-export function SettingsTable({ label, head, empty, children }: { label: string; head: ReactNode; empty?: string; children: ReactNode }) {
+export function SettingsTable({ label, head, columns, empty, children }: { label: string; head: ReactNode; columns?: ReactNode; empty?: string; children: ReactNode }) {
   return <div className="cy-op-table-wrap cy-hrs-table-wrap"><table className="cy-op-table cy-hrs-table" aria-label={label}>
-    <thead><tr>{head}</tr></thead><tbody>{children}</tbody></table>
+    {columns?<colgroup>{columns}</colgroup>:null}<thead><tr>{head}</tr></thead><tbody>{children}</tbody></table>
     {empty ? <p className="cy-op-empty">{empty}</p> : null}</div>;
 }
 

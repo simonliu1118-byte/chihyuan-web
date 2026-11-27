@@ -58,16 +58,28 @@ export class HrSettingsService {
    this.audit(ctx,type+(id?":"+id:""),previous,Object.fromEntries(v.fields.map((key,i)=>[key,v.args[i]])))]);
   return {saved:true};
  }
+ async reorder(type:HrSettingName,raw:unknown,ctx:HrContext){
+  const table=tables[type];if(!table)throw new HrValidationError("type","設定項目不正確");
+  const v=object(raw);
+  if(!Array.isArray(v.ids)||v.ids.length>100)throw new HrValidationError("ids","排序資料不正確");
+  const ids=v.ids.map(x=>integer(x,"id",true));
+  const rows=(await this.db.prepare("SELECT id,sort_order FROM "+table+" ORDER BY sort_order,id LIMIT 101").all<{id:number;sort_order:number}>()).results??[];
+  const known=new Set(rows.map(x=>x.id));
+  if(ids.length!==rows.length||new Set(ids).size!==ids.length||ids.some(id=>!known.has(id)))throw new HrValidationError("ids","設定清單已變更，請重新讀取",409);
+  if(ids.every((id,i)=>id===rows[i]?.id))return {saved:true};
+  await this.db.batch([...ids.map((id,i)=>this.db.prepare("UPDATE "+table+" SET sort_order=?,updated_at=? WHERE id=?").bind(i+1,ctx.now,id)),this.audit(ctx,type+":order",{ids:rows.map(x=>x.id)},{ids})]);
+  return {saved:true};
+ }
  async holidays(year:number) {
   if(!Number.isInteger(year)||year<2000||year>2200)throw new HrValidationError("year","年度超出範圍");
-  return (await this.db.prepare("SELECT date,name FROM hr_holidays WHERE date>=? AND date<? ORDER BY date LIMIT 400")
+  return (await this.db.prepare("SELECT date,name,note FROM hr_holidays WHERE date>=? AND date<? ORDER BY date LIMIT 400")
     .bind(year+"-01-01",(year+1)+"-01-01").all()).results??[];
  }
  async saveHoliday(raw:unknown,ctx:HrContext) {
-  const v=object(raw),day=date(v.date,"date"),name=required(v.name,"name",100);
+  const v=object(raw),day=date(v.date,"date"),name=required(v.name,"name",100),note=optional(v.note,"note",500)??"";
   const before=await this.db.prepare("SELECT * FROM hr_holidays WHERE date=?").bind(day).first<Record<string,unknown>>();
-  await this.db.batch([this.db.prepare("INSERT INTO hr_holidays(date,name) VALUES(?,?) ON CONFLICT(date) DO UPDATE SET name=excluded.name").bind(day,name),
-   this.audit(ctx,"holidays:"+day,before,{date:day,name})]);
+  await this.db.batch([this.db.prepare("INSERT INTO hr_holidays(date,name,note) VALUES(?,?,?) ON CONFLICT(date) DO UPDATE SET name=excluded.name,note=excluded.note").bind(day,name,note),
+   this.audit(ctx,"holidays:"+day,before,{date:day,name,note})]);
   return {saved:true};
  }
  async deleteHoliday(input:string,ctx:HrContext) {

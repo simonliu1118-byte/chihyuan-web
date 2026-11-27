@@ -87,3 +87,17 @@ test('a 0045 backup with customers.fax restores the fax as a FAX phone row (0046
   assert.deepEqual(target.sql.prepare('PRAGMA foreign_key_check').all(),[]);
  }finally{source.sql.close();target.sql.close()}
 });
+
+test('holiday note round trip and 0085 legacy backup default',async()=>{
+ const source=connection(),target=connection(),legacyTarget=connection();
+ try{
+  source.sql.prepare("INSERT INTO hr_holidays(date,name,note) VALUES(?,?,?)").run('2099-07-01','合成假日','合成備註');
+  const bundle=await exportPortableBackup(source.db,scope);
+  await restoreIntoEmptyDatabase(target.db,bundle,'synthetic');
+  assert.equal(target.sql.prepare("SELECT note FROM hr_holidays WHERE date='2099-07-01'").get().note,'合成備註');
+  const older=edited(bundle,(d,m)=>{m.schemaMigration='0085_bot_patrol_status';dropColumn(d.tables.hr_holidays,'note')});
+  await restoreIntoEmptyDatabase(legacyTarget.db,older,'synthetic');
+  const row=legacyTarget.sql.prepare("SELECT name,note FROM hr_holidays WHERE date='2099-07-01'").get();
+  assert.equal(row.name,'合成假日');assert.equal(row.note,'');
+ }finally{source.sql.close();target.sql.close();legacyTarget.sql.close()}
+});

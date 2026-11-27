@@ -1,3 +1,5 @@
+import {HrSettingsButton} from "./HrSettingsButton";
+import {useSettingsSaved} from "./settings-events";
 import {MonthPicker} from "../../ui/forms/MonthPicker";
 import {DataViewToolbar} from '../../ui/data/DataViewToolbar';
 import {EntryTable} from '../../ui/forms/EntryTable';
@@ -180,16 +182,19 @@ export function HrRosterPanel() {
   }catch(e){setError(e instanceof Error?e.message:"儲存失敗")}finally{saving.current=false;setLoading(false)}
  }
  async function chooseMonth(target:string){if(!loading&&target!==month&&await discard()){setData(null);setMonth(target)}}
+ const holidayRequest=useLatestRequest(storeId+"|"+month);
+ const refreshHolidays=useCallback(()=>{const ticket=holidayRequest.begin();void apiRequest<Ro["holidays"]>(ROOT+"/settings/holidays?year="+month.slice(0,4)).then(holidays=>{if(ticket.current())setData(old=>old&&old.month===month&&old.store.id===storeId?{...old,holidays:holidays.filter(h=>h.date.startsWith(month+"-"))}:old)}).catch(e=>{if(ticket.current())setError(e instanceof Error?e.message:"國定假日更新失敗")})},[holidayRequest,month,storeId]);
+ useSettingsSaved(refreshHolidays);
  const holidays=new Map(data?.holidays.map(x=>[x.date,x.name])??[]);
  // One class set per date, used by the header, every employee row and 每日人力, so shading and the 雙週 line run through the whole column.
- const dayClass=(d:string)=>(holidays.has(d)||isWeekend(d)?"hr-holiday ":"")+(data&&new Date(d+"T00:00:00Z").getUTCDay()===1&&(Date.parse(d+"T00:00:00Z")-Date.parse(data.store.cycle_anchor_date+"T00:00:00Z"))%(14*dayMs)===0?"hr-cycle ":"");
+ const dayClass=(d:string)=>(holidays.has(d)?"hr-national-holiday ":isWeekend(d)?"hr-holiday ":"")+(data&&new Date(d+"T00:00:00Z").getUTCDay()===1&&(Date.parse(d+"T00:00:00Z")-Date.parse(data.store.cycle_anchor_date+"T00:00:00Z"))%(14*dayMs)===0?"hr-cycle ":"");
  return <section className="cy-op-module cy-hr-phase2a" aria-label="月排班表">
   <div className="no-print"><DataViewToolbar searchValue={search} onSearchChange={setSearch} searchLabel="搜尋排班員工" searchPlaceholder="員工編號、姓名或職稱"
    beforeSearch={<MonthPicker value={month} disabled={loading} onChange={target=>void chooseMonth(target)}/>}
    filters={<select aria-label="排班門市" disabled={loading} className="cy-op-input" value={storeId} onChange={e=>{const next=Number(e.target.value);if(!loading)void discard().then(ok=>{if(ok){setData(null);setStoreId(next)}})}}>{stores.length?stores.map(x=><option key={x.id} value={x.id}>{x.name}</option>):<option value="">無門市</option>}</select>}
-   resultSummary={`顯示 ${shownEmployees.length}／${data?.employees.length??0} 人；每日人力為全門市`}
    actions={<>
     <button type="button" disabled={loading||!data} className="cy-op-button" onClick={()=>{setStaff((data?.employees??[]).map(x=>({...x})));setStaffError("")}}>人員設定</button>
+    <HrSettingsButton holidayYear={Number(month.slice(0,4))} disabled={loading}/>
     <button type="button" disabled={loading||!data} className="cy-op-button" onClick={()=>window.print()}>列印目前顯示</button>
     {dirty?<><button type="button" className="cy-op-button primary" disabled={loading} onClick={()=>void submit()}>儲存本月</button><button type="button" className="cy-op-button" disabled={loading} onClick={()=>void reload()}>取消修改</button></>:null}
    </>}/></div>
@@ -198,7 +203,7 @@ export function HrRosterPanel() {
   {notice?<p role="status" className="cy-notice no-print">{notice}</p>:null}
   {data?<><h2 className="hr-roster-print-title">{data.store.name}　{month.replace("-","年")}月班表</h2>
    <div className="hr-roster-scroll cy-mobile-matrix" role="region" aria-label="月排班表，可左右捲動" tabIndex={0}><table className="hr-roster-table"><colgroup><col className="hr-col-title"/><col className="hr-col-name"/>{dates.map(d=><col key={d}/>)}<col className="hr-col-note"/></colgroup><thead><tr><th rowSpan={2}>職稱</th><th rowSpan={2}>日期／姓名</th>
-    {dates.map(d=><th key={d} title={holidays.get(d)??""} className={dayClass(d)}>{Number(d.slice(-2))}{holidays.has(d)?<small>{holidays.get(d)}</small>:null}</th>)}
+    {dates.map(d=><th key={d} title={holidays.get(d)??""} className={dayClass(d)}>{Number(d.slice(-2))}</th>)}
     <th rowSpan={2}>備註</th></tr><tr>{dates.map(d=><th key={d} className={dayClass(d)}>{weekdays[new Date(d+"T00:00:00Z").getUTCDay()]}</th>)}</tr></thead>
     <tbody>{shownEmployees.map((staff,i)=><tr key={staff.id}>
      <td>{staff.job_title_name??"未設定"}</td><th scope="row">{staff.name}</th>

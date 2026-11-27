@@ -1,3 +1,4 @@
+import {formatDate,formatDateTime} from '../../ui/foundation/format';
 import {useEffect,useRef,useState,type FormEvent} from 'react';
 import {apiRequest} from '../../api/client';
 import {useLatestRequest} from '../../ui/foundation/useLatestRequest';
@@ -22,10 +23,10 @@ export function HrLegalBracketSettings(){
   catch(e){setError(message(e,'設定更新失敗'))}finally{writing.current=false;setBusy(false)}}
  return <SettingsPane title="法定級距" hint="手動更新官方表；薪資計算依生效日取用版本。" actionLabel="更新官方表" onAction={()=>void sync()} actionDisabled={busy||!loaded} error={error} notice={notice}>
   <SettingsTable label="法定級距更新狀態" head={<><th>項目</th><th>最近檢查</th><th>最近成功</th><th>狀態</th></>} empty={loaded&&!states.length?'尚未檢查過官方表，請按「更新官方表」。':undefined}>
-   {states.map(s=><tr key={s.kind}><td>{labels[s.kind]}</td><td>{s.checked_at}</td><td>{s.success_at||'尚未成功'}</td><td>{s.error||'正常'}</td></tr>)}
+   {states.map(s=><tr key={s.kind}><td>{labels[s.kind]}</td><td>{formatDateTime(s.checked_at)}</td><td>{s.success_at?formatDateTime(s.success_at):'尚未成功'}</td><td>{s.error||'正常'}</td></tr>)}
   </SettingsTable>
   <SettingsTable label="法定級距版本" head={<><th>項目</th><th>版本</th><th>生效日</th><th>適用迄日</th><th>官方來源</th></>} empty={loaded&&!versions.length?'尚無法定級距版本，請先按「更新官方表」。':undefined}>
-   {versions.map(v=><tr key={v.kind+v.id}><td>{labels[v.kind]}</td><td>{v.id}</td><td>{v.effective_date}</td><td>{v.valid_until==='9999-12-31'?'至下次變更':v.valid_until}</td><td><a href={v.source_url} target="_blank" rel="noreferrer">查看官方表</a></td></tr>)}
+   {versions.map(v=><tr key={v.kind+v.id}><td>{labels[v.kind]}</td><td>{v.id}</td><td>{formatDate(v.effective_date)}</td><td>{v.valid_until==='9999-12-31'?'至下次變更':formatDate(v.valid_until)}</td><td><a href={v.source_url} target="_blank" rel="noreferrer">查看官方表</a></td></tr>)}
   </SettingsTable>
  </SettingsPane>;
 }

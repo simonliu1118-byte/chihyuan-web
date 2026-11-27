@@ -21,6 +21,7 @@ export async function handleHrPhase2aRoute(request:Request,db:D1Database,ctx:HrC
    const svc=new HrSettingsService(db),name=setting[1] as HrSettingName;
    if(request.method==="GET")return success(await svc.list(name),id);
    if(request.method==="POST")return success(await svc.write(name,await body(),ctx),id);
+   if(request.method==="PUT")return success(await svc.reorder(name,await body(),ctx),id);
    if(request.method==="PATCH"){const v=await body();return success(await svc.write(name,v,ctx,integer(v.id,"id",true)),id)}
   }
   if(holidays){
