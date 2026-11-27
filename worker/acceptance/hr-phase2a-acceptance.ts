@@ -28,6 +28,7 @@ export async function acceptHrPhase2a(db:D1Database){
  const roster=new HrRosterService(db);
  const initial=await roster.get(store,"2026-10");
  check(initial.bounds.start==="2026-09-28"&&initial.bounds.finish==="2026-11-08","ROSTER_BOUNDS");
+ check(initial.classificationContext.start<initial.bounds.start&&initial.classificationContext.end>initial.bounds.finish&&!!initial.classificationContext.asOf,"ROSTER_DRAFT_CONTEXT");
  await roster.updateStaff(store,{staff:[{employeeId:id,rosterSort:2,skipRosterChecks:true}]},ctx);
  const updated=await roster.get(store,"2026-10");
  check(updated.employees.find(x=>x.id===id)?.roster_sort===2&&updated.employees.find(x=>x.id===id)?.skip_roster_checks===1,"STAFF_BATCH_UPDATE");

@@ -196,7 +196,7 @@ export class HrRosterService {
   return {saved:true};
  }
  async get(storeId:number,month:string){
-  const b=await this.read(storeId,month),checked=this.evaluate(b,b.byKey,currentDate(new Date().toISOString()));
+  const b=await this.read(storeId,month),asOf=currentDate(new Date().toISOString()),checked=this.evaluate(b,b.byKey,asOf);
   const casualNone=new Set(b.employees.filter(x=>x.employment_type==="casual"&&x.schedule_mode==="none").map(x=>x.id));
   const actualHours:Record<string,Record<string,number>>={};
   if(casualNone.size){
@@ -209,7 +209,7 @@ export class HrRosterService {
   }
   const leaveForms=(await this.db.prepare("SELECT r.employee_id,r.work_date,r.batch_id,r.whole_day,r.minutes,t.code FROM hr_leave_records r JOIN hr_leave_types t ON t.id=r.leave_type_id WHERE r.cancelled_at IS NULL AND r.work_date BETWEEN ? AND ? AND r.employee_id IN (SELECT id FROM hr_employee_current WHERE store_id=?) ORDER BY r.id LIMIT 10000").bind(b.bounds.start,b.bounds.finish,storeId).all<{employee_id:number;work_date:string;batch_id:string;whole_day:number;minutes:number;code:string}>()).results??[];
   return {leaveForms,actualHours,store:b.store,month,bounds:b.bounds,employees:b.employees,shifts:b.shifts,leaveTypes:b.leaveTypes,
-   holidays:b.holidays,notes:b.notes,rules:b.rules,days:b.days,approvals:b.approvals,...checked};
+   holidays:b.holidays,notes:b.notes,rules:b.rules,days:b.days,approvals:b.approvals,classificationContext:{start:b.lookStart,end:b.lookEnd,asOf,previousRegular:Object.fromEntries(b.previousRegular)},...checked};
  }
  async put(storeId:number,month:string,raw:unknown,ctx:HrContext){
   const payload=object(raw),b=await this.read(storeId,month);

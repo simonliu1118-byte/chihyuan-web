@@ -8,22 +8,21 @@ import {apiRequest} from "../../api/client";
 import {taipeiToday} from "../../../shared/erp-query-history";
 import {useUnsavedChangesGuard} from "../../ui/foundation/useUnsavedChangesGuard";
 import {Dialog} from "../../ui/overlays/Dialog";
-import {IconButton} from "../../ui/actions/IconButton";
-import {Icons} from "../../ui/actions/icons";
+import {ExpandToggle} from "../../ui/data/ExpandToggle";
 import {ReorderHandle} from "../../ui/actions/ReorderHandle";
 import {enterAdvancesFields} from "../../ui/foundation/enter-advance";
 import {useConfirmation} from "../../ui/overlays/useConfirmation";
 import {HrLeaveDialog,type LeavePerson,type LeaveTypeOption,type CompletedLeaveInfo} from "./HrLeaveDialog";
-import type {RosterResult,RosterViolation} from "../../../shared/hr-roster";
+import {classifyRoster,type RosterDay,type RosterResult,type RosterViolation} from "../../../shared/hr-roster";
 import "./hr-phase2a.css";
 type Store={id:number;name:string;cycle_anchor_date:string;rules_template:string};
 type Staff={id:number;employee_no:string;name:string;job_title_id:number|null;job_title_name:string|null;roster_sort:number;employment_type:"full"|"half"|"casual";schedule_mode:"shift"|"hours"|"none";skip_roster_checks:number};
 type Shift={id:number;code:string;name:string;is_active:number;normal_minutes:number};
 type Leave={id:number;code:string;name:string;is_active:number};
-type Cell={employee_id:number;work_date:string;kind:string;shift_type_id:number|null;leave_type_id:number|null;off_mark:string|null;hours:number|null;marker:string|null;note:string};
+type Cell={employee_id:number;work_date:string;kind:"shift"|"hours"|"off"|"leave";rest_label?:string|null;shift_type_id:number|null;leave_type_id:number|null;off_mark:string|null;hours:number|null;marker:string|null;note:string};
 type Change={employeeId:number;date:string;kind:"shift"|"hours"|"off"|"leave"|null;offMark?:string;shiftTypeId?:number;leaveTypeId?:number;hours?:number;startTime?:string;endTime?:string;marker?:string;note?:string};
 type Approval={employeeId:number;kind:"consecutive"|"over_eight";startDate:string;endDate:string;suggestion:string};
-type Ro={leaveForms:{employee_id:number;work_date:string;whole_day:number;minutes:number;code:string;batch_id:string}[];store:Store;month:string;bounds:{start:string;finish:string;first:string;end:string};employees:Staff[];shifts:Shift[];leaveTypes:Leave[];
+type Ro={classificationContext:{start:string;end:string;asOf:string;previousRegular:Record<string,string>};leaveForms:{employee_id:number;work_date:string;whole_day:number;minutes:number;code:string;batch_id:string}[];store:Store;month:string;bounds:{start:string;finish:string;first:string;end:string};employees:Staff[];shifts:Shift[];leaveTypes:Leave[];
  holidays:{date:string;name:string}[];days:Cell[];classification:Record<string,RosterResult>;staffing:Record<string,Record<string,number>>;actualHours:Record<string,Record<string,number>>;notes:string;rules:string;approvals:unknown[]};
 const ROOT="/api/business/hr",dayMs=86400000,weekdays=["日","一","二","三","四","五","六"];
 const isWeekend=(d:string)=>[0,6].includes(new Date(d+"T00:00:00Z").getUTCDay());
@@ -38,7 +37,6 @@ export function HrRosterPanel() {
  const [staff,setStaff]=useState<Staff[]|null>(null);
  const [staffError,setStaffError]=useState("");
  const [choice,setChoice]=useState<(Pick<Change,"kind"> & Partial<Change>)|null>(null);
- const [restChoice,setRestChoice]=useState<"regular"|"rest">("rest");
  const draggingStaff=useRef<number|null>(null);
  const [leaveDialogPerson,setLeaveDialogPerson]=useState<LeavePerson|null>(null);
  const [formalLeaveTypes,setFormalLeaveTypes]=useState<LeaveTypeOption[]>([]);
@@ -74,22 +72,49 @@ export function HrRosterPanel() {
  const originals=useMemo(()=>new Map((data?.days??[]).map(x=>[x.employee_id+"|"+x.work_date,x])),[data]);
  const staged=useMemo(()=>{const result=new Map(originals);for(const [key,change] of Object.entries(changes)){
   if(change.kind===null)result.delete(key);
-  else result.set(key,{employee_id:change.employeeId,work_date:change.date,kind:change.kind,shift_type_id:change.shiftTypeId??null,leave_type_id:change.leaveTypeId??null,off_mark:change.offMark??null,hours:change.hours??null,marker:change.marker??null,note:change.note??""});
+  else result.set(key,{employee_id:change.employeeId,work_date:change.date,kind:change.kind,rest_label:change.kind==="off"&&originals.get(key)?.off_mark===change.offMark?originals.get(key)?.rest_label:null,shift_type_id:change.shiftTypeId??null,leave_type_id:change.leaveTypeId??null,off_mark:change.offMark??null,hours:change.hours??null,marker:change.marker??null,note:change.note??""});
  }return result},[originals,changes]);
+ // Use the same classification core and look-around inputs as the Worker, only for changed employees.
+ const draftClassification=useMemo(()=>{
+  if(!data)return {};
+  const context=data.classificationContext;
+  const result={...data.classification};
+  if(!context)return result;
+  const ids=new Set(Object.values(changes).map(x=>x.employeeId));
+  const allDates=Array.from({length:Math.round((Date.parse(context.end)-Date.parse(context.start))/dayMs)+1},(_,i)=>new Date(Date.parse(context.start)+i*dayMs).toISOString().slice(0,10));
+  for(const e of data.employees){
+   if(!ids.has(e.id))continue;
+   const fixedRegularOff=new Set<string>();
+   const input:RosterDay[]=allDates.map(date=>{
+    const row=staged.get(e.id+"|"+date);
+    if(!row)return {date,kind:"unscheduled"};
+    if(row.rest_label==="regular"&&date<context.asOf)fixedRegularOff.add(date);
+    if(row.kind==="off")return {date,kind:"off",offMark:row.off_mark==="x"?"x":"slash",minutes:0};
+    if(row.kind==="shift")return {date,kind:"shift",minutes:data.shifts.find(s=>s.id===row.shift_type_id)?.normal_minutes??0};
+    if(row.kind==="hours")return {date,kind:"hours",minutes:Math.round((row.hours??0)*60)};
+    return {date,kind:"leave",minutes:0};
+   });
+   result[String(e.id)]=classifyRoster(input,context.previousRegular[String(e.id)]??null,{anchorMonday:data.store.cycle_anchor_date,employmentType:e.employment_type,skipChecks:e.skip_roster_checks===1,scheduleMode:e.schedule_mode,fixedRegularOff});
+  }
+  return result;
+ },[data,changes,staged]);
  const emp=data?.employees.find(x=>x.id===cell?.employeeId);
  function edit(x:Change){setChanges(old=>({...old,[x.employeeId+"|"+x.date]:x}));setCell(null);setPending([]);setViolations([]);}
  function open(id:number,d:string){const x=staged.get(id+"|"+d);setCell({employeeId:id,date:d});setHours(String(x?.hours??""));setNote(x?.note??"");setShowAllLeave(false);
-  setRestChoice(data?.classification[String(id)]?.labels[d]==="regular_off"?"regular":"rest");
   setChoice(x?{kind:x.kind as Change["kind"],shiftTypeId:x.shift_type_id??undefined,leaveTypeId:x.leave_type_id??undefined,offMark:x.off_mark??undefined}:null);
  }
  const validChoice=!!choice&&(choice.kind!=="hours"||(Number(hours)>0&&Number(hours)<=24&&Number(hours)*4===Math.trunc(Number(hours)*4)));
  const cellIndex=cell?dates.indexOf(cell.date):-1;
- function navigateCell(offset:number){if(!cell)return;const target=dates[cellIndex+offset];if(target)open(cell.employeeId,target)}
+ function navigateCell(target:string){if(cell&&dates.includes(target))open(cell.employeeId,target)}
  function applyCell(next=false){
   if(!cell||!choice||!validChoice)return;
   const current=staged.get(cell.employeeId+"|"+cell.date);
   edit({employeeId:cell.employeeId,date:cell.date,...choice,kind:choice.kind,note:choice.kind===null?"":note,marker:choice.kind==="off"||choice.kind===null?undefined:current?.marker??undefined,...(choice.kind==="hours"?{hours:Number(hours)}:{})});
-  if(next&&dates[cellIndex+1])open(cell.employeeId,dates[cellIndex+1]);
+  if(next&&dates[cellIndex+1]){
+   const target=dates[cellIndex+1],existing=staged.get(cell.employeeId+"|"+target);
+   open(cell.employeeId,target);
+   if(!existing){setChoice(choice);if(choice.kind==="hours")setHours(hours);}
+  }
  }
  function clearCell(){if(cell)edit({employeeId:cell.employeeId,date:cell.date,kind:null})}
  const commonLeaveLabels:Record<string,string>={"特":"特休","事":"事假","病":"病假","補":"補休"};
@@ -136,7 +161,7 @@ export function HrRosterPanel() {
  }
  function label(cellData:Cell|undefined,staff:Staff,date:string){
   if(!cellData)return "";
-  if(cellData.kind==="off")return data?.classification[String(staff.id)]?.labels[date]==="regular_off"?"例":cellData.off_mark==="x"?"X":"/";
+  if(cellData.kind==="off")return cellData.off_mark==="x"?"X":draftClassification[String(staff.id)]?.labels[date]==="regular_off"?"例":"休";
   if(cellData.kind==="shift")return data?.shifts.find(x=>x.id===cellData.shift_type_id)?.code??"";
   if(cellData.kind==="leave")return data?.leaveTypes.find(x=>x.id===cellData.leave_type_id)?.code??"";
   return typeof cellData.hours==="number"?String(cellData.hours):"";
@@ -178,7 +203,7 @@ export function HrRosterPanel() {
     <tbody>{shownEmployees.map((staff,i)=><tr key={staff.id}>
      <td>{staff.job_title_name??"未設定"}</td><th scope="row">{staff.name}</th>
      {dates.map(d=>{const value=staged.get(staff.id+"|"+d),form=data.leaveForms.find(x=>x.employee_id===staff.id&&x.work_date===d&&x.whole_day===1),partial=data.leaveForms.filter(x=>x.employee_id===staff.id&&x.work_date===d&&x.whole_day===0),bad=shown.some(x=>x.employeeId===staff.id&&x.dates.includes(d)),sixth=data.classification[String(staff.id)]?.sixthDays.includes(d);
-      return <td key={d} className={dayClass(d)+(bad?"hr-invalid ":"")+(sixth?"hr-sixth ":"")}>
+      return <td key={d} className={dayClass(d)+(bad?"hr-invalid ":"")+(sixth?"hr-sixth ":"")+(value?.kind==="off"&&value.off_mark!=="x"?"hr-roster-off":"")}>
        <button type="button" title={value?.kind==="leave"&&!form&&data.leaveTypes.find(x=>x.id===value.leave_type_id)?.code!=="國"?"尚未補假單":form?"已完成假單":""} id={"hr-roster-"+staff.id+"-"+d} disabled={loading} className={"hr-roster-cell no-print "+(value?.kind==="leave"&&!form&&data.leaveTypes.find(x=>x.id===value.leave_type_id)?.code!=="國"?"hr-leave-pending":"")} onClick={()=>open(staff.id,d)} onKeyDown={e=>keyDown(e,staff,d)} aria-label={staff.name+" "+d}>{staff.schedule_mode==="none"&&value?.kind!=="off"?(data.actualHours[String(staff.id)]?.[d]?.toFixed(1)??""):label(value,staff,d)}{value?.marker?<small>{value.marker==="home"?"居":"擺攤"}</small>:null}{partial.map(x=><small key={x.batch_id}>{x.code+(x.minutes/60)}</small>)}</button>
        <span className="print-only">{partial.map(x=>x.code+(x.minutes/60)).join(" ")}{staff.schedule_mode==="none"&&value?.kind!=="off"?(data.actualHours[String(staff.id)]?.[d]?.toFixed(1)??""):label(value,staff,d)}</span></td>})}
      <td>{staff.schedule_mode==="hours"||staff.schedule_mode==="none"?"合計 "+dates.reduce((sum,d)=>sum+(staff.schedule_mode==="none"?(data.actualHours[String(staff.id)]?.[d]??0):(staged.get(staff.id+"|"+d)?.hours??0)),0).toFixed(1)+"h":""}</td>
@@ -191,28 +216,26 @@ export function HrRosterPanel() {
    {pending.length?<div className="cy-op-panel no-print"><h3>主管核准</h3>{pending.map((x,i)=><p key={i}>{data.employees.find(e=>e.id===x.employeeId)?.name??x.employeeId}　{x.startDate}～{x.endDate}　{x.kind==="over_eight"?"兼職超過八小時":"連六"}。{x.suggestion}</p>)}
     <button type="button" className="cy-op-button primary" disabled={loading} onClick={()=>void submit(pending)}>核准並儲存</button></div>:null}
   </>:<p>正在讀取排班…</p>}
-  <Dialog open={cell!==null} title={emp&&cell?<span className="hr-cell-title"><span>{emp.name}</span><span className="hr-cell-date">
-    <IconButton icon={Icons.chevronLeft} label="上一日（不套用目前選擇）" disabled={cellIndex<=0} onClick={()=>navigateCell(-1)}/>
-    <span>{cell.date.replaceAll("-","/")}</span><IconButton icon={Icons.chevronRight} label="下一日（不套用目前選擇）" disabled={cellIndex>=dates.length-1} onClick={()=>navigateCell(1)}/>
-   </span></span>:"排班格"} size="small" className="hr-cell-dialog" onClose={()=>setCell(null)}
-   footer={<><button type="button" className="cy-op-button" onClick={clearCell}>清除</button><button type="submit" form="hr-roster-cell-form" className="cy-op-button" disabled={!validChoice}>套用</button><button type="button" className="cy-op-button primary" disabled={!validChoice||cellIndex>=dates.length-1} onClick={()=>applyCell(true)}>套用並下一格</button></>}>
+  <Dialog open={cell!==null} title={emp&&cell?<span className="hr-cell-title"><span>{emp.name}</span><MonthPicker precision="day" value={cell.date} min={dates[0]} max={dates[dates.length-1]} onChange={navigateCell}/></span>:"排班格"} size="small" className="hr-cell-dialog" onClose={()=>setCell(null)}
+   footer={<div className="hr-cell-actions"><button type="button" className="cy-op-button" onClick={clearCell}>清除</button><button type="submit" form="hr-roster-cell-form" className="cy-op-button" disabled={!validChoice}>套用</button><button type="button" className="cy-op-button primary" disabled={!validChoice||cellIndex>=dates.length-1} onClick={()=>applyCell(true)}>套用並下一格</button></div>}>
    {cell&&emp&&data?<form id="hr-roster-cell-form" onKeyDown={enterAdvancesFields} className="cy-op-form hr-cell-form" onSubmit={e=>{e.preventDefault();applyCell()}}>
     {emp.schedule_mode==="shift"?<section aria-label="班別"><h3>班別</h3><div className="hr-cell-choices">
      {data.shifts.filter(x=>x.is_active).map(x=>{const selected=choice?.kind==="shift"&&choice.shiftTypeId===x.id;return <button type="button" key={x.id} aria-pressed={selected} className={"cy-op-button compact"+(selected?" primary":"")} onClick={()=>setChoice({kind:"shift",shiftTypeId:x.id})}>{x.name}</button>})}
     </div></section>:null}
     {emp.schedule_mode==="hours"?<Field label="排定時數" size="l"><input className="cy-op-input" type="number" step=".25" min=".25" max="24" value={hours} onChange={e=>{setHours(e.target.value);setChoice({kind:"hours"})}}/></Field>:null}
     <section aria-label="休假／請假"><h3>休假／請假</h3>
-     <div className="hr-cell-choices">
+     <div className="hr-cell-leave-row">
       {emp.schedule_mode!=="none"?<>
-       {(["regular","rest"] as const).map(value=>{const selected=choice?.kind==="off"&&choice.offMark==="slash"&&restChoice===value;return <button type="button" key={value} aria-pressed={selected} className={"cy-op-button compact"+(selected?" primary":"")} title="例假與休假由系統依週期判定" onClick={()=>{setRestChoice(value);setChoice({kind:"off",offMark:"slash"})}}>{value==="regular"?"例假日":"休假日"}</button>})}
-       {commonLeaves.map(x=>leaveButton(x,true))}
-       {otherLeaves.length>0?<IconButton icon={showAllLeave?Icons.triangleUp:Icons.triangleDown} label={showAllLeave?"收合其他假別":"展開其他假別"} expanded={showAllLeave} controls="hr-roster-other-leaves" onClick={()=>setShowAllLeave(v=>!v)}/>:null}
+       <div className="hr-cell-choices hr-cell-leave-common">
+        <button type="button" aria-pressed={choice?.kind==="off"&&choice.offMark==="slash"} className={"cy-op-button compact"+(choice?.kind==="off"&&choice.offMark==="slash"?" primary":"")} onClick={()=>setChoice({kind:"off",offMark:"slash"})}>例休日</button>
+        {commonLeaves.map(x=>leaveButton(x,true))}
+       </div>
+       {otherLeaves.length>0?<ExpandToggle variant="down" expanded={showAllLeave} label="其他假別" onToggle={()=>setShowAllLeave(v=>!v)}/>:null}
       </>:null}
       {emp.employment_type==="casual"?<button type="button" aria-pressed={choice?.kind==="off"&&choice.offMark==="x"} className={"cy-op-button compact"+(choice?.kind==="off"&&choice.offMark==="x"?" primary":"")} onClick={()=>setChoice({kind:"off",offMark:"x"})}>不用來</button>:null}
      </div>
      {emp.schedule_mode!=="none"&&showAllLeave?<div id="hr-roster-other-leaves" className="hr-cell-choices">{otherLeaves.map(x=>leaveButton(x))}</div>:null}
      {emp.schedule_mode!=="none"&&choice?.kind==="leave"&&!showAllLeave?otherLeaves.filter(x=>x.id===choice.leaveTypeId).map(x=>leaveButton(x)):null}
-     {emp.schedule_mode!=="none"&&choice?.kind==="off"&&choice.offMark==="slash"?<p className="hr-cell-hint">例假、休假由系統判定</p>:null}
     </section>
     {emp.schedule_mode!=="none"?<div className="hr-cell-note"><Field label="備註" size="l"><input className="cy-op-input" value={note} maxLength={500} onChange={e=>setNote(e.target.value)}/></Field></div>:null}
     {staged.get(cell.employeeId+"|"+cell.date)?.kind==="leave"?<button type="button" className="cy-op-button soft compact" onClick={()=>{

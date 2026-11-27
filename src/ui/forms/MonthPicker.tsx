@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { taipeiToday } from "../../../shared/erp-query-history";
+import {shiftDate} from "../../../shared/date-input";
 import "./month-picker.css";
 
 /**
@@ -8,10 +9,10 @@ import "./month-picker.css";
  * Mouse and touch only: there is no typing and no keyboard shortcut beyond Esc and Tab.
  */
 export interface MonthPickerProps {
-  /** YYYY-MM, or YYYY with `precision="year"`. */
+  /** YYYY-MM, YYYY with year precision, or YYYY-MM-DD with day precision. */
   value: string;
   /** "month" (default) or "year": the same control steps and picks whole years. */
-  precision?: "month" | "year";
+  precision?: "month" | "year" | "day";
   onChange: (value: string) => void;
   /** Inclusive limits, YYYY-MM (YYYY for year precision). */
   min?: string;
@@ -33,7 +34,18 @@ export function shiftMonthValue(value: string, delta: number): string {
 const Chevron = ({ dir }: { dir: "left" | "right" }) => <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={dir === "left" ? "m15 6-6 6 6 6" : "m9 6 6 6-6 6"} /></svg>;
 
 export function MonthPicker(props: MonthPickerProps) {
-  return props.precision === "year" ? <YearPicker {...props} /> : <MonthPickerBody {...props} />;
+  return props.precision === "day" ? <DayStepper {...props} /> : props.precision === "year" ? <YearPicker {...props} /> : <MonthPickerBody {...props} />;
+}
+
+/** Day navigation reuses the shared picker arrows; bounded, no calendar popup. */
+function DayStepper({value,onChange,min,max,disabled=false,label="日期"}:MonthPickerProps){
+ const previous=shiftDate(value,-1),next=shiftDate(value,1);
+ const blocked=(d:string)=>!d||!!min&&d<min||!!max&&d>max;
+ return <span className="cy-month-picker" role="group" aria-label={label}>
+  <button type="button" className="cy-month-arrow" aria-label="上一日" disabled={disabled||blocked(previous)} onClick={()=>onChange(previous)}><Chevron dir="left"/></button>
+  <span className="cy-month-day-label">{value.replaceAll("-","/")}</span>
+  <button type="button" className="cy-month-arrow" aria-label="下一日" disabled={disabled||blocked(next)} onClick={()=>onChange(next)}><Chevron dir="right"/></button>
+ </span>;
 }
 
 /** `‹ 2026 年 ▾ ›` — the same control with year precision: the arrows step one year, the label opens a 3x4 grid of years. */

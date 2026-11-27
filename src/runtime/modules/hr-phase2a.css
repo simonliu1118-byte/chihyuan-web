@@ -28,13 +28,20 @@
 .hr-roster-cell small{display:block;font-size:12px;line-height:1.1}
 .hr-roster-cell:focus-visible{outline:2px solid var(--cy-accent)}
 .hr-cell-choices{display:flex;flex-wrap:wrap;gap:4px;align-items:center}
-.hr-cell-title,.hr-cell-date{display:flex;align-items:center;gap:4px;flex-wrap:wrap}
-.hr-cell-title{justify-content:space-between}
-.hr-cell-date{font-variant-numeric:tabular-nums}
-.hr-cell-form{gap:10px}
-.hr-cell-form h3{margin:0 0 5px;font-size:var(--cy-fs-sm);font-weight:600}
-.hr-cell-form section .hr-cell-choices+.hr-cell-choices{margin-top:5px}
-.hr-cell-hint{margin:4px 0 0;font-size:var(--cy-fs-sm);color:var(--cy-text-muted)}
+.hr-cell-title{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.hr-cell-form{display:grid;gap:12px}
+.hr-cell-form h3{margin:0 0 6px;font-size:var(--cy-fs-sm);font-weight:600}
+.hr-cell-form section .hr-cell-choices+.hr-cell-choices{margin-top:6px}
+.hr-cell-leave-row{display:flex;align-items:center;gap:4px;min-width:0}
+.hr-cell-leave-common{flex:1;min-width:0;gap:4px}
+.hr-cell-leave-common .cy-op-button{padding-inline:6px;white-space:nowrap}
+.hr-cell-leave-row .cy-expand-toggle{margin-left:auto}
+.hr-cell-leave-row+.hr-cell-choices{margin-top:6px}
+.hr-cell-actions{display:flex;justify-content:flex-end;align-items:center;gap:8px;width:100%;flex-wrap:wrap}
+.hr-roster-table td.hr-roster-off{background-image:linear-gradient(to bottom right,transparent calc(50% - .5px),var(--cy-text-muted) 50%,transparent calc(50% + .5px));print-color-adjust:exact;-webkit-print-color-adjust:exact}
+.hr-roster-off .hr-roster-cell,.hr-roster-off .print-only{text-align:left;padding:2px 3px;vertical-align:top;line-height:1.15}
+.hr-roster-off .hr-roster-cell{display:flex;align-items:flex-start}
+@media print{.hr-roster-table td.hr-roster-off{background-image:linear-gradient(to bottom right,transparent calc(50% - .5px),#333 50%,transparent calc(50% + .5px))!important;print-color-adjust:exact;-webkit-print-color-adjust:exact}}
 .hr-cell-note .cy-f{display:flex;align-items:center;gap:8px;max-width:none;width:100%}
 .hr-cell-note .cy-f-label{flex:none}
 .hr-cell-note .cy-op-input{flex:1;min-width:0}
@@ -87,3 +94,14 @@ td.hr-sheet-cell>textarea.cy-sheet-input{min-height:64px}
 .hr-staff-handle .cy-lookup-handle:disabled{opacity:.4;cursor:default}
 .hr-staff-grip{width:36px}.hr-staff-sequence{width:48px}.hr-staff-number{width:86px}.hr-staff-role{width:90px}.hr-staff-rule{width:116px}
 @media(max-width:820px){.cy-hr-staff-form .cy-entry-table td{align-items:center}}
+
+/* Main roster section dividers: the two header rows are one logical heading. */
+.hr-roster-table{--hr-roster-divider:2px solid var(--cy-text-muted)}
+.hr-roster-table thead tr:first-child>th[rowspan],
+.hr-roster-table thead tr:last-child>th,
+.hr-roster-table tbody>tr.hr-staffing>*{border-bottom:var(--hr-roster-divider)}
+.hr-roster-table thead tr:first-child>th:nth-child(2),
+.hr-roster-table tbody>tr>th[scope="row"],
+.hr-roster-table tbody>tr>th[colspan="2"]{border-right:var(--hr-roster-divider)}
+.hr-roster-table tbody>tr.hr-staffing>*{border-top:var(--hr-roster-divider)}
+@media print{.hr-roster-table{--hr-roster-divider:2px solid #333}}
