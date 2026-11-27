@@ -12,11 +12,7 @@
 .cy-lookup-table col.cy-sheet-seq { width: 44px; }
 .cy-lookup-table .cy-lookup-grip, .cy-lookup-table .cy-lookup-active { text-align: center; }
 .cy-lookup-table td.cy-lookup-active .cy-f-cell { display: flex; justify-content: center; }
-.cy-lookup-handle { display: grid; place-items: center; width: 100%; height: 30px; padding: 0; border: 0; background: transparent;
-  color: var(--cy-text-muted); cursor: grab; }
-.cy-lookup-handle:active { cursor: grabbing; }
-.cy-lookup-handle:focus-visible { outline: 2px solid var(--cy-accent); outline-offset: -2px; }
-.cy-lookup-handle svg { width: 16px; height: 16px; }
+
 .cy-lookup-table tr.inactive td:not(.cy-sheet-ops) { color: var(--cy-text-muted); }
 .cy-lookup-table tr.dragging td { background: var(--cy-accent-soft); }
 .cy-lookup-table tr.editing td { background: color-mix(in srgb, var(--cy-accent-soft) 60%, var(--cy-surface)); }

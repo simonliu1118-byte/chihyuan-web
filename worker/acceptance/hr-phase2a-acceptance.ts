@@ -28,6 +28,12 @@ export async function acceptHrPhase2a(db:D1Database){
  const roster=new HrRosterService(db);
  const initial=await roster.get(store,"2026-10");
  check(initial.bounds.start==="2026-09-28"&&initial.bounds.finish==="2026-11-08","ROSTER_BOUNDS");
+ await roster.updateStaff(store,{staff:[{employeeId:id,rosterSort:2,skipRosterChecks:true}]},ctx);
+ const updated=await roster.get(store,"2026-10");
+ check(updated.employees.find(x=>x.id===id)?.roster_sort===2&&updated.employees.find(x=>x.id===id)?.skip_roster_checks===1,"STAFF_BATCH_UPDATE");
+ try{await roster.updateStaff(store,{staff:[{employeeId:id,rosterSort:3,skipRosterChecks:false},{employeeId:999999999,rosterSort:0,skipRosterChecks:false}]},ctx);throw Error("STAFF_INVALID_NOT_REJECTED")}catch(e){check(e instanceof Error&&e.message.includes("不屬於門市"),"STAFF_BATCH_ATOMIC")}
+ check((await roster.get(store,"2026-10")).employees.find(x=>x.id===id)?.roster_sort===2,"STAFF_BATCH_NO_PARTIAL_WRITE");
+ await roster.updateStaff(store,{staff:[{employeeId:id,rosterSort:0,skipRosterChecks:false}]},ctx);
  const shift=await db.prepare("SELECT id FROM hr_shift_types WHERE code='早'").first<{id:number}>();
  check(shift?.id,"SHIFT_EXISTS");
  const seven=dates.map(date=>({employeeId:id,date,kind:"shift",shiftTypeId:shift!.id}));

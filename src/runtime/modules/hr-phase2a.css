@@ -71,3 +71,5 @@ td.hr-sheet-cell>textarea.cy-sheet-input{min-height:64px}
 /* 門市人員設定：每格內容垂直置中、靠左；手機卡片同樣置中對齊。 */
 .cy-hr-staff-form .cy-entry-table :is(td,th){vertical-align:middle;text-align:left}
 @media(max-width:820px){.cy-hr-staff-form .cy-entry-table td{align-items:center}}
+
+.hr-staff-grip{width:36px}.hr-staff-number{width:92px}.hr-staff-rule{width:120px}.hr-staff-title{display:block;color:var(--cy-text-muted)}

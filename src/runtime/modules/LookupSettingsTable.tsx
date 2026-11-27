@@ -3,6 +3,7 @@ import type { LookupSetting } from "../../../shared/settings";
 import { STATUS_LIGHTS } from "../../../shared/taiwan-regions";
 import { IconButton } from "../../ui/actions/IconButton";
 import { Icons } from "../../ui/actions/icons";
+import { ReorderHandle } from "../../ui/actions/ReorderHandle";
 import { Field } from "../../ui/forms/Field";
 import { StatusPill } from "./customer/StatusName";
 
@@ -125,9 +126,9 @@ export function LookupSettingsTable({ label, rows, editable, busy, status, withC
           className={(row.isActive ? "" : "inactive") + (dragging === row.id ? " dragging" : "")}
           onDragOver={event => { if (!row.pin) over(event, row.id); }} onDrop={event => { event.preventDefault(); commit(ids); }}>
           <td className="cy-lookup-grip">{row.pin || !canDrag ? null
-            : <button type="button" className="cy-lookup-handle" draggable aria-label={`拖拉調整「${row.name}」的順序（↑↓ 也可移動）`}
+            : <ReorderHandle draggable label={`拖拉調整「${row.name}」的順序（↑↓ 也可移動）`}
               title="拖拉調整順序" onDragStart={event => { event.dataTransfer.effectAllowed = "move"; event.dataTransfer.setData("text/plain", String(row.id)); setDragging(row.id); }}
-              onDragEnd={() => { if (dragging !== null) commit(ids); }} onKeyDown={event => keys(event, row.id)}>{Icons.grip}</button>}</td>
+              onDragEnd={() => { if (dragging !== null) commit(ids); }} onKeyDown={event => keys(event, row.id)}/>}</td>
           <td className="cy-sheet-seq">{seq(row)}</td>
           {withCode ? <td className="mono"><span className="cy-sheet-value">{row.code}</span></td> : null}
           <td><span className="cy-sheet-value cy-lookup-name">{status ? <StatusPill status={row} /> : row.name}
