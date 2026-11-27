@@ -122,3 +122,5 @@ td.hr-sheet-cell>textarea.cy-sheet-input{min-height:64px}
 
 .hr-staffing-line{display:block;white-space:nowrap;line-height:1.25}
 .hr-roster-table .hr-roster-notes-grid{grid-template-rows:repeat(3,minmax(26px,auto))}
+
+.hr-roster-save-status{min-height:1.5em;line-height:1.5;margin:4px 0;color:var(--cy-text-muted);font-size:12px}

@@ -239,7 +239,7 @@ export function HrRosterPanel() {
    </>}/></div>
 
   {error?<p role="alert" className="cy-notice cy-notice-danger no-print">{error}</p>:null}
-  {notice?<p role="status" className="cy-notice no-print">{notice}</p>:null}
+  <p role="status" className="hr-roster-save-status no-print">{notice||"　"}</p>
   {data?<><h2 className="hr-roster-print-title">{data.store.name}　{month.replace("-","年")}月班表</h2>
    <div className="hr-roster-scroll cy-mobile-matrix" role="region" aria-label="月排班表，可左右捲動" tabIndex={0}><table className="hr-roster-table"><colgroup><col className="hr-col-title"/><col className="hr-col-name"/>{dates.map(d=><col key={d}/>)}<col className="hr-col-note"/></colgroup><thead><tr><th rowSpan={2}>職稱</th><th rowSpan={2}>日期／姓名</th>
     {dates.map(d=><th key={d} title={holidays.get(d)??""} className={dayClass(d)}>{Number(d.slice(-2))}</th>)}

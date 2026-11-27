@@ -17,3 +17,7 @@
 ## Build 2：自動儲存與版面追加
 - 參考 OrderingGrid 及 OrderingPage 的同步草稿 ref、序列化保存及僅確認已送出的版本，班表套用／清除／鍵盤修改立即排入保存，備註 blur 保存，新增刪除備註立即保存。請求中保持輸入及焦點、不 reload、不清表；回覆只移除已送的變更，保留後續輸入；失敗保留草稿、顯示重試；原違規及主管核准仍有效。切換門市／月先 flush；頁面離開守衛保留；取消只取消未成功的修改。每日人力依全門市 staged 值、班別排序逐行顯示。備註依 i/3 與 i%3 放置 1/2/3 左欄、4/5/6 右欄，未新增項目無編號。
 - 修復 Build 1 source-contracts 的 schema allowlist 遺漏 hr_roster_text_defaults；Build 1 其餘必要 CI 已成功。Build 2 仍需完整 CI 與真實 UI 驗收，尤其慢網路快速連續套用、同格二次修改、跨欄 blur、核准、失敗重試、切月與列印。使用者已授權合併部署；Claude 事後審查。正式 migration 0086/0087 前須驗證既有備份。
+
+## Build 3：部署前唯讀備份門檻
+- 原 Build 2 source-contracts、前後端型別、治理、部署契約已通過；為避免正式 migration 無備份，受控發布 job 於 Apply D1 migrations 前讀取 `d1_migrations` 及本 workspace 的 backup_sets/backup_copies。0086/0087 尚未完成時須有 48 小時內建立、至少一份已標記 verified 的備份；兩 migration 均存在則略過。只輸出固定代碼，不列備份識別值、內容、憑證或正式 SQL 結果；不另行觸發備份/還原，不變更既有 recovery 目標。目錄檢查不能替代重新讀取備份物件或正式還原演練；若無最近 verified 備份，部署在 migration 之前停止。新增模擬通過、失敗與跳過測試。
+- 正常儲存狀態固定一行空間，避免提示區出現時使班表上下跳動。實際瀏覽器、正式備份還原與列印未驗證。
