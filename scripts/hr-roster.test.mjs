@@ -115,3 +115,20 @@ test("month boundary defers unfinished week, retains previously saved labels out
  const saved=partial.map(d=>d.date==="2026-11-08"?{...d,restLabel:"regular"}:d.date==="2026-11-30"?{...d,kind:"unscheduled"}:d);
  assert.equal(classifyRoster(saved,null,monthOpts).labels["2026-11-08"],"regular_off");
 });
+test("mid-month hire: days before hire do not block the monthly 例休 classification",()=>{
+ // Hired Thu 2027-02-11; 2027-02-01 is a Monday. Only days from the hire date are scheduled.
+ const input=make("2027-02-11",18,i=>((i+3)%7>=5?off:shift));
+ const r=classifyRoster(input,null,{...opts,anchorMonday:"2027-02-01",classificationMonth:"2027-02",employedFrom:"2027-02-11"});
+ assert.equal(r.labels["2027-02-14"],"regular_off");
+ assert.equal(r.labels["2027-02-28"],"regular_off");
+ assert.equal(r.labels["2027-02-27"],"rest_day");
+ assert.ok(!r.violations.some(v=>v.code==="WEEK_NO_REGULAR"||v.code==="CYCLE_OFF"));
+ const without=classifyRoster(input,null,{...opts,anchorMonday:"2027-02-01",classificationMonth:"2027-02"});
+ assert.equal(without.labels["2027-02-28"],"off");
+});
+test("mid-month termination: days after leaving do not block the classification",()=>{
+ const input=make("2027-02-01",14,i=>(i%7>=5?off:shift));
+ const r=classifyRoster(input,null,{...opts,anchorMonday:"2027-02-01",classificationMonth:"2027-02",employedTo:"2027-02-14"});
+ assert.equal(r.labels["2027-02-14"],"regular_off");
+ assert.equal(r.labels["2027-02-13"],"rest_day");
+});

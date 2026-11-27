@@ -3,7 +3,7 @@ import {AuditService} from "../audit/audit-service";
 import {evaluateAttendance} from "../../shared/hr-attendance";
 import {HrValidationError,date,integer,object,optional} from "./hr-validation";
 import type {HrContext} from "./hr-service";
-type Emp={id:number;name:string;employee_no:string;employment_type:"full"|"half"|"casual";schedule_mode:"shift"|"hours"|"none";skip_roster_checks:number;roster_sort:number;job_title_id:number|null;job_title_name:string|null};
+type Emp={id:number;name:string;employee_no:string;employment_type:"full"|"half"|"casual";schedule_mode:"shift"|"hours"|"none";skip_roster_checks:number;roster_sort:number;job_title_id:number|null;job_title_name:string|null;hire_date:string|null;termination_date:string|null};
 type Cell={employee_id:number;store_id:number;work_date:string;kind:"shift"|"hours"|"off"|"leave";off_mark:string|null;shift_type_id:number|null;leave_type_id:number|null;hours:number|null;start_time:string|null;end_time:string|null;marker:string|null;rest_label:string|null;note:string};
 type Choice={employeeId:number;date:string;kind:"shift"|"hours"|"off"|"leave"|null;offMark?:string|null;shiftTypeId?:number;leaveTypeId?:number;hours?:number;startTime?:string|null;endTime?:string|null;marker?:string|null;note?:string};
 type Approval={employeeId:number;kind:"consecutive"|"over_eight";startDate:string;endDate:string;suggestion:string};
@@ -82,7 +82,7 @@ export class HrRosterService {
   // One extra fortnight before and week after, so runs and 例假 continue across the loaded range.
   const lookStart=day(millis(bounds.start)-14*DAY),lookEnd=day(millis(bounds.finish)+7*DAY);
   const [e,d,s,l,h,m,a,p]=await Promise.all([
-   this.db.prepare("SELECT e.id,e.employee_no,e.name,e.employment_type,e.schedule_mode,e.skip_roster_checks,e.roster_sort,e.job_title_id,j.name AS job_title_name FROM hr_employee_current e LEFT JOIN hr_job_titles j ON j.id=e.job_title_id WHERE e.store_id=? AND e.status<>'terminated' ORDER BY e.roster_sort,j.sort_order,e.id LIMIT 101").bind(storeId).all<Emp>(),
+   this.db.prepare("SELECT e.id,e.employee_no,e.name,e.employment_type,e.schedule_mode,e.skip_roster_checks,e.roster_sort,e.job_title_id,j.name AS job_title_name,e.hire_date,e.termination_date FROM hr_employee_current e LEFT JOIN hr_job_titles j ON j.id=e.job_title_id WHERE e.store_id=? AND e.status<>'terminated' ORDER BY e.roster_sort,j.sort_order,e.id LIMIT 101").bind(storeId).all<Emp>(),
    this.db.prepare("SELECT * FROM hr_schedule_days WHERE store_id=? AND work_date BETWEEN ? AND ? ORDER BY employee_id,work_date LIMIT 10001").bind(storeId,lookStart,lookEnd).all<Cell>(),
    this.db.prepare("SELECT * FROM hr_shift_types ORDER BY sort_order,id LIMIT 100").all<Record<string,unknown>>(),
    this.db.prepare("SELECT * FROM hr_leave_types ORDER BY sort_order,id LIMIT 100").all<Record<string,unknown>>(),
@@ -105,7 +105,7 @@ export class HrRosterService {
   for(const e of b.employees){
    const input=dates.map(d=>rosterDay(d,rows.get(e.id+"|"+d),shifts,leaves));
    const fixedRegularOff=new Set(dates.filter(d=>d<today&&rows.get(e.id+"|"+d)?.rest_label==="regular"));
-   const full=classifyRoster(input,b.previousRegular.get(e.id)??null,{anchorMonday:String(b.store.cycle_anchor_date),employmentType:e.employment_type,skipChecks:e.skip_roster_checks===1,scheduleMode:e.schedule_mode,fixedRegularOff,classificationMonth:b.month});
+   const full=classifyRoster(input,b.previousRegular.get(e.id)??null,{anchorMonday:String(b.store.cycle_anchor_date),employmentType:e.employment_type,skipChecks:e.skip_roster_checks===1,scheduleMode:e.schedule_mode,fixedRegularOff,classificationMonth:b.month,employedFrom:e.hire_date,employedTo:e.termination_date});
    // Report only what touches the loaded fortnights; the look-around days only give context.
    const result:RosterResult={...full,violations:full.violations.filter(v=>inRange(v.from,v.to)),
     consecutive:full.consecutive.filter(x=>inRange(x.startDate,x.endDate)),sixthDays:full.sixthDays.filter(d=>inRange(d,d)),overEight:full.overEight.filter(d=>inRange(d,d))};
