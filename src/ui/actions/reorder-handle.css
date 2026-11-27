@@ -1,0 +1,6 @@
+.cy-lookup-handle { display: grid; place-items: center; width: 100%; height: 30px; padding: 0; border: 0; background: transparent;
+  color: var(--cy-text-muted); cursor: grab; }
+.cy-lookup-handle:active { cursor: grabbing; }
+.cy-lookup-handle:focus-visible { outline: 2px solid var(--cy-accent); outline-offset: -2px; }
+.cy-lookup-handle svg { width: 16px; height: 16px; }
+.cy-lookup-handle{touch-action:none}

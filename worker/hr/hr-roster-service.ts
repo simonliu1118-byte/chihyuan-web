@@ -173,18 +173,26 @@ export class HrRosterService {
  }
 
  async updateStaff(storeId:number,raw:unknown,ctx:HrContext){
-  const v=object(raw),id=integer(v.employeeId,"employeeId",true),sort=integer(v.rosterSort,"rosterSort");
-  if(typeof v.skipRosterChecks!=="boolean")throw new HrValidationError("skipRosterChecks","須選擇是否檢核");
-  const before=await this.db.prepare("SELECT id,store_id,roster_sort,skip_roster_checks FROM hr_employee_current WHERE id=? AND store_id=?").bind(id,storeId).first<Record<string,unknown>>();
-  if(!before)throw new HrValidationError("employeeId","員工不屬於門市",404);
-  const check=v.skipRosterChecks?1:0;
-  if(Number(before.roster_sort)===sort&&Number(before.skip_roster_checks)===check)return {saved:true};
-  await this.db.batch([
-   this.db.prepare("UPDATE hr_employees SET roster_sort=?,skip_roster_checks=?,revision=revision+1,updated_at=?,updated_by=? WHERE id=? AND id IN (SELECT id FROM hr_employee_current WHERE store_id=?)").bind(sort,check,ctx.now,ctx.actor,id,storeId),
-   new AuditService(this.db).prepareRecord({entityType:"hr_employee",entityKey:String(id),action:"hr_employee.updated",
+  const v=object(raw);
+  if(!Array.isArray(v.staff))throw new HrValidationError("staff","人員設定格式不正確");
+  const updates=v.staff.map(item=>{const x=object(item),id=integer(x.employeeId,"employeeId",true),sort=integer(x.rosterSort,"rosterSort");
+   if(typeof x.skipRosterChecks!=="boolean")throw new HrValidationError("skipRosterChecks","須選擇是否檢核");
+   return {id,sort,check:x.skipRosterChecks?1:0};
+  });
+  const rows=(await this.db.prepare("SELECT id,roster_sort,skip_roster_checks FROM hr_employee_current WHERE store_id=? AND status<>'terminated'").bind(storeId).all<{id:number;roster_sort:number;skip_roster_checks:number}>()).results??[];
+  const byId=new Map(rows.map(row=>[row.id,row]));
+  if(new Set(updates.map(x=>x.id)).size!==updates.length)throw new HrValidationError("staff","員工不可重複");
+  const statements:D1PreparedStatement[]=[];
+  for(const {id,sort,check} of updates){
+   const before=byId.get(id);
+   if(!before)throw new HrValidationError("employeeId","員工不屬於門市",404);
+   if(before.roster_sort===sort&&before.skip_roster_checks===check)continue;
+   statements.push(this.db.prepare("UPDATE hr_employees SET roster_sort=?,skip_roster_checks=?,revision=revision+1,updated_at=?,updated_by=? WHERE id=? AND id IN (SELECT id FROM hr_employee_current WHERE store_id=?)").bind(sort,check,ctx.now,ctx.actor,id,storeId),
+    new AuditService(this.db).prepareRecord({entityType:"hr_employee",entityKey:String(id),action:"hr_employee.updated",
      actorEmployeeId:ctx.actor,requestId:ctx.requestId,before:{rosterSort:before.roster_sort,skipRosterChecks:before.skip_roster_checks},
-     after:{rosterSort:sort,skipRosterChecks:check}})
-  ]);
+     after:{rosterSort:sort,skipRosterChecks:check}}));
+  }
+  if(statements.length)await this.db.batch(statements);
   return {saved:true};
  }
  async get(storeId:number,month:string){
