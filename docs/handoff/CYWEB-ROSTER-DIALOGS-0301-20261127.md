@@ -12,5 +12,6 @@
 - Claude 事後審查：待填，不預填通過。
 
 ## CI 返修
-- [第一次完整回歸](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/45982988580) 的唯一失敗為 `hr-personnel.test.mjs` 既有單人 staff PATCH 呼叫；舊版網頁也可能仍開啟。保留既有單人請求相容性，轉換為單一元素陣列，與新批次請求共用驗證／audit／D1 batch，不建立第二套流程。
-- 既有單人回歸測試及新增批次驗收均保留，待本次 CI 結果。
+- [第一次完整回歸](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/45982988580) 的唯一失敗為 `hr-personnel.test.mjs` 仍使用舊單人 staff PATCH 格式。使用者明確指示不保留相容性，因此只保留新版批次 API，將既有人事回歸測試的請求改為 staff 陣列；原測試斷言及新增批次驗收均保留。曾短暫提交的舊格式相容程式已移除。
+- 尚未重新整理的舊版網頁須重新整理後才可儲存門市人員設定。
+- 待最新 CI 驗證，Claude 事後審查。

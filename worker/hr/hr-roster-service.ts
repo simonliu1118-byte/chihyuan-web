@@ -174,10 +174,8 @@ export class HrRosterService {
 
  async updateStaff(storeId:number,raw:unknown,ctx:HrContext){
   const v=object(raw);
-  // Older open browser tabs still send a single member; both payloads use the same batch path.
-  const items=v.staff===undefined?[v]:v.staff;
-  if(!Array.isArray(items))throw new HrValidationError("staff","人員設定格式不正確");
-  const updates=items.map(item=>{const x=object(item),id=integer(x.employeeId,"employeeId",true),sort=integer(x.rosterSort,"rosterSort");
+  if(!Array.isArray(v.staff))throw new HrValidationError("staff","人員設定格式不正確");
+  const updates=v.staff.map(item=>{const x=object(item),id=integer(x.employeeId,"employeeId",true),sort=integer(x.rosterSort,"rosterSort");
    if(typeof x.skipRosterChecks!=="boolean")throw new HrValidationError("skipRosterChecks","須選擇是否檢核");
    return {id,sort,check:x.skipRosterChecks?1:0};
   });

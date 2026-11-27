@@ -73,7 +73,7 @@ test('each changed field writes exactly one record and leaves every other field 
  assert.equal(f.sql.prepare('SELECT store_id FROM hr_employees WHERE id=?').get(f.id).store_id,f.store,'the master column holds today\'s value; the 建檔 record keeps the old one');
  assert.deepEqual(f.sql.prepare("SELECT next_value FROM hr_assignment_changes WHERE employee_id=? AND field='store_id' AND reason='建檔'").all(f.id).map(r=>r.next_value),['1']);
  assert.equal((await f.service.salaryOverview()).find(x=>x.id===f.id).storeId,f.store);
- await new HrRosterService(f.db).updateStaff(f.store,{employeeId:f.id,rosterSort:7,skipRosterChecks:true},ctx);
+ await new HrRosterService(f.db).updateStaff(f.store,{staff:[{employeeId:f.id,rosterSort:7,skipRosterChecks:true}]},ctx);
  assert.equal(f.sql.prepare('SELECT roster_sort FROM hr_employees WHERE id=?').get(f.id).roster_sort,7);
  await assert.rejects(f.change({effectiveDate:day(-1)}),/沒有任何/);
  await assert.rejects(f.change({effectiveDate:day(-1),storeId:f.store,nextStatus:'leave'}),/「人事狀態」.*留職停薪/,'a sent field equal to the value on that date is an error naming the field');
