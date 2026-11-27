@@ -239,3 +239,16 @@ test("roster text settings, monthly notes and every leave diagonal",()=>{
  assert.match(read("src/runtime/modules/HrSettingsButton.tsx"),/label:"預設文字"/);
  assert.match(read("src/runtime/modules/HrRosterTextSettings.tsx"),/storeIds.includes\(s.id\)/);
 });
+
+test("roster autosave serializes and acknowledges only submitted revisions; staffing and notes layout",()=>{
+ const ui=read("src/runtime/modules/HrRosterPanel.tsx"),css=read("src/runtime/modules/hr-phase2a.css");
+ assert.match(ui,/sentChanges\[key\]!==value/);
+ assert.match(ui,/current.noteItems===sentNotes\?next.noteItems:current.noteItems/);
+ assert.match(ui,/if\(saveLane.current\)\{saveAgain.current=true/);
+ assert.match(ui,/onBlur=\{\(\)=>void submit\(\)\}/);
+ assert.match(ui,/gridColumn:Math.floor\(i\/3\)\+1,gridRow:i%3\+1/);
+ assert.match(ui,/className="hr-staffing-line"/);
+ assert.match(css,/grid-template-rows:repeat\(3,minmax\(26px,auto\)\)/);
+ const save=ui.slice(ui.indexOf(" async function saveSnapshot"),ui.indexOf(" async function chooseMonth"));
+ assert.doesNotMatch(save,/await reload\(|setLoading\(true\)|setData\(null\)/);
+});

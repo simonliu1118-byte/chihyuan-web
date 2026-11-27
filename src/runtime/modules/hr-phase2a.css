@@ -119,3 +119,6 @@ td.hr-sheet-cell>textarea.cy-sheet-input{min-height:64px}
 .hr-person-note input{width:100%;min-width:0;box-sizing:border-box;border:0;background:transparent;font:inherit;padding:3px;text-align:left}
 .hr-person-note .print-only{white-space:pre-wrap;overflow-wrap:anywhere}
 @media print{.hr-roster-note-item{white-space:normal;align-items:flex-start}.hr-roster-note-item input,.hr-person-note input{display:none!important}.hr-roster-notes-grid{gap:0 10px}}
+
+.hr-staffing-line{display:block;white-space:nowrap;line-height:1.25}
+.hr-roster-table .hr-roster-notes-grid{grid-template-rows:repeat(3,minmax(26px,auto))}
