@@ -65,7 +65,7 @@ function equal(a:Cell|undefined,b:Choice){if(!a)return b.kind===null;if(b.kind==
 }
 function rosterDay(d:string,row:Cell|undefined,shifts:Map<number,Record<string,unknown>>,leaves:Map<number,Record<string,unknown>>):RosterDay{
  if(!row)return {date:d,kind:"unscheduled"};
- if(row.kind==="off")return {date:d,kind:"off",offMark:row.off_mark==="x"?"x":"slash",minutes:0};
+ if(row.kind==="off")return {date:d,kind:"off",offMark:row.off_mark==="x"?"x":"slash",restLabel:row.rest_label==="regular"||row.rest_label==="rest"?row.rest_label:null,minutes:0};
  if(row.kind==="shift"){const data=shifts.get(row.shift_type_id??0);return {date:d,kind:"shift",minutes:Number(data?.normal_minutes??0),shiftCode:String(data?.code??"")};}
  if(row.kind==="hours")return {date:d,kind:"hours",minutes:Math.round((row.hours??0)*60)};
  return {date:d,kind:"leave",leaveCode:String(leaves.get(row.leave_type_id??0)?.code??""),minutes:0};
@@ -105,7 +105,7 @@ export class HrRosterService {
   for(const e of b.employees){
    const input=dates.map(d=>rosterDay(d,rows.get(e.id+"|"+d),shifts,leaves));
    const fixedRegularOff=new Set(dates.filter(d=>d<today&&rows.get(e.id+"|"+d)?.rest_label==="regular"));
-   const full=classifyRoster(input,b.previousRegular.get(e.id)??null,{anchorMonday:String(b.store.cycle_anchor_date),employmentType:e.employment_type,skipChecks:e.skip_roster_checks===1,scheduleMode:e.schedule_mode,fixedRegularOff});
+   const full=classifyRoster(input,b.previousRegular.get(e.id)??null,{anchorMonday:String(b.store.cycle_anchor_date),employmentType:e.employment_type,skipChecks:e.skip_roster_checks===1,scheduleMode:e.schedule_mode,fixedRegularOff,classificationMonth:b.month});
    // Report only what touches the loaded fortnights; the look-around days only give context.
    const result:RosterResult={...full,violations:full.violations.filter(v=>inRange(v.from,v.to)),
     consecutive:full.consecutive.filter(x=>inRange(x.startDate,x.endDate)),sixthDays:full.sixthDays.filter(d=>inRange(d,d)),overEight:full.overEight.filter(d=>inRange(d,d))};
@@ -161,7 +161,7 @@ export class HrRosterService {
     }else missing.push(x);
    }
    for(const row of b.days){
-    if(row.employee_id!==employeeId||row.kind!=="off"||row.work_date<at||requested.has(row.work_date))continue;
+    if(row.employee_id!==employeeId||row.kind!=="off"||row.work_date<at&&row.rest_label!==null||requested.has(row.work_date)||b.employees.find(e=>e.id===employeeId)?.skip_roster_checks===1)continue;
     const label=result.labels[row.work_date],rest=label==="regular_off"?"regular":label==="rest_day"?"rest":null;
     const key=employeeId+"|"+row.work_date;
     if(row.rest_label!==rest&&!updatedOff.has(key)){updatedOff.add(key);out.push(this.db.prepare("UPDATE hr_schedule_days SET rest_label=?,updated_at=?,updated_by=? WHERE employee_id=? AND work_date=?").bind(rest,ctx.now,ctx.actor,employeeId,row.work_date));}
@@ -226,7 +226,7 @@ export class HrRosterService {
   const locked=changed.filter(c=>formed.has(c.employeeId+"|"+c.date));
   if(locked.length)throw new HrRosterError("HR_LEAVE_FORM_EXISTS",locked.map(c=>({employeeId:c.employeeId,date:c.date,message:"已完成假單，請先在假單銷假"})));
   const staged=new Map(b.byKey);for(const c of changed){const key=c.employeeId+"|"+c.date;
-   if(c.kind===null)staged.delete(key);else staged.set(key,asCell(c,storeId));
+   if(c.kind===null)staged.delete(key);else {const next=asCell(c,storeId),old=b.byKey.get(key);if(next.kind==="off"&&next.off_mark==="slash"&&old?.kind==="off"&&old.off_mark==="slash")next.rest_label=old.rest_label;staged.set(key,next);}
   }
   const at=currentDate(ctx.now),checked=this.evaluate(b,staged,at);
   const violations:(RosterViolation&{employeeId:number})[]=[],pending:Approval[]=[],granted:Approval[]=[];
@@ -253,11 +253,12 @@ export class HrRosterService {
   const stmts:D1PreparedStatement[]=[];
   for(const c of changed){
    if(c.kind===null){stmts.push(this.db.prepare("DELETE FROM hr_schedule_days WHERE employee_id=? AND work_date=?").bind(c.employeeId,c.date));continue;}
-   const label=checked.classification[String(c.employeeId)]?.labels[c.date],rest=label==="regular_off"?"regular":label==="rest_day"?"rest":null;
+   const label=checked.classification[String(c.employeeId)]?.labels[c.date],rest=members.get(c.employeeId)?.skip_roster_checks===1?staged.get(c.employeeId+"|"+c.date)?.rest_label??null:label==="regular_off"?"regular":label==="rest_day"?"rest":null;
    stmts.push(this.db.prepare("INSERT INTO hr_schedule_days(employee_id,store_id,work_date,kind,off_mark,leave_type_id,shift_type_id,hours,start_time,end_time,marker,rest_label,note,updated_at,updated_by) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(employee_id,work_date) DO UPDATE SET store_id=excluded.store_id,kind=excluded.kind,off_mark=excluded.off_mark,leave_type_id=excluded.leave_type_id,shift_type_id=excluded.shift_type_id,hours=excluded.hours,start_time=excluded.start_time,end_time=excluded.end_time,marker=excluded.marker,rest_label=excluded.rest_label,note=excluded.note,updated_at=excluded.updated_at,updated_by=excluded.updated_by").bind(c.employeeId,storeId,c.date,c.kind,c.offMark??null,c.leaveTypeId??null,c.shiftTypeId??null,c.hours??null,c.startTime??null,c.endTime??null,c.marker??null,rest,c.note??"",ctx.now,ctx.actor));
   }
+  const changedKeys=new Set(changed.map(c=>c.employeeId+"|"+c.date));
   for(const row of b.days){const key=row.employee_id+"|"+row.work_date;
-   if(keys.has(key)||row.kind!=="off"||row.work_date<at)continue;
+   if(changedKeys.has(key)||row.kind!=="off"||row.work_date<at&&row.rest_label!==null||members.get(row.employee_id)?.skip_roster_checks===1)continue;
    const label=checked.classification[String(row.employee_id)]?.labels[row.work_date];
    const desired=label==="regular_off"?"regular":label==="rest_day"?"rest":null;
    if(row.rest_label!==desired)stmts.push(this.db.prepare("UPDATE hr_schedule_days SET rest_label=?,updated_at=?,updated_by=? WHERE employee_id=? AND work_date=?").bind(desired,ctx.now,ctx.actor,row.employee_id,row.work_date));

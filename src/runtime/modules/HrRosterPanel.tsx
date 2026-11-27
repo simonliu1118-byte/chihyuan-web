@@ -89,12 +89,12 @@ export function HrRosterPanel() {
     const row=staged.get(e.id+"|"+date);
     if(!row)return {date,kind:"unscheduled"};
     if(row.rest_label==="regular"&&date<context.asOf)fixedRegularOff.add(date);
-    if(row.kind==="off")return {date,kind:"off",offMark:row.off_mark==="x"?"x":"slash",minutes:0};
+    if(row.kind==="off")return {date,kind:"off",offMark:row.off_mark==="x"?"x":"slash",restLabel:row.rest_label==="regular"||row.rest_label==="rest"?row.rest_label:null,minutes:0};
     if(row.kind==="shift")return {date,kind:"shift",minutes:data.shifts.find(s=>s.id===row.shift_type_id)?.normal_minutes??0};
     if(row.kind==="hours")return {date,kind:"hours",minutes:Math.round((row.hours??0)*60)};
     return {date,kind:"leave",minutes:0};
    });
-   result[String(e.id)]=classifyRoster(input,context.previousRegular[String(e.id)]??null,{anchorMonday:data.store.cycle_anchor_date,employmentType:e.employment_type,skipChecks:e.skip_roster_checks===1,scheduleMode:e.schedule_mode,fixedRegularOff});
+   result[String(e.id)]=classifyRoster(input,context.previousRegular[String(e.id)]??null,{anchorMonday:data.store.cycle_anchor_date,employmentType:e.employment_type,skipChecks:e.skip_roster_checks===1,scheduleMode:e.schedule_mode,fixedRegularOff,classificationMonth:data.month});
   }
   return result;
  },[data,changes,staged]);
@@ -161,7 +161,7 @@ export function HrRosterPanel() {
  }
  function label(cellData:Cell|undefined,staff:Staff,date:string){
   if(!cellData)return "";
-  if(cellData.kind==="off")return cellData.off_mark==="x"?"X":draftClassification[String(staff.id)]?.labels[date]==="regular_off"?"例":"休";
+  if(cellData.kind==="off"){if(cellData.off_mark==="x")return "X";if(staff.skip_roster_checks===1)return "";const classified=draftClassification[String(staff.id)]?.labels[date];return classified==="regular_off"?"例":classified==="rest_day"?"休":"";}
   if(cellData.kind==="shift")return data?.shifts.find(x=>x.id===cellData.shift_type_id)?.code??"";
   if(cellData.kind==="leave")return data?.leaveTypes.find(x=>x.id===cellData.leave_type_id)?.code??"";
   return typeof cellData.hours==="number"?String(cellData.hours):"";

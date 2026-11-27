@@ -190,7 +190,9 @@ test("roster draft off classification and repeat choice retain existing next cel
  const roster=read("src/runtime/modules/HrRosterPanel.tsx"),css=read("src/runtime/modules/hr-phase2a.css");
  assert.match(roster,/if\(!existing\)\{setChoice\(choice\);if\(choice.kind==="hours"\)setHours\(hours\);\}/);
  assert.match(roster,/classifyRoster\(input,context.previousRegular/);
- assert.match(roster,/cellData.off_mark==="x"\?"X":draftClassification\[String\(staff.id\)\]\?\.labels\[date\]==="regular_off"\?"例":"休"/);
+ assert.match(roster,/if\(staff.skip_roster_checks===1\)return ""/);
+ assert.match(roster,/classified==="regular_off"\?"例":classified==="rest_day"\?"休":""/);
+ assert.match(roster,/classificationMonth:data.month/);
  assert.match(roster,/value\?\.kind==="off"&&value.off_mark!=="x"\?"hr-roster-off"/);
  assert.match(css,/\.hr-cell-actions\{display:flex;justify-content:flex-end/);
  assert.match(css,/\.hr-cell-leave-row \.cy-expand-toggle\{margin-left:auto\}/);
