@@ -101,6 +101,22 @@ export async function acceptHrPhase2a(db:D1Database){
   check(rejected&&(await settings.list(kind)).map(x=>x.id).join()===ids.join(),"LOOKUP_REORDER_ATOMIC_"+kind);
   await settings.reorder(kind,{ids:before.map(x=>x.id)},ctx);
  }
+ const second=Number((await db.prepare("SELECT id FROM hr_stores WHERE name=?").bind("合成排序門市").first<{id:number}>())!.id);
+ await settings.saveRosterText({kind:"note",text:"月會:",storeIds:[store,second]},ctx);
+ await settings.saveRosterText({kind:"note",text:"盤點:",storeIds:[store]},ctx);
+ await settings.saveRosterText({kind:"rule",text:"合成注意事項",storeIds:[store,second]},ctx);
+ const sample=await roster.get(store,"2099-06"),otherSample=await roster.get(second,"2099-06");
+ check(sample.noteItems.length===2&&otherSample.noteItems.length===1,"ROSTER_TEXT_SCOPE");
+ check(sample.rules.includes("合成注意事項")&&otherSample.rules.includes("合成注意事項"),"ROSTER_RULE_SCOPE");
+ const noteItems=[...sample.noteItems.map((x,i)=>({...x,text:i===0?"上午十時":""})),{prefix:null,text:"自訂"}];
+ await roster.put(store,"2099-06",{changes:[],noteItems,employeeNotes:{[id]:"個人備註"}},ctx);
+ const savedText=await roster.get(store,"2099-06");
+ check(savedText.noteItems[0].text==="上午十時"&&savedText.noteItems[2].text==="自訂"&&savedText.employeeNotes[String(id)]==="個人備註","ROSTER_TEXT_SAVE");
+ for(const invalid of [{noteItems:[]},{rules:"違規修改"},{noteItems:[...noteItems,...Array.from({length:4},()=>({prefix:null,text:"超額"}))]},{employeeNotes:{"99999999":"非本門市"}}]){
+  let denied=false;try{await roster.put(store,"2099-06",{changes:[],...invalid},ctx)}catch{denied=true}check(denied,"ROSTER_TEXT_INVALID");
+ }
+ for(const row of (await settings.rosterTextDefaults()).filter(x=>["月會:","盤點:","合成注意事項"].includes(x.text)))await settings.deleteRosterText(row.id,ctx);
+ check((await roster.get(store,"2099-06")).noteItems[0].prefix==="月會:","ROSTER_TEXT_SNAPSHOT");
  await db.prepare("DELETE FROM hr_stores WHERE name=?").bind("合成排序門市").run();
  await settings.saveHoliday({date:"2099-12-25",name:"合成假日",note:"合成備註"},ctx);
  await settings.saveHoliday({date:"2099-01-01",name:"合成假日二"},ctx);

@@ -93,7 +93,7 @@ export function HrLookupSettings({kind}:{kind:LookupKind}){
     <Field label="狀態" size="s"><select className="cy-op-input" disabled={busy} value={value.isActive??"true"} onChange={e=>change("isActive",e.target.value)}><option value="true">啟用</option><option value="false">停用</option></select></Field>
     {kind==="stores"?<>
      <Field label="雙週起算週一" required size="s"><DateInput disabled={busy} className="cy-op-input" max="9999-12-31" value={value.cycleAnchorDate??""} onChange={v=>change("cycleAnchorDate",v)}/></Field>
-     <Field label="注意事項範本" size="l"><textarea className="cy-op-input" disabled={busy} value={value.rulesTemplate??""} onChange={e=>change("rulesTemplate",e.target.value)}/></Field></>:null}
+    </>:null}
     {kind==="shift-types"?<>
      <Field label="上班時間" required size="s"><TimeInput disabled={busy} className="cy-op-input" value={value.startTime??""} onChange={v=>change("startTime",v)}/></Field>
      <Field label="下班時間" required size="s"><TimeInput disabled={busy} className="cy-op-input" value={value.endTime??""} onChange={v=>change("endTime",v)}/></Field>

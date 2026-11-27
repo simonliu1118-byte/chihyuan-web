@@ -7,6 +7,7 @@ import {ModuleSettingsGear} from "../../ui/shell/ModuleSettingsGear";
 import {apiRequest} from "../../api/client";
 import {formatDate} from "../../ui/foundation/format";
 import {useCompactLayout} from "../../ui/foundation/useCompactLayout";
+import {HrRosterTextSettings} from "./HrRosterTextSettings";
 import {HrHolidaySettings,HrLookupSettings} from "./HrPhase2aSettings";
 import {HrLeaveTypeSettings} from "./HrLeaveTypeSettings";
 import {HrCorrectionGrantSettings,HrLegalBracketSettings} from './HrPayrollSettings';
@@ -62,7 +63,7 @@ function MinimumWageSettings(){
 
 const GROUPS:{label:string;items:{key:string;label:string;pane:()=>ReactNode}[]}[]=[
  {label:"組織",items:[{key:"stores",label:"門市",pane:()=><HrLookupSettings kind="stores"/>},{key:"job-titles",label:"職稱",pane:()=><HrLookupSettings kind="job-titles"/>}]},
- {label:"排班",items:[{key:"shift-types",label:"班別",pane:()=><HrLookupSettings kind="shift-types"/>},{key:"holidays",label:"國定假日",pane:()=><HrHolidaySettings/>}]},
+ {label:"排班",items:[{key:"shift-types",label:"班別",pane:()=><HrLookupSettings kind="shift-types"/>},{key:"holidays",label:"國定假日",pane:()=><HrHolidaySettings/>},{key:"roster-text",label:"預設文字",pane:()=><HrRosterTextSettings/>}]},
  {label:"請假",items:[{key:"leave-types",label:"假別",pane:()=><HrLeaveTypeSettings/>}]},
  {label:"薪資",items:[{key:"salary-items",label:"津貼項目",pane:()=><SalaryItemSettings/>},{key:"minimum-wages",label:"最低工資",pane:()=><MinimumWageSettings/>},{key:"legal-brackets",label:"法定級距",pane:()=><HrLegalBracketSettings/>}]},
  {label:"權限",items:[{key:"correction-grants",label:"出勤更正授權",pane:()=><HrCorrectionGrantSettings/>}]},

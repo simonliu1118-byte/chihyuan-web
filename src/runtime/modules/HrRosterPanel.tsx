@@ -1,3 +1,4 @@
+import {MAX_ROSTER_NOTES,MAX_ROSTER_NOTE_LENGTH,type RosterNoteItem} from "../../../shared/hr-roster-text";
 import {HrSettingsButton} from "./HrSettingsButton";
 import {useSettingsSaved} from "./settings-events";
 import {MonthPicker} from "../../ui/forms/MonthPicker";
@@ -25,14 +26,14 @@ type Cell={employee_id:number;work_date:string;kind:"shift"|"hours"|"off"|"leave
 type Change={employeeId:number;date:string;kind:"shift"|"hours"|"off"|"leave"|null;offMark?:string;shiftTypeId?:number;leaveTypeId?:number;hours?:number;startTime?:string;endTime?:string;marker?:string;note?:string};
 type Approval={employeeId:number;kind:"consecutive"|"over_eight";startDate:string;endDate:string;suggestion:string};
 type Ro={classificationContext:{start:string;end:string;asOf:string;previousRegular:Record<string,string>};leaveForms:{employee_id:number;work_date:string;whole_day:number;minutes:number;code:string;batch_id:string}[];store:Store;month:string;bounds:{start:string;finish:string;first:string;end:string};employees:Staff[];shifts:Shift[];leaveTypes:Leave[];
- holidays:{date:string;name:string}[];days:Cell[];classification:Record<string,RosterResult>;staffing:Record<string,Record<string,number>>;actualHours:Record<string,Record<string,number>>;notes:string;rules:string;approvals:unknown[]};
+ holidays:{date:string;name:string}[];days:Cell[];classification:Record<string,RosterResult>;staffing:Record<string,Record<string,number>>;actualHours:Record<string,Record<string,number>>;notes:string;rules:string;noteItems:RosterNoteItem[];legacyNotes:string;employeeNotes:Record<string,string>;approvals:unknown[]};
 const ROOT="/api/business/hr",dayMs=86400000,weekdays=["日","一","二","三","四","五","六"];
 const isWeekend=(d:string)=>[0,6].includes(new Date(d+"T00:00:00Z").getUTCDay());
 const monthDates=(m:string)=>{const [y,n]=m.split("-").map(Number);return Array.from({length:new Date(Date.UTC(y,n,0)).getUTCDate()},(_,i)=>m+"-"+String(i+1).padStart(2,"0"))};
 export function HrRosterPanel() {
  const [stores,setStores]=useState<Store[]>([]),[storeId,setStoreId]=useState(0),[month,setMonth]=useState(taipeiToday().slice(0,7));
  const [data,setData]=useState<Ro|null>(null),[changes,setChanges]=useState<Record<string,Change>>({});
- const [notes,setNotes]=useState(""),[rules,setRules]=useState(""),[loading,setLoading]=useState(false);
+ const [noteItems,setNoteItems]=useState<RosterNoteItem[]>([]),[employeeNotes,setEmployeeNotes]=useState<Record<string,string>>({}),[loading,setLoading]=useState(false);
  const [error,setError]=useState(""),[notice,setNotice]=useState(""),[violations,setViolations]=useState<(RosterViolation&{employeeId:number})[]>([]);
  const [pending,setPending]=useState<Approval[]>([]);
  const [cell,setCell]=useState<{employeeId:number;date:string}|null>(null),[hours,setHours]=useState(""),[note,setNote]=useState(""),[showAllLeave,setShowAllLeave]=useState(false);
@@ -49,7 +50,7 @@ export function HrRosterPanel() {
  const shownEmployees=(data?.employees??[]).filter(e=>!search.trim()||(e.employee_no+" "+e.name+" "+e.job_title_name).includes(search.trim()));
  const rosterRequest=useLatestRequest(storeId+"|"+month),alertRequest=useLatestRequest(storeId+"|"+month);
  const saving=useRef(false);
- const dirty=Object.keys(changes).length>0||!!data&&(notes!==data.notes||rules!==data.rules);
+ const dirty=Object.keys(changes).length>0||!!data&&(JSON.stringify(noteItems)!==JSON.stringify(data.noteItems)||JSON.stringify(employeeNotes)!==JSON.stringify(data.employeeNotes));
  useUnsavedChangesGuard({active:dirty||staff!==null||cell!==null,blocked:loading,message:"排班尚未儲存，確定離開？"});
  const discard=async()=>!dirty||await confirm({title:"放棄未儲存的排班",description:"切換後，尚未儲存的排班會遺失。",confirmLabel:"放棄",cancelLabel:"繼續編輯",confirmTone:"danger"});
  // Saved-roster violations show on load; a rejected save replaces them with what the server found in the edit.
@@ -66,7 +67,7 @@ export function HrRosterPanel() {
  useEffect(()=>{void apiRequest<Store[]>(ROOT+"/settings/stores").then(x=>{setStores(x);setStoreId(x[0]?.id??0)}).catch(e=>setError(String(e)))},[]);
  const reload=useCallback(async()=>{
   const ticket=rosterRequest.begin();if(!storeId)return;setLoading(true);setData(null);
-  try{const d=await apiRequest<Ro>(ROOT+"/rosters/"+storeId+"/"+month);if(!ticket.current())return;setData(d);setNotes(d.notes);setRules(d.rules);setChanges({});setViolations([]);setPending([]);setError("")}
+  try{const d=await apiRequest<Ro>(ROOT+"/rosters/"+storeId+"/"+month);if(!ticket.current())return;setData(d);setNoteItems(d.noteItems);setEmployeeNotes(d.employeeNotes);setChanges({});setViolations([]);setPending([]);setError("")}
   catch(e){if(ticket.current())setError(e instanceof Error?e.message:"排班查詢失敗")}finally{if(ticket.current())setLoading(false)}
  },[storeId,month,rosterRequest]);
  useEffect(()=>{void reload()},[reload]);
@@ -119,8 +120,8 @@ export function HrRosterPanel() {
   }
  }
  function clearCell(){if(cell)edit({employeeId:cell.employeeId,date:cell.date,kind:null})}
- const commonLeaveLabels:Record<string,string>={"特":"特休","事":"事假","病":"病假","補":"補休"};
- const commonLeaves=["特","事","病","補"].flatMap(code=>{const item=data?.leaveTypes.find(x=>x.is_active&&x.code===code);return item?[item]:[]});
+ const commonLeaveLabels:Record<string,string>={"特":"特休","事":"事假","病":"病假","補":"補休","國":"國定假日"};
+ const commonLeaves=["國","特","事","病","補"].flatMap(code=>{const item=data?.leaveTypes.find(x=>x.is_active&&x.code===code);return item?[item]:[]});
  const otherLeaves=(data?.leaveTypes??[]).filter(x=>x.is_active&&!commonLeaveLabels[x.code]);
  function leaveButton(x:Leave,short=false){const selected=choice?.kind==="leave"&&choice.leaveTypeId===x.id;
   return <button type="button" key={x.id} aria-pressed={selected} className={"cy-op-button compact"+(selected?" primary":"")} onClick={()=>setChoice({kind:"leave",leaveTypeId:x.id})}>{short?commonLeaveLabels[x.code]:x.name}</button>
@@ -171,7 +172,7 @@ export function HrRosterPanel() {
  async function submit(approve:Approval[]=[]){
   if(!data||loading||saving.current)return;saving.current=true;setLoading(true);setError("");
   try{
-   const response=await fetch(ROOT+"/rosters/"+storeId+"/"+month,{method:"PUT",credentials:"same-origin",headers:{"content-type":"application/json","accept":"application/json"},body:JSON.stringify({changes:Object.values(changes),notes,rules,approve})});
+   const response=await fetch(ROOT+"/rosters/"+storeId+"/"+month,{method:"PUT",credentials:"same-origin",headers:{"content-type":"application/json","accept":"application/json"},body:JSON.stringify({changes:Object.values(changes),noteItems,employeeNotes:Object.fromEntries(data!.employees.filter(e=>(employeeNotes[String(e.id)]??"")!==(data!.employeeNotes[String(e.id)]??"")).map(e=>[String(e.id),employeeNotes[String(e.id)]??""])),approve})});
    const json=await response.json() as {ok:boolean;data?:{changedDays:number};error?:{code:string;message:string;items?:unknown[]}};
    if(!response.ok||!json.ok){
     if(json.error?.code==="HR_ROSTER_CONSECUTIVE"){setPending(json.error.items as Approval[]??[]);setNotice("需要主管核准")}
@@ -208,14 +209,14 @@ export function HrRosterPanel() {
     <tbody>{shownEmployees.map((staff,i)=><tr key={staff.id}>
      <td>{staff.job_title_name??"未設定"}</td><th scope="row">{staff.name}</th>
      {dates.map(d=>{const value=staged.get(staff.id+"|"+d),form=data.leaveForms.find(x=>x.employee_id===staff.id&&x.work_date===d&&x.whole_day===1),partial=data.leaveForms.filter(x=>x.employee_id===staff.id&&x.work_date===d&&x.whole_day===0),bad=shown.some(x=>x.employeeId===staff.id&&x.dates.includes(d)),sixth=data.classification[String(staff.id)]?.sixthDays.includes(d);
-      return <td key={d} className={dayClass(d)+(bad?"hr-invalid ":"")+(sixth?"hr-sixth ":"")+(value?.kind==="off"&&value.off_mark!=="x"?"hr-roster-off":"")}>
+      return <td key={d} className={dayClass(d)+(bad?"hr-invalid ":"")+(sixth?"hr-sixth ":"")+(value?.kind==="leave"||value?.kind==="off"&&value.off_mark!=="x"?"hr-roster-off":"")}>
        <button type="button" title={value?.kind==="leave"&&!form&&data.leaveTypes.find(x=>x.id===value.leave_type_id)?.code!=="國"?"尚未補假單":form?"已完成假單":""} id={"hr-roster-"+staff.id+"-"+d} disabled={loading} className={"hr-roster-cell no-print "+(value?.kind==="leave"&&!form&&data.leaveTypes.find(x=>x.id===value.leave_type_id)?.code!=="國"?"hr-leave-pending":"")} onClick={()=>open(staff.id,d)} onKeyDown={e=>keyDown(e,staff,d)} aria-label={staff.name+" "+d}>{staff.schedule_mode==="none"&&value?.kind!=="off"?(data.actualHours[String(staff.id)]?.[d]?.toFixed(1)??""):label(value,staff,d)}{value?.marker?<small>{value.marker==="home"?"居":"擺攤"}</small>:null}{partial.map(x=><small key={x.batch_id}>{x.code+(x.minutes/60)}</small>)}</button>
        <span className="print-only">{partial.map(x=>x.code+(x.minutes/60)).join(" ")}{staff.schedule_mode==="none"&&value?.kind!=="off"?(data.actualHours[String(staff.id)]?.[d]?.toFixed(1)??""):label(value,staff,d)}</span></td>})}
-     <td>{staff.schedule_mode==="hours"||staff.schedule_mode==="none"?"合計 "+dates.reduce((sum,d)=>sum+(staff.schedule_mode==="none"?(data.actualHours[String(staff.id)]?.[d]??0):(staged.get(staff.id+"|"+d)?.hours??0)),0).toFixed(1)+"h":""}</td>
+     <td className="hr-person-note">{staff.schedule_mode==="hours"||staff.schedule_mode==="none"?"合計 "+dates.reduce((sum,d)=>sum+(staff.schedule_mode==="none"?(data.actualHours[String(staff.id)]?.[d]??0):(staged.get(staff.id+"|"+d)?.hours??0)),0).toFixed(1)+"h":""}<input className="cy-sheet-input no-print" aria-label={staff.name+"本月備註"} disabled={loading} maxLength={500} value={employeeNotes[String(staff.id)]??""} onChange={e=>setEmployeeNotes(old=>({...old,[String(staff.id)]:e.target.value}))}/><span className="print-only">{employeeNotes[String(staff.id)]??""}</span></td>
     </tr>)}
     <tr className="hr-staffing"><th colSpan={2}>每日人力</th>{dates.map(d=><td key={d} className={dayClass(d)}>{Object.entries(data.staffing[d]??{}).map(([k,v])=>k+v).join(" ")}</td>)}<td/></tr>
-    <tr><th colSpan={2}>備註</th><td colSpan={dates.length+1} className="hr-sheet-cell"><textarea disabled={loading} className="cy-sheet-input no-print" value={notes} onChange={e=>setNotes(e.target.value)}/><span className="print-only">{notes}</span></td></tr>
-    <tr><th colSpan={2}>注意事項</th><td colSpan={dates.length+1} className="hr-sheet-cell"><textarea disabled={loading} className="cy-sheet-input no-print" value={rules} onChange={e=>setRules(e.target.value)}/><span className="print-only">{rules}</span></td></tr></tbody></table></div>
+    <tr><th colSpan={2}>備註</th><td colSpan={dates.length+1} className="hr-sheet-cell"><div className="hr-roster-notes-grid">{noteItems.map((item,i)=><div className="hr-roster-note-item" key={i}><span>{i+1}.</span>{item.prefix!==null?<span>{item.prefix}</span>:null}<input className="cy-sheet-input no-print" disabled={loading} aria-label={"備註 "+(i+1)} maxLength={MAX_ROSTER_NOTE_LENGTH} value={item.text} onChange={e=>setNoteItems(old=>old.map((x,j)=>j===i?{...x,text:e.target.value}:x))}/><span className="print-only">{item.text}</span>{item.prefix===null?<button type="button" className="cy-op-button compact no-print" aria-label={"移除備註 "+(i+1)} disabled={loading} onClick={()=>setNoteItems(old=>old.filter((_,j)=>j!==i))}>×</button>:null}</div>)}</div>{noteItems.length<MAX_ROSTER_NOTES?<button type="button" className="cy-op-button compact no-print hr-note-add" disabled={loading} onClick={()=>setNoteItems(old=>[...old,{prefix:null,text:""}])}>＋ 新增備註</button>:null}{data.legacyNotes?<div className="hr-legacy-notes">{data.legacyNotes}</div>:null}</td></tr>
+    <tr><th colSpan={2}>注意事項</th><td colSpan={dates.length+1} className="hr-sheet-cell"><div className="hr-roster-rules">{data.rules}</div></td></tr></tbody></table></div>
    {compAlerts.length?<div className="cy-op-panel no-print hr-comp-alerts"><h3>補休提醒</h3>{compAlerts.map(x=><p key={x}>{x}</p>)}</div>:null}
    {shown.length?<div className="cy-op-panel no-print"><h3>違規清單</h3>{shown.map((x,i)=><p key={i}>{data.employees.find(e=>e.id===x.employeeId)?.name??""}　{x.from}～{x.to}：{x.message}</p>)}</div>:null}
    {pending.length?<div className="cy-op-panel no-print"><h3>主管核准</h3>{pending.map((x,i)=><p key={i}>{data.employees.find(e=>e.id===x.employeeId)?.name??x.employeeId}　{x.startDate}～{x.endDate}　{x.kind==="over_eight"?"兼職超過八小時":"連六"}。{x.suggestion}</p>)}
@@ -224,8 +225,9 @@ export function HrRosterPanel() {
   <Dialog open={cell!==null} title={emp&&cell?<span className="hr-cell-title"><span>{emp.name}</span><MonthPicker precision="day" value={cell.date} min={dates[0]} max={dates[dates.length-1]} onChange={navigateCell}/></span>:"排班格"} size="small" className="hr-cell-dialog" onClose={()=>setCell(null)}
    footer={<div className="hr-cell-actions"><button type="button" className="cy-op-button" onClick={clearCell}>清除</button><button type="submit" form="hr-roster-cell-form" className="cy-op-button" disabled={!validChoice}>套用</button><button type="button" className="cy-op-button primary" disabled={!validChoice||cellIndex>=dates.length-1} onClick={()=>applyCell(true)}>套用並下一格</button></div>}>
    {cell&&emp&&data?<form id="hr-roster-cell-form" onKeyDown={enterAdvancesFields} className="cy-op-form hr-cell-form" onSubmit={e=>{e.preventDefault();applyCell()}}>
-    {emp.schedule_mode==="shift"?<section aria-label="班別"><h3>班別</h3><div className="hr-cell-choices">
-     {data.shifts.filter(x=>x.is_active).map(x=>{const selected=choice?.kind==="shift"&&choice.shiftTypeId===x.id;return <button type="button" key={x.id} aria-pressed={selected} className={"cy-op-button compact"+(selected?" primary":"")} onClick={()=>setChoice({kind:"shift",shiftTypeId:x.id})}>{x.name}</button>})}
+    {emp.schedule_mode==="shift"||emp.employment_type==="casual"?<section aria-label="班別"><h3>班別</h3><div className="hr-cell-choices">
+     {emp.schedule_mode==="shift"?data.shifts.filter(x=>x.is_active).map(x=>{const selected=choice?.kind==="shift"&&choice.shiftTypeId===x.id;return <button type="button" key={x.id} aria-pressed={selected} className={"cy-op-button compact"+(selected?" primary":"")} onClick={()=>setChoice({kind:"shift",shiftTypeId:x.id})}>{x.name}</button>}):null}
+      {emp.employment_type==="casual"?<button type="button" aria-pressed={choice?.kind==="off"&&choice.offMark==="x"} className={"cy-op-button compact"+(choice?.kind==="off"&&choice.offMark==="x"?" primary":"")} onClick={()=>setChoice({kind:"off",offMark:"x"})}>不用來</button>:null}
     </div></section>:null}
     {emp.schedule_mode==="hours"?<Field label="排定時數" size="l"><input className="cy-op-input" type="number" step=".25" min=".25" max="24" value={hours} onChange={e=>{setHours(e.target.value);setChoice({kind:"hours"})}}/></Field>:null}
     <section aria-label="休假／請假"><h3>休假／請假</h3>
@@ -237,7 +239,7 @@ export function HrRosterPanel() {
        </div>
        {otherLeaves.length>0?<ExpandToggle variant="down" expanded={showAllLeave} label="其他假別" onToggle={()=>setShowAllLeave(v=>!v)}/>:null}
       </>:null}
-      {emp.employment_type==="casual"?<button type="button" aria-pressed={choice?.kind==="off"&&choice.offMark==="x"} className={"cy-op-button compact"+(choice?.kind==="off"&&choice.offMark==="x"?" primary":"")} onClick={()=>setChoice({kind:"off",offMark:"x"})}>不用來</button>:null}
+
      </div>
      {emp.schedule_mode!=="none"&&showAllLeave?<div id="hr-roster-other-leaves" className="hr-cell-choices">{otherLeaves.map(x=>leaveButton(x))}</div>:null}
      {emp.schedule_mode!=="none"&&choice?.kind==="leave"&&!showAllLeave?otherLeaves.filter(x=>x.id===choice.leaveTypeId).map(x=>leaveButton(x)):null}

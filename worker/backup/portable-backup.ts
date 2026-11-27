@@ -9,7 +9,7 @@ export const BACKUP_TABLES = Object.keys(BACKUP_COLUMNS).sort();
  * The latest migration in migrations/ (file name without .sql). Bump it with every migration; a test
  * keeps it in step. A backup records it, and a restore maps its data by table and column name.
  */
-export const CURRENT_MIGRATION = "0086_hr_holiday_note";
+export const CURRENT_MIGRATION = "0087_hr_roster_text";
 /**
  * Only for a migration that changes what existing data means (moves, renames, drops or recomputes
  * values). New tables, new columns with a default, new indexes and wider checks need nothing here:
@@ -191,6 +191,14 @@ const UPGRADES: { migration: string; apply: (data: Data) => void }[] = [
     }
   } },
   { migration: "0083_hr_current_values", apply: upgradeHrCurrentValues },
+  { migration: "0087_hr_roster_text", apply: data=>{
+    if(data.tables.hr_roster_text_defaults)return;
+    const stores=data.tables.hr_stores, rows:Cell[][]=[];
+    if(stores){const id=stores.columns.indexOf("id"),rule=stores.columns.indexOf("rules_template"),at=stores.columns.indexOf("updated_at");
+     if(id>=0&&rule>=0&&at>=0)for(const r of stores.rows)if(typeof r[rule]==="string"&&String(r[rule]).trim())rows.push([rows.length+1,"rule",JSON.stringify([r[id]]),r[rule],r[at]]);
+    }
+    data.tables.hr_roster_text_defaults={columns:[...BACKUP_COLUMNS.hr_roster_text_defaults],rows};
+  } },
 ];
 // Operational queue, heartbeat and revocable credential hashes are intentionally
 // excluded from durable backup (also the ERP 關閉／暫停 request and BOT ingest token).

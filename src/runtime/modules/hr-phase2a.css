@@ -109,3 +109,13 @@ td.hr-sheet-cell>textarea.cy-sheet-input{min-height:64px}
 /* National holidays take priority over weekend shading, including the staffing row. */
 .hr-roster-table th.hr-national-holiday,.hr-roster-table td.hr-national-holiday{background-color:color-mix(in srgb,#e879a3 22%,var(--cy-surface));color:var(--cy-text)}
 @media print{.hr-roster-table th.hr-national-holiday,.hr-roster-table td.hr-national-holiday{background-color:#fbe2eb!important;color:#000!important;print-color-adjust:exact;-webkit-print-color-adjust:exact}}
+
+.hr-roster-table .hr-roster-notes-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));grid-auto-rows:minmax(26px,auto);gap:0 14px;padding:4px 8px;text-align:left}
+.hr-roster-note-item{display:flex;align-items:center;gap:4px;min-width:0;white-space:nowrap;overflow:hidden}
+.hr-roster-note-item input{flex:1;min-width:0;width:0;padding:2px 4px;border:0;background:transparent;font:inherit}
+.hr-roster-note-item .print-only{white-space:normal;overflow-wrap:anywhere}
+.hr-note-add{margin:2px 8px;float:left}
+.hr-roster-rules,.hr-legacy-notes{padding:6px 8px;white-space:pre-wrap;text-align:left}
+.hr-person-note input{width:100%;min-width:0;box-sizing:border-box;border:0;background:transparent;font:inherit;padding:3px;text-align:left}
+.hr-person-note .print-only{white-space:pre-wrap;overflow-wrap:anywhere}
+@media print{.hr-roster-note-item{white-space:normal;align-items:flex-start}.hr-roster-note-item input,.hr-person-note input{display:none!important}.hr-roster-notes-grid{gap:0 10px}}

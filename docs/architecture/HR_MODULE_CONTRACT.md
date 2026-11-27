@@ -160,3 +160,6 @@ V0.26.0 員工紀錄卡新增獎金，狀態異動移到年資不計左方、寬
 
 ### V0.30.6 設定排序與國定假日備註
 門市、職稱、班別 PUT `{ids:number[]}` 接收全清單唯一 ID 排列（含停用），依序寫入 sort_order 1..N，整批與稽核同一 D1 batch；不改其他設定欄位。國定假日新增 note（0086，既有資料預設空字串）。班表設定捷徑直接開該年國定假日頁；設定事件刷新假日，不清空排班草稿。
+
+### 排班預設文字與月表文字（0087）
+`GET/POST/PATCH/DELETE /settings/roster-text`：kind note/rule、text、storeIds（非空且唯一）；每門市最多六項 note。月表 GET 提供 noteItems（prefix 固定或 null、text 可填）、rules 唯讀、employeeNotes、legacyNotes；PUT noteItems 驗證固定前綴與六項上限，employeeNotes 僅接受本門市成員的變更，禁止直接修改 rules 或舊 notes。第一次月表儲存建立範本快照；既有月表歷史內容保留。原門市 rules_template 遷移為 rule，舊備份同步升級。

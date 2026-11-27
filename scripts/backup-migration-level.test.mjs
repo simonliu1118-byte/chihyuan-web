@@ -101,3 +101,17 @@ test('holiday note round trip and 0085 legacy backup default',async()=>{
   assert.equal(row.name,'合成假日');assert.equal(row.note,'');
  }finally{source.sql.close();target.sql.close();legacyTarget.sql.close()}
 });
+
+test('0087 roster text defaults and old store rule templates restore',async()=>{
+ const source=connection(),target=connection(),legacy=connection();
+ try{
+  source.sql.prepare("UPDATE hr_stores SET rules_template=? WHERE id=1").run("合成舊注意事項");
+  source.sql.prepare("INSERT INTO hr_roster_text_defaults(kind,text,store_ids_json,updated_at) VALUES('note','月會:', '[1]',?)").run(now);
+  const bundle=await exportPortableBackup(source.db,scope);
+  await restoreIntoEmptyDatabase(target.db,bundle,'synthetic');
+  assert.equal(target.sql.prepare("SELECT text FROM hr_roster_text_defaults WHERE kind='note'").get().text,'月會:');
+  const old=edited(bundle,(d,m)=>{m.schemaMigration='0086_hr_holiday_note';delete d.tables.hr_roster_text_defaults;dropColumn(d.tables.hr_schedule_months,'note_items_json');dropColumn(d.tables.hr_schedule_months,'employee_notes_json')});
+  await restoreIntoEmptyDatabase(legacy.db,old,'synthetic');
+  assert.equal(legacy.sql.prepare("SELECT text FROM hr_roster_text_defaults WHERE kind='rule'").get().text,'合成舊注意事項');
+ }finally{source.sql.close();target.sql.close();legacy.sql.close()}
+});

@@ -54,7 +54,7 @@ test('RecordRows honours the shared grid and column spans',()=>{
 test('education 備註: migration 0084, saved and returned, 200-character limit, optional',async t=>{
  const names=readdirSync(new URL('../migrations/',import.meta.url));assert.ok(names.includes('0084_hr_education_note.sql'));
  assert.match(read('migrations/0084_hr_education_note.sql'),/ALTER TABLE hr_education ADD COLUMN note TEXT;/);
- assert.equal(CURRENT_MIGRATION,'0086_hr_holiday_note');
+ assert.equal(CURRENT_MIGRATION,'0087_hr_roster_text');
  const f=botCenterFixture();t.after(()=>f.sql.close());
  assert.ok(f.sql.prepare('PRAGMA table_info(hr_education)').all().some(c=>c.name==='note'&&c.notnull===0));
  const edu=[{school:'合成大學',department:'合成系',startMonth:'2010/09',endMonth:'2014/06',note:'學士，輔系'},{school:'合成高中',department:'',startMonth:'',endMonth:''}];
@@ -70,7 +70,7 @@ test('education 備註 survives backup and restore; a pre-0084 backup (no note c
  const f=botCenterFixture(),target=botCenterFixture('SUPER_ADMIN',false,{seedMember:false}),older=botCenterFixture('SUPER_ADMIN',false,{seedMember:false});t.after(()=>{f.sql.close();target.sql.close();older.sql.close()});
  const {id}=await created(f,{education:[{school:'合成大學',department:'合成系',startMonth:'2010/09',endMonth:'2014/06',note:'學士'}]});
  const bundle=await exportPortableBackup(f.db,{workspaceScope:'synthetic',appVersion:'0.29.2'});
- assert.equal(JSON.parse(new TextDecoder().decode(bundle.manifestBytes)).schemaMigration,'0086_hr_holiday_note');
+ assert.equal(JSON.parse(new TextDecoder().decode(bundle.manifestBytes)).schemaMigration,'0087_hr_roster_text');
  await restoreIntoEmptyDatabase(target.db,bundle,'synthetic');
  assert.deepEqual(target.sql.prepare('SELECT * FROM hr_education').all(),f.sql.prepare('SELECT * FROM hr_education').all());
  assert.equal(target.sql.prepare('SELECT note FROM hr_education WHERE employee_id=?').get(id).note,'學士');
@@ -193,7 +193,7 @@ test("roster draft off classification and repeat choice retain existing next cel
  assert.match(roster,/if\(staff.skip_roster_checks===1\)return ""/);
  assert.match(roster,/classified==="regular_off"\?"例":classified==="rest_day"\?"休":""/);
  assert.match(roster,/classificationMonth:data.month/);
- assert.match(roster,/value\?\.kind==="off"&&value.off_mark!=="x"\?"hr-roster-off"/);
+ assert.match(roster,/value\?\.kind==="leave"\|\|value\?\.kind==="off"&&value.off_mark!=="x"\?"hr-roster-off"/);
  assert.match(css,/\.hr-cell-actions\{display:flex;justify-content:flex-end/);
  assert.match(css,/\.hr-cell-leave-row \.cy-expand-toggle\{margin-left:auto\}/);
  assert.match(css,/linear-gradient\(to top right/);
@@ -224,4 +224,18 @@ test("roster holiday columns, center alignment and settings shortcut",()=>{
  assert.match(settings,/<ReorderHandle/);
  assert.match(settings,/<th className="cy-hrs-seq">項次<\/th><th>名稱<\/th><th className="cy-hrs-date">日期<\/th><th>備註<\/th>/);
  assert.match(read("src/runtime/modules/HrPayrollSettings.tsx"),/formatDateTime\(s.checked_at\)/);
+});
+
+test("roster text settings, monthly notes and every leave diagonal",()=>{
+ const ui=read("src/runtime/modules/HrRosterPanel.tsx"),css=read("src/runtime/modules/hr-phase2a.css");
+ assert.match(ui,/value\?\.kind==="leave"\|\|value\?\.kind==="off"&&value.off_mark!=="x"/);
+ assert.match(ui,/"國":"國定假日"/);
+ assert.ok(ui.indexOf(">不用來</button>")<ui.indexOf('<section aria-label="休假／請假">'));
+ assert.match(ui,/noteItems.length<MAX_ROSTER_NOTES/);
+ assert.match(ui,/item.prefix===null\?<button/);
+ assert.match(ui,/className="hr-roster-rules">\{data.rules\}/);
+ assert.match(ui,/staff.name\+"本月備註"/);
+ assert.match(css,/grid-template-columns:repeat\(2,minmax\(0,1fr\)\)/);
+ assert.match(read("src/runtime/modules/HrSettingsButton.tsx"),/label:"預設文字"/);
+ assert.match(read("src/runtime/modules/HrRosterTextSettings.tsx"),/storeIds.includes\(s.id\)/);
 });
