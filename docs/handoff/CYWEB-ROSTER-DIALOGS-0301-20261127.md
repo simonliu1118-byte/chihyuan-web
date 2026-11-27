@@ -10,3 +10,7 @@
 - 驗證證據：[Runtime Check](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/45982829757)、[Governance Check](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/45982830206)、[Deployment Contract](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/45982829580)。合併前仍須核對必要檢查成功；不得把尚在執行的工作視為通過。
 - 事後審查重點：實際桌機／手機視窗寬度與版面、拖拉及方向鍵同職稱排序、取消不寫入、批次儲存失敗不清除草稿、班別及假別選擇與註記備註一併套用、既有假單流程、共用設定清單排序不退化。正式站健康檢查與實際使用者流程分開記錄。
 - Claude 事後審查：待填，不預填通過。
+
+## CI 返修
+- [第一次完整回歸](https://github.com/simonliu1118-byte/chihyuan-web/actions/runs/45982988580) 的唯一失敗為 `hr-personnel.test.mjs` 既有單人 staff PATCH 呼叫；舊版網頁也可能仍開啟。保留既有單人請求相容性，轉換為單一元素陣列，與新批次請求共用驗證／audit／D1 batch，不建立第二套流程。
+- 既有單人回歸測試及新增批次驗收均保留，待本次 CI 結果。
