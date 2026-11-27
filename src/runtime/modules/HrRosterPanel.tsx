@@ -8,7 +8,8 @@ import {apiRequest} from "../../api/client";
 import {taipeiToday} from "../../../shared/erp-query-history";
 import {useUnsavedChangesGuard} from "../../ui/foundation/useUnsavedChangesGuard";
 import {Dialog} from "../../ui/overlays/Dialog";
-import {EntryFields} from "../../ui/forms/EntryFields";
+import {IconButton} from "../../ui/actions/IconButton";
+import {Icons} from "../../ui/actions/icons";
 import {ReorderHandle} from "../../ui/actions/ReorderHandle";
 import {enterAdvancesFields} from "../../ui/foundation/enter-advance";
 import {useConfirmation} from "../../ui/overlays/useConfirmation";
@@ -33,10 +34,11 @@ export function HrRosterPanel() {
  const [notes,setNotes]=useState(""),[rules,setRules]=useState(""),[loading,setLoading]=useState(false);
  const [error,setError]=useState(""),[notice,setNotice]=useState(""),[violations,setViolations]=useState<(RosterViolation&{employeeId:number})[]>([]);
  const [pending,setPending]=useState<Approval[]>([]);
- const [cell,setCell]=useState<{employeeId:number;date:string}|null>(null),[hours,setHours]=useState(""),[marker,setMarker]=useState(""),[note,setNote]=useState(""),[showAllLeave,setShowAllLeave]=useState(false);
+ const [cell,setCell]=useState<{employeeId:number;date:string}|null>(null),[hours,setHours]=useState(""),[note,setNote]=useState(""),[showAllLeave,setShowAllLeave]=useState(false);
  const [staff,setStaff]=useState<Staff[]|null>(null);
  const [staffError,setStaffError]=useState("");
  const [choice,setChoice]=useState<(Pick<Change,"kind"> & Partial<Change>)|null>(null);
+ const [restChoice,setRestChoice]=useState<"regular"|"rest">("rest");
  const draggingStaff=useRef<number|null>(null);
  const [leaveDialogPerson,setLeaveDialogPerson]=useState<LeavePerson|null>(null);
  const [formalLeaveTypes,setFormalLeaveTypes]=useState<LeaveTypeOption[]>([]);
@@ -76,11 +78,26 @@ export function HrRosterPanel() {
  }return result},[originals,changes]);
  const emp=data?.employees.find(x=>x.id===cell?.employeeId);
  function edit(x:Change){setChanges(old=>({...old,[x.employeeId+"|"+x.date]:x}));setCell(null);setPending([]);setViolations([]);}
- function open(id:number,d:string){const x=staged.get(id+"|"+d);setCell({employeeId:id,date:d});setHours(String(x?.hours??""));setMarker(x?.marker??"");setNote(x?.note??"");setShowAllLeave(false);
+ function open(id:number,d:string){const x=staged.get(id+"|"+d);setCell({employeeId:id,date:d});setHours(String(x?.hours??""));setNote(x?.note??"");setShowAllLeave(false);
+  setRestChoice(data?.classification[String(id)]?.labels[d]==="regular_off"?"regular":"rest");
   setChoice(x?{kind:x.kind as Change["kind"],shiftTypeId:x.shift_type_id??undefined,leaveTypeId:x.leave_type_id??undefined,offMark:x.off_mark??undefined}:null);
  }
  const validChoice=!!choice&&(choice.kind!=="hours"||(Number(hours)>0&&Number(hours)<=24&&Number(hours)*4===Math.trunc(Number(hours)*4)));
- function applyCell(){if(!cell||!choice||!validChoice)return;edit({employeeId:cell.employeeId,date:cell.date,...choice,kind:choice.kind,note:choice.kind===null?"":note,marker:choice.kind==="off"||choice.kind===null?undefined:marker||undefined,...(choice.kind==="hours"?{hours:Number(hours)}:{})})}
+ const cellIndex=cell?dates.indexOf(cell.date):-1;
+ function navigateCell(offset:number){if(!cell)return;const target=dates[cellIndex+offset];if(target)open(cell.employeeId,target)}
+ function applyCell(next=false){
+  if(!cell||!choice||!validChoice)return;
+  const current=staged.get(cell.employeeId+"|"+cell.date);
+  edit({employeeId:cell.employeeId,date:cell.date,...choice,kind:choice.kind,note:choice.kind===null?"":note,marker:choice.kind==="off"||choice.kind===null?undefined:current?.marker??undefined,...(choice.kind==="hours"?{hours:Number(hours)}:{})});
+  if(next&&dates[cellIndex+1])open(cell.employeeId,dates[cellIndex+1]);
+ }
+ function clearCell(){if(cell)edit({employeeId:cell.employeeId,date:cell.date,kind:null})}
+ const commonLeaveLabels:Record<string,string>={"特":"特休","事":"事假","病":"病假","補":"補休"};
+ const commonLeaves=["特","事","病","補"].flatMap(code=>{const item=data?.leaveTypes.find(x=>x.is_active&&x.code===code);return item?[item]:[]});
+ const otherLeaves=(data?.leaveTypes??[]).filter(x=>x.is_active&&!commonLeaveLabels[x.code]);
+ function leaveButton(x:Leave,short=false){const selected=choice?.kind==="leave"&&choice.leaveTypeId===x.id;
+  return <button type="button" key={x.id} aria-pressed={selected} className={"cy-op-button compact"+(selected?" primary":"")} onClick={()=>setChoice({kind:"leave",leaveTypeId:x.id})}>{short?commonLeaveLabels[x.code]:x.name}</button>
+ }
  function moveStaff(id:number,target:number){
   setStaff(old=>{if(!old||id===target)return old;const from=old.findIndex(x=>x.id===id),to=old.findIndex(x=>x.id===target);
    if(from<0||to<0||old[from].job_title_id!==old[to].job_title_id)return old;
@@ -174,56 +191,54 @@ export function HrRosterPanel() {
    {pending.length?<div className="cy-op-panel no-print"><h3>主管核准</h3>{pending.map((x,i)=><p key={i}>{data.employees.find(e=>e.id===x.employeeId)?.name??x.employeeId}　{x.startDate}～{x.endDate}　{x.kind==="over_eight"?"兼職超過八小時":"連六"}。{x.suggestion}</p>)}
     <button type="button" className="cy-op-button primary" disabled={loading} onClick={()=>void submit(pending)}>核准並儲存</button></div>:null}
   </>:<p>正在讀取排班…</p>}
-  <Dialog open={cell!==null} title={emp?emp.name+"　"+cell?.date?.replaceAll("-","/"):"排班格"} size="medium" onClose={()=>setCell(null)}
-   footer={<><button type="button" className="cy-op-button" onClick={()=>setCell(null)}>取消</button><button type="submit" form="hr-roster-cell-form" className="cy-op-button primary" disabled={!validChoice}>套用</button></>}>
-   {cell&&emp&&data?<form id="hr-roster-cell-form" onKeyDown={enterAdvancesFields} className="cy-op-form" onSubmit={e=>{e.preventDefault();applyCell()}}>
-    <EntryFields columns={1} label="排班格編輯" rows={[
-     ...(emp.schedule_mode==="shift"?[{label:"班別",content:<div className="hr-cell-choices">
-       {data.shifts.filter(x=>x.is_active).map(x=>{const selected=choice?.kind==="shift"&&choice.shiftTypeId===x.id;return <button type="button" key={x.id} aria-pressed={selected} className={"cy-op-button"+(selected?" primary":"")} onClick={()=>setChoice({kind:"shift",shiftTypeId:x.id})}>{x.name}</button>})}
-      </div>}]:[]),
-     ...(emp.schedule_mode==="hours"?[{label:"排定時數",content:<input className="cy-sheet-input" type="number" step=".25" min=".25" max="24" value={hours} onChange={e=>{setHours(e.target.value);setChoice({kind:"hours"})}}/>}]:[]),
-     {label:"例休",content:<div className="hr-cell-choices">
-       {emp.schedule_mode!=="none"?<button type="button" aria-pressed={choice?.kind==="off"&&choice.offMark==="slash"} className={"cy-op-button"+(choice?.kind==="off"&&choice.offMark==="slash"?" primary":"")} onClick={()=>setChoice({kind:"off",offMark:"slash"})}>例休日</button>:null}
-       {emp.employment_type==="casual"?<button type="button" aria-pressed={choice?.kind==="off"&&choice.offMark==="x"} className={"cy-op-button"+(choice?.kind==="off"&&choice.offMark==="x"?" primary":"")} onClick={()=>setChoice({kind:"off",offMark:"x"})}>不用來</button>:null}
-       <button type="button" aria-pressed={choice?.kind===null} className={"cy-op-button"+(choice?.kind===null?" primary":"")} onClick={()=>setChoice({kind:null})}>清除排班</button>
-      </div>},
-     ...(emp.schedule_mode!=="none"?[
-       {label:"假別",content:<div className="hr-cell-choices">
-        {data.leaveTypes.filter(x=>x.is_active&&(showAllLeave||["特","事","病","補"].includes(x.code)||(choice?.kind==="leave"&&choice.leaveTypeId===x.id))).map(x=>{
-         const selected=choice?.kind==="leave"&&choice.leaveTypeId===x.id;
-         return <button type="button" key={x.id} aria-pressed={selected} className={"cy-op-button"+(selected?" primary":"")} onClick={()=>setChoice({kind:"leave",leaveTypeId:x.id})}>{x.name}</button>})}
-        <button type="button" className="cy-op-button soft" aria-expanded={showAllLeave} onClick={()=>setShowAllLeave(x=>!x)}>{showAllLeave?"收合假別":"更多假別"}</button>
-       </div>},
-       {label:"註記",content:<select className="cy-sheet-input" value={marker} disabled={choice?.kind==="off"||choice?.kind===null} onChange={e=>setMarker(e.target.value)}>
-        <option value="">無</option><option value="home">居家工作</option><option value="booth">擺攤</option>
-       </select>},
-       {label:"備註",content:<input className="cy-sheet-input" value={note} disabled={choice?.kind===null} onChange={e=>setNote(e.target.value)}/>}
-      ]:[]),
-     ...(staged.get(cell.employeeId+"|"+cell.date)?.kind==="leave"?[{label:"假單",content:<button type="button" className="cy-op-button soft" onClick={()=>{
-        setLeaveInitialDate(cell.date);
-        const existing=data.leaveForms.find(x=>x.employee_id===cell.employeeId&&x.work_date===cell.date&&x.whole_day===1);
-        setCompletedLeave(existing?{batchId:existing.batch_id,date:existing.work_date,code:existing.code,minutes:existing.minutes}:null);
-        setLeaveDialogPerson({id:emp.id,name:emp.name,employee_no:emp.employee_no,employment_type:emp.employment_type});setCell(null);
-       }}>{data.leaveForms.some(x=>x.employee_id===cell.employeeId&&x.work_date===cell.date)?"查看／補填假單":"補假單"}</button>}]:[])
-    ]}/>
+  <Dialog open={cell!==null} title={emp&&cell?<span className="hr-cell-title"><span>{emp.name}</span><span className="hr-cell-date">
+    <IconButton icon={Icons.chevronLeft} label="上一日（不套用目前選擇）" disabled={cellIndex<=0} onClick={()=>navigateCell(-1)}/>
+    <span>{cell.date.replaceAll("-","/")}</span><IconButton icon={Icons.chevronRight} label="下一日（不套用目前選擇）" disabled={cellIndex>=dates.length-1} onClick={()=>navigateCell(1)}/>
+   </span></span>:"排班格"} size="small" className="hr-cell-dialog" onClose={()=>setCell(null)}
+   footer={<><button type="button" className="cy-op-button" onClick={clearCell}>清除</button><button type="submit" form="hr-roster-cell-form" className="cy-op-button" disabled={!validChoice}>套用</button><button type="button" className="cy-op-button primary" disabled={!validChoice||cellIndex>=dates.length-1} onClick={()=>applyCell(true)}>套用並下一格</button></>}>
+   {cell&&emp&&data?<form id="hr-roster-cell-form" onKeyDown={enterAdvancesFields} className="cy-op-form hr-cell-form" onSubmit={e=>{e.preventDefault();applyCell()}}>
+    {emp.schedule_mode==="shift"?<section aria-label="班別"><h3>班別</h3><div className="hr-cell-choices">
+     {data.shifts.filter(x=>x.is_active).map(x=>{const selected=choice?.kind==="shift"&&choice.shiftTypeId===x.id;return <button type="button" key={x.id} aria-pressed={selected} className={"cy-op-button compact"+(selected?" primary":"")} onClick={()=>setChoice({kind:"shift",shiftTypeId:x.id})}>{x.name}</button>})}
+    </div></section>:null}
+    {emp.schedule_mode==="hours"?<Field label="排定時數" size="l"><input className="cy-op-input" type="number" step=".25" min=".25" max="24" value={hours} onChange={e=>{setHours(e.target.value);setChoice({kind:"hours"})}}/></Field>:null}
+    <section aria-label="休假／請假"><h3>休假／請假</h3>
+     <div className="hr-cell-choices">
+      {emp.schedule_mode!=="none"?<>
+       {(["regular","rest"] as const).map(value=>{const selected=choice?.kind==="off"&&choice.offMark==="slash"&&restChoice===value;return <button type="button" key={value} aria-pressed={selected} className={"cy-op-button compact"+(selected?" primary":"")} title="例假與休假由系統依週期判定" onClick={()=>{setRestChoice(value);setChoice({kind:"off",offMark:"slash"})}}>{value==="regular"?"例假日":"休假日"}</button>})}
+       {commonLeaves.map(x=>leaveButton(x,true))}
+       {otherLeaves.length>0?<IconButton icon={showAllLeave?Icons.triangleUp:Icons.triangleDown} label={showAllLeave?"收合其他假別":"展開其他假別"} expanded={showAllLeave} controls="hr-roster-other-leaves" onClick={()=>setShowAllLeave(v=>!v)}/>:null}
+      </>:null}
+      {emp.employment_type==="casual"?<button type="button" aria-pressed={choice?.kind==="off"&&choice.offMark==="x"} className={"cy-op-button compact"+(choice?.kind==="off"&&choice.offMark==="x"?" primary":"")} onClick={()=>setChoice({kind:"off",offMark:"x"})}>不用來</button>:null}
+     </div>
+     {emp.schedule_mode!=="none"&&showAllLeave?<div id="hr-roster-other-leaves" className="hr-cell-choices">{otherLeaves.map(x=>leaveButton(x))}</div>:null}
+     {emp.schedule_mode!=="none"&&choice?.kind==="leave"&&!showAllLeave?otherLeaves.filter(x=>x.id===choice.leaveTypeId).map(x=>leaveButton(x)):null}
+     {emp.schedule_mode!=="none"&&choice?.kind==="off"&&choice.offMark==="slash"?<p className="hr-cell-hint">例假、休假由系統判定</p>:null}
+    </section>
+    {emp.schedule_mode!=="none"?<div className="hr-cell-note"><Field label="備註" size="l"><input className="cy-op-input" value={note} maxLength={500} onChange={e=>setNote(e.target.value)}/></Field></div>:null}
+    {staged.get(cell.employeeId+"|"+cell.date)?.kind==="leave"?<button type="button" className="cy-op-button soft compact" onClick={()=>{
+     setLeaveInitialDate(cell.date);
+     const existing=data.leaveForms.find(x=>x.employee_id===cell.employeeId&&x.work_date===cell.date&&x.whole_day===1);
+     setCompletedLeave(existing?{batchId:existing.batch_id,date:existing.work_date,code:existing.code,minutes:existing.minutes}:null);
+     setLeaveDialogPerson({id:emp.id,name:emp.name,employee_no:emp.employee_no,employment_type:emp.employment_type});setCell(null);
+    }}>{data.leaveForms.some(x=>x.employee_id===cell.employeeId&&x.work_date===cell.date)?"查看／補填假單":"補假單"}</button>:null}
    </form>:null}
   </Dialog>
   <Dialog dismissible={!loading} open={staff!==null} title="門市人員設定" size="medium" onClose={closeStaff}
    footer={<><button type="button" className="cy-op-button" disabled={loading} onClick={closeStaff}>取消</button><button type="submit" form="hr-roster-staff-form" className="cy-op-button primary" disabled={loading}>儲存</button></>}>
    {staff?<form id="hr-roster-staff-form" className="cy-op-form cy-hr-staff-form" onKeyDown={enterAdvancesFields} onSubmit={e=>{e.preventDefault();void saveStaff()}}>
     {staffError?<p role="alert" className="cy-notice cy-notice-danger">{staffError}</p>:null}
-    <EntryTable label="門市人員設定"><colgroup><col className="hr-staff-grip"/><col className="hr-staff-number"/><col/><col className="hr-staff-rule"/></colgroup>
-     <thead><tr><th><span className="cy-visually-hidden">拖拉排序</span></th><th>員工編號</th><th>姓名</th><th>排班規則</th></tr></thead><tbody>{staff.map(x=>{
+    <EntryTable label="門市人員設定"><colgroup><col className="hr-staff-grip"/><col className="hr-staff-number"/><col/><col className="hr-staff-role"/><col className="hr-staff-rule"/></colgroup>
+     <thead><tr><th className="hr-staff-center">項次</th><th className="hr-staff-center">員工編號</th><th>姓名</th><th>職稱</th><th>排班規則</th></tr></thead><tbody>{staff.map((x,i)=>{
       const sameGroup=staff.filter(e=>e.job_title_id===x.job_title_id), movable=sameGroup.length>1;
       return <tr key={x.id} data-roster-staff-id={x.id} onDragOver={e=>{if(draggingStaff.current!==null&&sameGroup.some(y=>y.id===draggingStaff.current))e.preventDefault()}}
        onDrop={e=>{e.preventDefault();if(draggingStaff.current!==null)moveStaff(draggingStaff.current,x.id);draggingStaff.current=null}}>
-       <td>{movable?<ReorderHandle label={x.name+"，拖拉排序（上下方向鍵亦可）"} disabled={loading} draggable={!loading}
+       <td className="hr-staff-center"><div className="hr-staff-seq"><ReorderHandle label={x.name+(movable?"，拖拉排序（上下方向鍵亦可）":"，同職稱無其他人員可排序")} disabled={loading||!movable} draggable={!loading&&movable}
         onDragStart={e=>{draggingStaff.current=x.id;e.dataTransfer.effectAllowed="move";e.dataTransfer.setData("text/plain",String(x.id))}} onDragEnd={()=>{draggingStaff.current=null}}
         onPointerDown={e=>{if(e.pointerType!=="mouse"&&!loading)e.currentTarget.setPointerCapture(e.pointerId)}}
         onPointerUp={e=>{if(e.pointerType==="mouse"||loading)return;const target=document.elementFromPoint(e.clientX,e.clientY)?.closest("[data-roster-staff-id]");if(target)moveStaff(x.id,Number(target.getAttribute("data-roster-staff-id")))}}
-        onKeyDown={e=>{if(e.key!=="ArrowUp"&&e.key!=="ArrowDown")return;e.preventDefault();const j=sameGroup.findIndex(y=>y.id===x.id)+(e.key==="ArrowUp"?-1:1);if(sameGroup[j])moveStaff(x.id,sameGroup[j].id)}}/>:null}</td>
-       <td>{x.employee_no}</td><td>{x.name}{new Set(staff.map(y=>y.job_title_id)).size>1?<small className="hr-staff-title">{x.job_title_name??"未設定"}</small>:null}</td>
-       <td><Field label={x.name+"排班規則"} presentation="cell"><select className="cy-sheet-input" disabled={loading} value={x.skip_roster_checks} onChange={e=>setStaff(old=>old?.map(y=>y.id===x.id?{...y,skip_roster_checks:Number(e.target.value)}:y)??null)}><option value={0}>檢查</option><option value={1}>不檢查</option></select></Field></td>
+        onKeyDown={e=>{if(e.key!=="ArrowUp"&&e.key!=="ArrowDown")return;e.preventDefault();const j=sameGroup.findIndex(y=>y.id===x.id)+(e.key==="ArrowUp"?-1:1);if(sameGroup[j])moveStaff(x.id,sameGroup[j].id)}}/><span>{i+1}</span></div></td>
+       <td className="hr-staff-center">{x.employee_no}</td><td>{x.name}</td><td>{x.job_title_name??"未設定"}</td>
+       <td className="hr-staff-select"><Field label={x.name+"排班規則"} presentation="cell"><select className="cy-sheet-input" disabled={loading} value={x.skip_roster_checks} onChange={e=>setStaff(old=>old?.map(y=>y.id===x.id?{...y,skip_roster_checks:Number(e.target.value)}:y)??null)}><option value={0}>檢查</option><option value={1}>不檢查</option></select></Field></td>
       </tr>
     })}</tbody></EntryTable>
    </form>:null}
