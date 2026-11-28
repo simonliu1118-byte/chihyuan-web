@@ -163,3 +163,6 @@ V0.26.0 員工紀錄卡新增獎金，狀態異動移到年資不計左方、寬
 
 ### 排班預設文字與月表文字（0087）
 `GET/POST/PATCH/DELETE /settings/roster-text`：kind note/rule、text、storeIds（非空且唯一）；每門市最多六項 note。月表 GET 提供 noteItems（prefix 固定或 null、text 可填）、rules 唯讀、employeeNotes、legacyNotes；PUT noteItems 驗證固定前綴與六項上限，employeeNotes 僅接受本門市成員的變更，禁止直接修改 rules 或舊 notes。第一次月表儲存建立範本快照；既有月表歷史內容保留。原門市 rules_template 遷移為 rule，舊備份同步升級。
+
+### V0.30.7 官方人事資料更新
+SUPER_ADMIN：GET/POST `/settings/holiday-updates`、`/settings/legal-updates`；既有 `/settings/payroll-rules` 不變。GET 為唯讀狀態；POST 立即更新。共用 cron 每年 6/20、12/20 04:00 Asia/Taipei，三類獨立，年度/來源有持久排程 claim 與短 lease。國定假日政府 CSV 本年及次年完整驗證，16 日現行通用假日，週末補假不直接匯入，人工項目及刪除排除優先；歷史官方項目不自動刪除或改名。人事法規僅官方修正日期監測，不能取代人工審查與程式修改。

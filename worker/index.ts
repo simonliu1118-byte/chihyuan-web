@@ -1,5 +1,6 @@
 import type { HealthData } from "../shared/api";
 import { CYWEB_CRON, cywebCronTasks } from "../shared/cyweb-cron";
+import {scheduledPayrollUpdate,updateHolidays,updateLaws,officialUpdatePeriod} from "./hr/hr-official-updates";
 import { rollHrCurrentValues } from "./hr/hr-current-values";
 import { backupService, type BackupRuntimeEnv } from "./backup/runtime";
 import { handleBackupRoute } from "./http/backup-routes";
@@ -152,6 +153,7 @@ export default {
     if (tasks.botRetention) jobs.push(purgeOldBotHistory(env, now));
     if (tasks.programCatalog) jobs.push(updateProgramCatalog(env.DB, now));
     if (tasks.backup) jobs.push(scheduledBackup(env, controller.scheduledTime));
+    if(tasks.hrOfficialUpdates){const period=officialUpdatePeriod(now);jobs.push(scheduledPayrollUpdate(env.DB,now),updateHolidays(env.DB,now,null,fetch,period),updateLaws(env.DB,now,fetch,period));}
     const failed = (await Promise.allSettled(jobs)).find((r): r is PromiseRejectedResult => r.status === "rejected");
     if (failed) throw failed.reason;
   },

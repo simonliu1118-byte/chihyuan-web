@@ -432,8 +432,11 @@ export const BACKUP_COLUMNS: Record<string, string[]> = {
   "hr_holidays": [
     "date",
     "name",
-    "note"
+    "note",
+    "source"
   ],
+  "hr_holiday_exclusions": ["date","updated_at"],
+  "hr_official_update_state": ["checked_at","error","key","lease_until","review_required","revision","scheduled_period","source_url","success_at"],
   "hr_job_titles": [
     "id",
     "is_active",

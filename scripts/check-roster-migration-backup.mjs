@@ -1,5 +1,5 @@
 import {pathToFileURL} from "node:url";
-const TARGETS=["0086_hr_holiday_note.sql","0087_hr_roster_text.sql"];
+const TARGETS=["0086_hr_holiday_note.sql","0087_hr_roster_text.sql","0088_hr_official_updates.sql"];
 export async function checkRosterMigrationBackup(query,workspace,now=new Date()){
  const applied=await query("SELECT name FROM d1_migrations ORDER BY name",[]);
  const names=new Set(applied.map(r=>r.name));

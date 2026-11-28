@@ -10,6 +10,7 @@ import {useCompactLayout} from "../../ui/foundation/useCompactLayout";
 import {HrRosterTextSettings} from "./HrRosterTextSettings";
 import {HrHolidaySettings,HrLookupSettings} from "./HrPhase2aSettings";
 import {HrLeaveTypeSettings} from "./HrLeaveTypeSettings";
+import {HrLegalWatchSettings} from "./HrLegalWatchSettings";
 import {HrCorrectionGrantSettings,HrLegalBracketSettings} from './HrPayrollSettings';
 import {ActiveChip,SettingsEditor,SettingsPane,SettingsTable} from "./HrSettingsPane";
 type Item={id:number;name:string;is_active:number};
@@ -66,6 +67,7 @@ const GROUPS:{label:string;items:{key:string;label:string;pane:()=>ReactNode}[]}
  {label:"排班",items:[{key:"shift-types",label:"班別",pane:()=><HrLookupSettings kind="shift-types"/>},{key:"holidays",label:"國定假日",pane:()=><HrHolidaySettings/>},{key:"roster-text",label:"預設文字",pane:()=><HrRosterTextSettings/>}]},
  {label:"請假",items:[{key:"leave-types",label:"假別",pane:()=><HrLeaveTypeSettings/>}]},
  {label:"薪資",items:[{key:"salary-items",label:"津貼項目",pane:()=><SalaryItemSettings/>},{key:"minimum-wages",label:"最低工資",pane:()=><MinimumWageSettings/>},{key:"legal-brackets",label:"法定級距",pane:()=><HrLegalBracketSettings/>}]},
+ {label:"法規",items:[{key:"legal-watch",label:"人事法規",pane:()=><HrLegalWatchSettings/>}]},
  {label:"權限",items:[{key:"correction-grants",label:"出勤更正授權",pane:()=><HrCorrectionGrantSettings/>}]},
 ];
 const ALL=GROUPS.flatMap(g=>g.items);

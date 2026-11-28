@@ -115,3 +115,19 @@ test('0087 roster text defaults and old store rule templates restore',async()=>{
   assert.equal(legacy.sql.prepare("SELECT text FROM hr_roster_text_defaults WHERE kind='rule'").get().text,'合成舊注意事項');
  }finally{source.sql.close();target.sql.close();legacy.sql.close()}
 });
+
+test('0088 official holiday origin/exclusions and old 0087 restore',async()=>{
+ const source=connection(),target=connection(),legacy=connection();
+ try{
+  source.sql.prepare("INSERT INTO hr_holidays(date,name,note,source) VALUES('2099-07-01','合成假日','','official')").run();
+  source.sql.prepare("INSERT INTO hr_holiday_exclusions(date,updated_at) VALUES('2099-07-02',?)").run(now);
+  source.sql.prepare("INSERT INTO hr_official_update_state(key,revision,review_required) VALUES('law:labor','2026-01-01',1)").run();
+  const bundle=await exportPortableBackup(source.db,scope);
+  await restoreIntoEmptyDatabase(target.db,bundle,'synthetic');
+  assert.equal(target.sql.prepare("SELECT source FROM hr_holidays WHERE date='2099-07-01'").get().source,'official');
+  assert.equal(target.sql.prepare("SELECT COUNT(*) n FROM hr_holiday_exclusions").get().n,1);
+  const old=edited(bundle,(d,m)=>{m.schemaMigration='0087_hr_roster_text';delete d.tables.hr_holiday_exclusions;delete d.tables.hr_official_update_state;dropColumn(d.tables.hr_holidays,'source')});
+  await restoreIntoEmptyDatabase(legacy.db,old,'synthetic');
+  assert.equal(legacy.sql.prepare("SELECT source FROM hr_holidays WHERE date='2099-07-01'").get().source,'manual');
+ }finally{source.sql.close();target.sql.close();legacy.sql.close()}
+});

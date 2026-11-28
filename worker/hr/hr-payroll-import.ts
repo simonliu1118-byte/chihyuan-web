@@ -2,7 +2,7 @@ import type {HealthTable,LaborTable,PayrollRule,PensionTable,RuleKind,TaxTable} 
 import {AuditService} from '../audit/audit-service';
 import {HrValidationError} from './hr-validation';
 
-const HOSTS=new Set(['data.gov.tw','apiservice.mol.gov.tw','info.nhi.gov.tw','www.ntbt.gov.tw','www.etax.nat.gov.tw','www.mol.gov.tw','www.nhi.gov.tw']);
+const HOSTS=new Set(['data.gov.tw','apiservice.mol.gov.tw','info.nhi.gov.tw','www.ntbt.gov.tw','www.etax.nat.gov.tw','www.mol.gov.tw','www.nhi.gov.tw','www.dgpa.gov.tw','law.moj.gov.tw','laws.mol.gov.tw']);
 const datasets={labor:6259,pension:6274,health:20246,tax:25627} as const;
 const LIMIT=1_000_000;
 export const sha256=async(text:string)=>[...new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(text)))].map(n=>n.toString(16).padStart(2,'0')).join('');
