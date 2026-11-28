@@ -109,14 +109,14 @@ export class HrSettingsService {
  async saveHoliday(raw:unknown,ctx:HrContext) {
   const v=object(raw),day=date(v.date,"date"),name=required(v.name,"name",100),note=optional(v.note,"note",500)??"";
   const before=await this.db.prepare("SELECT * FROM hr_holidays WHERE date=?").bind(day).first<Record<string,unknown>>();
-  await this.db.batch([this.db.prepare("INSERT INTO hr_holidays(date,name,note) VALUES(?,?,?) ON CONFLICT(date) DO UPDATE SET name=excluded.name,note=excluded.note").bind(day,name,note),
-   this.audit(ctx,"holidays:"+day,before,{date:day,name,note})]);
+  await this.db.batch([this.db.prepare("INSERT INTO hr_holidays(date,name,note,source) VALUES(?,?,?,'manual') ON CONFLICT(date) DO UPDATE SET name=excluded.name,note=excluded.note,source='manual'").bind(day,name,note),
+   this.db.prepare("DELETE FROM hr_holiday_exclusions WHERE date=?").bind(day),this.audit(ctx,"holidays:"+day,before,{date:day,name,note})]);
   return {saved:true};
  }
  async deleteHoliday(input:string,ctx:HrContext) {
   const day=date(input,"date"),before=await this.db.prepare("SELECT * FROM hr_holidays WHERE date=?").bind(day).first<Record<string,unknown>>();
   if(!before)throw new HrValidationError("date","假日不存在",404);
-  await this.db.batch([this.db.prepare("DELETE FROM hr_holidays WHERE date=?").bind(day),this.audit(ctx,"holidays:"+day,before,null)]);
+  await this.db.batch([this.db.prepare("DELETE FROM hr_holidays WHERE date=?").bind(day),this.db.prepare("INSERT INTO hr_holiday_exclusions(date,updated_at) VALUES(?,?) ON CONFLICT(date) DO UPDATE SET updated_at=excluded.updated_at").bind(day,ctx.now),this.audit(ctx,"holidays:"+day,before,null)]);
   return {deleted:true};
  }
 }

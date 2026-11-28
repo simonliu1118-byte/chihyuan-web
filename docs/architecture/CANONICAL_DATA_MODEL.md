@@ -736,3 +736,5 @@ D1 migration `0017_hr_phase1.sql` 新增 `hr_employees`、`hr_emergency_contacts
 Build2：`hr_payroll_legal_cases`按員工／事件追加產假、公傷核對期間、原工資／平均日工資及每月抵充來源；`hr_payroll_supplement_versions`保留官方補充保費原文／版本／生效／雙hash；`hr_payroll_corrections`記前期已發薪來源、後月差額、類型／依據／同意／原因、requestKey及revision；`hr_payroll_correction_uses`交易內唯一保留套用，撤回未發薪才釋放。四表全部納入同一備份與空庫還原，CURRENT_MIGRATION升0076；不改已發薪快照或主檔。投保profile追加可選稅務／補充保費事實，實際計算缺必要資料時禁止確認。
 
 V0.30.6：migration `0086_hr_holiday_note.sql` 增加 `hr_holidays.note TEXT NOT NULL DEFAULT ''`（選填備註，API 上限 500 字），同步 portable backup 欄位及 migration level；不更動既有日期與名稱。門市、職稱、班別排序沿用 sort_order。
+
+V0.30.7：migration `0088_hr_official_updates.sql`：hr_holidays.source manual/official（舊資料預設 manual）；hr_holiday_exclusions 記錄人工刪除；hr_official_update_state 保存每年／法源檢查時間、成功時間、錯誤、修正日期、待核對、lease、半年 claim。三表皆納入 portable backup。

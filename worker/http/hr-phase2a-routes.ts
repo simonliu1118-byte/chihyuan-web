@@ -1,3 +1,4 @@
+import {officialUpdateStatus,updateHolidays,updateLaws} from "../hr/hr-official-updates";
 import {HrSettingsService,type HrSettingName} from "../hr/hr-settings-service";
 import {HrRosterService,HrRosterError} from "../hr/hr-roster-service";
 import {HrAttendanceService} from "../hr/hr-attendance-service";
@@ -11,11 +12,12 @@ export async function handleHrPhase2aRoute(request:Request,db:D1Database,ctx:HrC
  const setting=/^\/api\/business\/hr\/settings\/(stores|job-titles|shift-types)$/.exec(pathname);
  const rosterText=pathname==="/api/business/hr/settings/roster-text";
  const holidays=pathname==="/api/business/hr/settings/holidays";
+ const official=pathname==="/api/business/hr/settings/holiday-updates"?"holidays":pathname==="/api/business/hr/settings/legal-updates"?"legal":null;
  const roster=/^\/api\/business\/hr\/rosters\/(\d+)\/(20\d\d-\d\d)$/.exec(pathname);
  const staff=/^\/api\/business\/hr\/rosters\/(\d+)\/(20\d\d-\d\d)\/staff$/.exec(pathname);
  const attendance=/^\/api\/business\/hr\/employees\/(\d+)\/attendance$/.exec(pathname);
  const anomalies=pathname==="/api/business/hr/attendance/anomalies";
- if(!setting&&!rosterText&&!holidays&&!roster&&!staff&&!attendance&&!anomalies)return null;
+ if(!setting&&!rosterText&&!holidays&&!official&&!roster&&!staff&&!attendance&&!anomalies)return null;
  const body=async()=>object(await request.json().catch(()=>null));
  try{
   if(setting){
@@ -31,6 +33,10 @@ export async function handleHrPhase2aRoute(request:Request,db:D1Database,ctx:HrC
    if(request.method==="POST")return success(await svc.saveRosterText(await body(),ctx),id);
    if(request.method==="PATCH"){const v=await body();return success(await svc.saveRosterText(v,ctx,integer(v.id,"id",true)),id)}
    if(request.method==="DELETE")return success(await svc.deleteRosterText(integer(Number(url.searchParams.get("id")),"id",true),ctx),id);
+  }
+  if(official){
+   if(request.method==="GET")return success(await officialUpdateStatus(db,official),id);
+   if(request.method==="POST")return success(official==="holidays"?await updateHolidays(db,ctx.now,ctx.actor):await updateLaws(db,ctx.now),id);
   }
   if(holidays){
    const svc=new HrSettingsService(db);

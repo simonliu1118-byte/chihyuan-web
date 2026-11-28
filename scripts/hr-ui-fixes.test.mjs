@@ -54,7 +54,7 @@ test('RecordRows honours the shared grid and column spans',()=>{
 test('education 備註: migration 0084, saved and returned, 200-character limit, optional',async t=>{
  const names=readdirSync(new URL('../migrations/',import.meta.url));assert.ok(names.includes('0084_hr_education_note.sql'));
  assert.match(read('migrations/0084_hr_education_note.sql'),/ALTER TABLE hr_education ADD COLUMN note TEXT;/);
- assert.equal(CURRENT_MIGRATION,'0087_hr_roster_text');
+ assert.equal(CURRENT_MIGRATION,'0088_hr_official_updates');
  const f=botCenterFixture();t.after(()=>f.sql.close());
  assert.ok(f.sql.prepare('PRAGMA table_info(hr_education)').all().some(c=>c.name==='note'&&c.notnull===0));
  const edu=[{school:'合成大學',department:'合成系',startMonth:'2010/09',endMonth:'2014/06',note:'學士，輔系'},{school:'合成高中',department:'',startMonth:'',endMonth:''}];
@@ -70,7 +70,7 @@ test('education 備註 survives backup and restore; a pre-0084 backup (no note c
  const f=botCenterFixture(),target=botCenterFixture('SUPER_ADMIN',false,{seedMember:false}),older=botCenterFixture('SUPER_ADMIN',false,{seedMember:false});t.after(()=>{f.sql.close();target.sql.close();older.sql.close()});
  const {id}=await created(f,{education:[{school:'合成大學',department:'合成系',startMonth:'2010/09',endMonth:'2014/06',note:'學士'}]});
  const bundle=await exportPortableBackup(f.db,{workspaceScope:'synthetic',appVersion:'0.29.2'});
- assert.equal(JSON.parse(new TextDecoder().decode(bundle.manifestBytes)).schemaMigration,'0087_hr_roster_text');
+ assert.equal(JSON.parse(new TextDecoder().decode(bundle.manifestBytes)).schemaMigration,'0088_hr_official_updates');
  await restoreIntoEmptyDatabase(target.db,bundle,'synthetic');
  assert.deepEqual(target.sql.prepare('SELECT * FROM hr_education').all(),f.sql.prepare('SELECT * FROM hr_education').all());
  assert.equal(target.sql.prepare('SELECT note FROM hr_education WHERE employee_id=?').get(id).note,'學士');

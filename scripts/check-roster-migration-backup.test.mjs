@@ -11,5 +11,5 @@ test("roster migration gate verifies scoped recent catalog before remote mutatio
 test("roster migration gate fails closed without baseline or backup, skips after both migrations",async()=>{
  await assert.rejects(checkRosterMigrationBackup(async()=>[],"synthetic"),/BASELINE_REQUIRED/);
  await assert.rejects(checkRosterMigrationBackup(async(sql)=>sql.includes("d1_migrations")?[{name:"0085_bot_patrol_status.sql"}]:[{verified:0}],"synthetic"),/VERIFIED_BACKUP_REQUIRED/);
- assert.equal(await checkRosterMigrationBackup(async()=>[{name:"0086_hr_holiday_note.sql"},{name:"0087_hr_roster_text.sql"}],"synthetic"),"already-applied");
+ assert.equal(await checkRosterMigrationBackup(async()=>[{name:"0086_hr_holiday_note.sql"},{name:"0087_hr_roster_text.sql"},{name:"0088_hr_official_updates.sql"}],"synthetic"),"already-applied");
 });

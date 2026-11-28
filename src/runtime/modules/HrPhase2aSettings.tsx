@@ -1,5 +1,6 @@
 import {ReorderHandle} from "../../ui/actions/ReorderHandle";
-import {formatDate} from "../../ui/foundation/format";
+import {formatDate,formatDateTime} from "../../ui/foundation/format";
+import {HR_OFFICIAL_UPDATE_SCHEDULE,HOLIDAY_DATASET,type OfficialUpdateState} from "../../../shared/hr-official-updates";
 import {SETTINGS_SAVED_EVENT} from "./settings-events";
 import {MonthPicker} from "../../ui/forms/MonthPicker";
 import {useLatestRequest} from '../../ui/foundation/useLatestRequest';
@@ -106,6 +107,7 @@ export function HrLookupSettings({kind}:{kind:LookupKind}){
 
 /** 國定假日（人工維護）: a compact ‹ 2026 › year switch and a table; add opens a small dialog. */
 export function HrHolidaySettings({initialYear}:{initialYear?:number}={}){
+ const [updateStates,setUpdateStates]=useState<OfficialUpdateState[]>([]),[updateNotice,setUpdateNotice]=useState("");
  const [year,setYear]=useState(initialYear??Number(taipeiToday().slice(0,4))),[holidays,setHolidays]=useState<Holiday[]>([]),[loaded,setLoaded]=useState(false);
  const [adding,setAdding]=useState(false),[holidayDate,setHolidayDate]=useState(""),[holidayName,setHolidayName]=useState(""),[holidayNote,setHolidayNote]=useState(""),[editingDate,setEditingDate]=useState<string|null>(null);
  const {confirm,confirmationDialog}=useConfirmation();
@@ -115,7 +117,7 @@ export function HrHolidaySettings({initialYear}:{initialYear?:number}={}){
  const request=useLatestRequest("holidays|"+year);
  const refresh=useCallback(async()=>{
   const ticket=request.begin();setLoaded(false);
-  try{const data=await apiRequest<Holiday[]>(ROOT+"/holidays?year="+year);if(ticket.current()){setHolidays([...data].sort((a,b)=>a.date.localeCompare(b.date)));setLoaded(true)}}
+  try{const [data,states]=await Promise.all([apiRequest<Holiday[]>(ROOT+"/holidays?year="+year),apiRequest<OfficialUpdateState[]>(ROOT+"/holiday-updates")]);if(ticket.current()){setUpdateStates(states);setHolidays([...data].sort((a,b)=>a.date.localeCompare(b.date)));setLoaded(true)}}
   catch(e){if(ticket.current())setError(message(e,"設定讀取失敗"))}
  },[year,request]);
  useEffect(()=>{setError("");void refresh()},[refresh]);
@@ -127,9 +129,17 @@ export function HrHolidaySettings({initialYear}:{initialYear?:number}={}){
  async function remove(date:string){if(writing.current)return;if(!(await confirm({title:"刪除國定假日",description:"確定刪除 "+date+" 國定假日？",confirmLabel:"刪除",confirmTone:"danger"})))return;writing.current=true;setBusy(true);
   try{await apiRequest(ROOT+"/holidays?date="+date,{method:"DELETE"});await refresh();window.dispatchEvent(new Event(SETTINGS_SAVED_EVENT))}catch(e){setError(message(e,"刪除失敗"))}finally{writing.current=false;setBusy(false)}
  }
+ async function update(){if(writing.current||adding)return;writing.current=true;setBusy(true);setError("");setUpdateNotice("");
+  try{const result=await apiRequest<{year:number;ok:boolean;message:string}[]>(ROOT+"/holiday-updates",{method:"POST"});setUpdateNotice(result.map(r=>r.year+"："+r.message).join("；"));await refresh();window.dispatchEvent(new Event(SETTINGS_SAVED_EVENT))}
+  catch(e){setError(message(e,"官方資料更新失敗"))}finally{writing.current=false;setBusy(false)}
+ }
  const thisYear=Number(taipeiToday().slice(0,4));
- return <SettingsPane title="國定假日" hint="人工維護；依年份切換。" actionLabel="＋ 新增國定假日" onAction={()=>open()} actionDisabled={busy||!loaded||adding} error={error}>
+ return <SettingsPane title="國定假日" hint={HR_OFFICIAL_UPDATE_SCHEDULE+"（臺灣時間）；保留人工設定。"} actionLabel="立即更新" onAction={()=>void update()} actionDisabled={busy||!loaded||adding} error={error} notice={updateNotice}>
   {confirmationDialog}
+  <SettingsTable label="國定假日更新狀態" head={<><th>年度</th><th>最近檢查</th><th>最近成功</th><th>狀態</th></>}>
+   {[thisYear,thisYear+1].map(y=>{const s=updateStates.find(x=>x.key==="holiday:"+y);return <tr key={y}><td>{y}</td><td>{s?.checked_at?formatDateTime(s.checked_at):"尚未檢查"}</td><td>{s?.success_at?formatDateTime(s.success_at):"尚未成功"}</td><td>{s?.error|| (s?.success_at?"正常":"尚未更新")}</td></tr>})}
+  </SettingsTable>
+  <div className="cy-hrs-pane-head"><a href={HOLIDAY_DATASET} target="_blank" rel="noreferrer">行政院人事行政總處官方資料</a><button type="button" className="cy-op-button" disabled={busy||!loaded||adding} onClick={()=>open()}>＋ 新增國定假日</button></div>
   <MonthPicker precision="year" label="年份" value={String(year)} min={String(Math.min(thisYear-1,year))} max={String(Math.max(thisYear+1,year))} disabled={busy} onChange={v=>setYear(Number(v))}/>
   <SettingsTable label="國定假日設定" columns={<><col className="cy-hrs-seq"/><col/><col className="cy-hrs-anchor-col"/><col/><col className="cy-hrs-holiday-operation-col"/></>} head={<><th className="cy-hrs-seq">項次</th><th>名稱</th><th className="cy-hrs-date">日期</th><th>備註</th><th className="cy-hrs-actions">操作</th></>} empty={loaded&&!holidays.length?year+" 年尚無國定假日。":undefined}>
    {holidays.map((h,i)=><tr key={h.date}><td className="cy-hrs-seq">{i+1}</td><td>{h.name}</td><td className="cy-hrs-date">{formatDate(h.date)}</td><td>{h.note}</td><td className="cy-hrs-actions"><button key="edit" type="button" className="cy-op-button compact" disabled={busy||adding} onClick={()=>open(h)}>修改</button>{" "}<button key="del" type="button" className="cy-op-button compact" disabled={busy} onClick={()=>void remove(h.date)}>刪除</button></td></tr>)}
