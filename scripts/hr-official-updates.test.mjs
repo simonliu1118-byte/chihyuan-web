@@ -8,15 +8,22 @@ const {normalizeHolidays,holidayResource,lawRevision,updateHolidays,updateLaws,o
 const {HrSettingsService}=await compiled("worker/hr/hr-settings-service.ts");
 const now="2026-11-28T04:00:00.000Z",ctx={actor:1,now,requestId:"synthetic-official-update"};
 const fixed=["01-01","02-28","04-04","04-05","05-01","09-28","10-10","10-25","12-25"];
-const dates2026=[...fixed,"02-15","02-16","02-17","02-18","02-19","06-19","09-25"].sort();
-const dates2027=[...fixed,"02-04","02-05","02-06","02-07","02-08","06-09","09-15"].sort();
+const lunarNotes={
+ 2026:{"02-15":"小年夜","02-16":"農曆除夕","02-17":"春節","02-18":"春節","02-19":"春節","06-19":"端午節","09-25":"中秋節"},
+ 2027:{"02-04":"小年夜","02-05":"農曆除夕","02-06":"春節","02-07":"春節","02-08":"春節","06-09":"端午節","09-15":"中秋節"},
+};
+const dates2026=[...fixed,...Object.keys(lunarNotes[2026])].sort();
+const dates2027=[...fixed,...Object.keys(lunarNotes[2027])].sort();
+const governmentMakeup={2026:["02-20","04-06"],2027:["02-09","02-10","04-06"]};
 function csv(year,dates){
  const lines=["西元日期,星期,是否放假,備註"];
  for(let n=Date.UTC(year,0,1);n<Date.UTC(year+1,0,1);n+=86400000){
   const d=new Date(n),md=d.toISOString().slice(5,10);
-  const note=md==="04-05"?"清明節":md==="04-06"?"清明節補假":"";
-  const off=dates.includes(md)||[0,6].includes(d.getUTCDay())||md==="04-06";
-  lines.push(d.toISOString().slice(0,10).replaceAll("-","")+",日,"+(off?"2":"0")+","+note);
+  const weekday=d.getUTCDay();
+  const makeup=governmentMakeup[year].includes(md);
+  const note=lunarNotes[year][md]??(md==="04-05"?"清明節":makeup?"補假":"");
+  const off=dates.includes(md)||[0,6].includes(weekday)||makeup;
+  lines.push(d.toISOString().slice(0,10).replaceAll("-","")+","+"日一二三四五六"[weekday]+","+(off?"2":"0")+","+note);
  }
  return lines.join("\n");
 }
@@ -32,12 +39,13 @@ test("complete calendar checks actual statutory dates and excludes makeup/ordina
   const result=normalizeHolidays(csv(year,dates),year);
   assert.deepEqual(result.map(r=>r.date.slice(5)),dates);
   assert.equal(result.length,16);
-  assert(!result.some(r=>r.date.endsWith("04-06")));
+  assert(!result.some(r=>governmentMakeup[year].includes(r.date.slice(5))));
  }
  assert.equal(holidayResource(page,2027),url(2027));
  assert.throws(()=>holidayResource(page,2028),/尚未公布/);
  assert.throws(()=>normalizeHolidays(csv(2026,dates2026).split("\n").slice(0,-1).join("\n"),2026),/不完整/);
  assert.throws(()=>normalizeHolidays(csv(2026,dates2026.filter(x=>x!=="12-25")),2026),/不一致/);
+ assert.throws(()=>normalizeHolidays(csv(2027,dates2027).replace("20270208,一,2,春節","20270208,一,2,補假"),2027),/春節日期不完整/);
 });
 test("import preserves manual edits and deletions, duplicate schedule does not fetch, failed year keeps data",async t=>{
  const f=botCenterFixture();t.after(()=>f.sql.close());const settings=new HrSettingsService(f.db);

@@ -24,18 +24,21 @@ export function normalizeHolidays(csv:string,year:number):Holiday[]{
  // Fixed dates from the current statutory list. The holiday flag is independently checked.
  const fixed=[["01-01","中華民國開國紀念日"],["02-28","和平紀念日"],["05-01","勞動節"],["09-28","教師節"],["10-10","國慶日"],["10-25","臺灣光復暨金門古寧頭大捷紀念日"],["12-25","行憲紀念日"]];
  for(const [md,name] of fixed)add(year+"-"+md,name);
- const lunar=new Intl.DateTimeFormat("en-u-ca-chinese",{timeZone:"Asia/Taipei",month:"numeric",day:"numeric"});
- let newYear="",dragon="",midAutumn="";
- for(let n=start;n<end;n+=DAY){
-  const parts=lunar.formatToParts(new Date(n+4*3600000)),m=parts.find(p=>p.type==="month")?.value,d=parts.find(p=>p.type==="day")?.value;
-  if(m==="1"&&d==="1")newYear=day(n);
-  if(m==="5"&&d==="5")dragon=day(n);
-  if(m==="8"&&d==="15")midAutumn=day(n);
+ // Taiwan's published dates can differ from the runtime's Chinese calendar.
+ const springNotes=["小年夜","農曆除夕","春節","春節","春節"];
+ const spring=[...calendar].filter(([,row])=>springNotes.includes(row.note));
+ if(spring.length!==springNotes.length||spring[0][0]<year+"-01-19"||spring[4][0]>year+"-02-23"||
+  spring.some(([date,row],i)=>row.note!==springNotes[i]||Date.parse(date)-Date.parse(spring[0][0])!==i*DAY)){
+  throw Error("官方日曆的春節日期不完整或不連續");
  }
- if(!newYear||!dragon||!midAutumn)throw Error("農曆日期無法核對");
- const spring=Date.parse(newYear+"T00:00:00Z");
- for(let i=-2;i<=2;i++)add(day(spring+i*DAY),i===-2?"小年夜":i===-1?"除夕":"春節");
- add(dragon,"端午節");add(midAutumn,"中秋節");
+ for(const [date,row] of spring)add(date,row.note==="農曆除夕"?"除夕":row.note);
+ for(const [name,first,last] of [["端午節","05-25","07-05"],["中秋節","09-05","10-10"]]){
+  const dates=[...calendar].filter(([,row])=>row.note===name);
+  if(dates.length!==1||dates[0][0]<year+"-"+first||dates[0][0]>year+"-"+last){
+   throw Error(name+"日期無法從官方日曆唯一辨識");
+  }
+  add(dates[0][0],name);
+ }
  const q=[...calendar].filter(([d,r])=>d>=year+"-04-03"&&d<=year+"-04-06"&&/清明|民族掃墓/.test(r.note)&&!/補假|調整放假/.test(r.note));
  if(q.length!==1)throw Error("清明節日期無法從官方日曆唯一辨識");
  const qingming=q[0][0];add(qingming,"清明節");
