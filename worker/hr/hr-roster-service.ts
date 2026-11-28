@@ -1,3 +1,4 @@
+import {MAX_ROSTER_NOTES,MAX_ROSTER_NOTE_LENGTH,readRosterJson,type RosterNoteItem} from "../../shared/hr-roster-text";
 import {cyclesFor,classifyRoster,type RosterDay,type RosterResult,type RosterViolation} from "../../shared/hr-roster";
 import {AuditService} from "../audit/audit-service";
 import {evaluateAttendance} from "../../shared/hr-attendance";
@@ -81,21 +82,28 @@ export class HrRosterService {
   const bounds=monthBounds(month,String(store.cycle_anchor_date));
   // One extra fortnight before and week after, so runs and 例假 continue across the loaded range.
   const lookStart=day(millis(bounds.start)-14*DAY),lookEnd=day(millis(bounds.finish)+7*DAY);
-  const [e,d,s,l,h,m,a,p]=await Promise.all([
+  const [e,d,s,l,h,m,a,p,t]=await Promise.all([
    this.db.prepare("SELECT e.id,e.employee_no,e.name,e.employment_type,e.schedule_mode,e.skip_roster_checks,e.roster_sort,e.job_title_id,j.name AS job_title_name,e.hire_date,e.termination_date FROM hr_employee_current e LEFT JOIN hr_job_titles j ON j.id=e.job_title_id WHERE e.store_id=? AND e.status<>'terminated' ORDER BY e.roster_sort,j.sort_order,e.id LIMIT 101").bind(storeId).all<Emp>(),
    this.db.prepare("SELECT * FROM hr_schedule_days WHERE store_id=? AND work_date BETWEEN ? AND ? ORDER BY employee_id,work_date LIMIT 10001").bind(storeId,lookStart,lookEnd).all<Cell>(),
    this.db.prepare("SELECT * FROM hr_shift_types ORDER BY sort_order,id LIMIT 100").all<Record<string,unknown>>(),
    this.db.prepare("SELECT * FROM hr_leave_types ORDER BY sort_order,id LIMIT 100").all<Record<string,unknown>>(),
    this.db.prepare("SELECT date,name FROM hr_holidays WHERE date BETWEEN ? AND ? LIMIT 100").bind(bounds.first,bounds.end).all(),
-   this.db.prepare("SELECT notes,rules FROM hr_schedule_months WHERE store_id=? AND month=?").bind(storeId,month).first<{notes:string;rules:string}>(),
+   this.db.prepare("SELECT notes,rules,note_items_json,employee_notes_json FROM hr_schedule_months WHERE store_id=? AND month=?").bind(storeId,month).first<{notes:string;rules:string;note_items_json:string|null;employee_notes_json:string}>(),
    this.db.prepare("SELECT employee_id,kind,start_date,end_date FROM hr_roster_approvals WHERE start_date<=? AND end_date>=? LIMIT 1000").bind(lookEnd,lookStart).all<{employee_id:number;kind:string;start_date:string;end_date:string}>(),
-   this.db.prepare("SELECT employee_id,MAX(work_date) AS work_date FROM hr_schedule_days WHERE store_id=? AND rest_label='regular' AND work_date<? GROUP BY employee_id").bind(storeId,lookStart).all<{employee_id:number;work_date:string}>()
+   this.db.prepare("SELECT employee_id,MAX(work_date) AS work_date FROM hr_schedule_days WHERE store_id=? AND rest_label='regular' AND work_date<? GROUP BY employee_id").bind(storeId,lookStart).all<{employee_id:number;work_date:string}>(),
+   this.db.prepare("SELECT kind,text FROM hr_roster_text_defaults d WHERE EXISTS(SELECT 1 FROM json_each(d.store_ids_json) s WHERE s.value=?) ORDER BY id").bind(storeId).all<{kind:string;text:string}>()
   ]);
   const employees=e.results??[],days=d.results??[],shifts=s.results??[],leaveTypes=l.results??[];
   if(employees.length>100||days.length>10000)throw new HrValidationError("limit","門市排班超過 100 人或 10,000 列安全上限");
   const byKey=new Map(days.map(x=>[x.employee_id+"|"+x.work_date,x]));
   const previousRegular=new Map((p.results??[]).map(x=>[x.employee_id,x.work_date]));
-  return {store,bounds,lookStart,lookEnd,month,employees,days,shifts,leaveTypes,holidays:h.results??[],notes:m?.notes??"",rules:m?.rules??String(store.rules_template??""),approvals:a.results??[],byKey,previousRegular};
+  const defaults=t.results??[],prefixes=defaults.filter(x=>x.kind==="note").map(x=>x.text);
+  const initialNotes:RosterNoteItem[]=prefixes.map(prefix=>({prefix,text:""}));
+  // Preserve old free text separately if it cannot fit a single new note.
+  const legacyNotes=m?.notes??"";
+  const noteItems=readRosterJson<RosterNoteItem[]>(m?.note_items_json,initialNotes);
+  const rules=m?m.rules:defaults.filter(x=>x.kind==="rule").map(x=>x.text).join("\n");
+  return {store,bounds,lookStart,lookEnd,month,employees,days,shifts,leaveTypes,holidays:h.results??[],notes:legacyNotes,rules,noteItems,legacyNotes,employeeNotes:readRosterJson<Record<string,string>>(m?.employee_notes_json,{}),monthTextSaved:m?.note_items_json!=null,approvals:a.results??[],byKey,previousRegular};
  }
  private evaluate(b:Awaited<ReturnType<HrRosterService["read"]>>,rows:Map<string,Cell>,today:string){
   const start=millis(b.lookStart),end=millis(b.lookEnd),dates=Array.from({length:Math.round((end-start)/DAY)+1},(_,i)=>day(start+i*DAY));
@@ -209,7 +217,7 @@ export class HrRosterService {
   }
   const leaveForms=(await this.db.prepare("SELECT r.employee_id,r.work_date,r.batch_id,r.whole_day,r.minutes,t.code FROM hr_leave_records r JOIN hr_leave_types t ON t.id=r.leave_type_id WHERE r.cancelled_at IS NULL AND r.work_date BETWEEN ? AND ? AND r.employee_id IN (SELECT id FROM hr_employee_current WHERE store_id=?) ORDER BY r.id LIMIT 10000").bind(b.bounds.start,b.bounds.finish,storeId).all<{employee_id:number;work_date:string;batch_id:string;whole_day:number;minutes:number;code:string}>()).results??[];
   return {leaveForms,actualHours,store:b.store,month,bounds:b.bounds,employees:b.employees,shifts:b.shifts,leaveTypes:b.leaveTypes,
-   holidays:b.holidays,notes:b.notes,rules:b.rules,days:b.days,approvals:b.approvals,classificationContext:{start:b.lookStart,end:b.lookEnd,asOf,previousRegular:Object.fromEntries(b.previousRegular)},...checked};
+   holidays:b.holidays,notes:b.notes,rules:b.rules,noteItems:b.noteItems,legacyNotes:b.legacyNotes,employeeNotes:b.employeeNotes,days:b.days,approvals:b.approvals,classificationContext:{start:b.lookStart,end:b.lookEnd,asOf,previousRegular:Object.fromEntries(b.previousRegular)},...checked};
  }
  async put(storeId:number,month:string,raw:unknown,ctx:HrContext){
   const payload=object(raw),b=await this.read(storeId,month);
@@ -248,8 +256,32 @@ export class HrRosterService {
   // Historical anomalies are returned but never stop retrospective corrections.
   if(violations.some(v=>v.dates.some(d=>d>=at)))throw new HrRosterError("HR_ROSTER_VIOLATION",violations);
   if(pending.length)throw new HrRosterError("HR_ROSTER_CONSECUTIVE",pending);
-  const notes=payload.notes===undefined?b.notes:optional(payload.notes,"notes",5000)??"";
-  const rules=payload.rules===undefined?b.rules:optional(payload.rules,"rules",5000)??"";
+  if(payload.rules!==undefined&&payload.rules!==b.rules)throw new HrValidationError("rules","注意事項只能在人事設定修改");
+  if(payload.notes!==undefined&&payload.notes!==b.notes)throw new HrValidationError("notes","請使用條列備註");
+  let noteItems=b.noteItems;
+  if(payload.noteItems!==undefined){
+   if(!Array.isArray(payload.noteItems)||payload.noteItems.length>MAX_ROSTER_NOTES)throw new HrValidationError("noteItems","備註最多六項");
+   const fixed=b.noteItems.filter(x=>x.prefix!==null);
+   noteItems=payload.noteItems.map((raw,i)=>{
+    const v=object(raw),prefix=i<fixed.length?fixed[i].prefix:null;
+    if(v.prefix!==prefix)throw new HrValidationError("noteItems","預設備註不可修改或刪除");
+    const text=optional(v.text,"noteItems",MAX_ROSTER_NOTE_LENGTH)??"";
+    if(/[\r\n]/.test(text))throw new HrValidationError("noteItems","備註限單列");
+    return {prefix,text};
+   });
+   if(noteItems.length<fixed.length)throw new HrValidationError("noteItems","預設備註不可刪除");
+  }
+  const employeeNotes={...b.employeeNotes};
+  if(payload.employeeNotes!==undefined){
+   const input=object(payload.employeeNotes);
+   if(Object.keys(input).length>100)throw new HrValidationError("employeeNotes","備註人數超過上限");
+   for(const [key,value] of Object.entries(input)){
+    if(!members.has(Number(key))||String(Number(key))!==key)throw new HrValidationError("employeeNotes","員工不屬於本門市");
+    const note=optional(value,"employeeNotes",500)??"";
+    if(note)employeeNotes[key]=note;else delete employeeNotes[key];
+   }
+  }
+  const notesChanged=JSON.stringify(noteItems)!==JSON.stringify(b.noteItems)||JSON.stringify(employeeNotes)!==JSON.stringify(b.employeeNotes);
   const stmts:D1PreparedStatement[]=[];
   for(const c of changed){
    if(c.kind===null){stmts.push(this.db.prepare("DELETE FROM hr_schedule_days WHERE employee_id=? AND work_date=?").bind(c.employeeId,c.date));continue;}
@@ -263,10 +295,10 @@ export class HrRosterService {
    const desired=label==="regular_off"?"regular":label==="rest_day"?"rest":null;
    if(row.rest_label!==desired)stmts.push(this.db.prepare("UPDATE hr_schedule_days SET rest_label=?,updated_at=?,updated_by=? WHERE employee_id=? AND work_date=?").bind(desired,ctx.now,ctx.actor,row.employee_id,row.work_date));
   }
-  if(notes!==b.notes||rules!==b.rules)stmts.push(this.db.prepare("INSERT INTO hr_schedule_months(store_id,month,notes,rules,updated_at,updated_by) VALUES(?,?,?,?,?,?) ON CONFLICT(store_id,month) DO UPDATE SET notes=excluded.notes,rules=excluded.rules,updated_at=excluded.updated_at,updated_by=excluded.updated_by").bind(storeId,month,notes,rules,ctx.now,ctx.actor));
+  if(notesChanged||!b.monthTextSaved)stmts.push(this.db.prepare("INSERT INTO hr_schedule_months(store_id,month,notes,rules,note_items_json,employee_notes_json,updated_at,updated_by) VALUES(?,?,?,?,?,?,?,?) ON CONFLICT(store_id,month) DO UPDATE SET note_items_json=excluded.note_items_json,employee_notes_json=excluded.employee_notes_json,updated_at=excluded.updated_at,updated_by=excluded.updated_by").bind(storeId,month,b.notes,b.rules,JSON.stringify(noteItems),JSON.stringify(employeeNotes),ctx.now,ctx.actor));
   for(const a of granted)stmts.push(this.db.prepare("INSERT OR IGNORE INTO hr_roster_approvals(employee_id,kind,start_date,end_date,approved_by,approved_at) VALUES(?,?,?,?,?,?)").bind(a.employeeId,a.kind,a.startDate,a.endDate,ctx.actor,ctx.now));
   if(stmts.length){
-   stmts.push(new AuditService(this.db).prepareRecord({entityType:"hr_roster",entityKey:storeId+"|"+month,action:"hr_roster.updated",actorEmployeeId:ctx.actor,requestId:ctx.requestId,after:{days:changed.map(c=>({employeeId:c.employeeId,date:c.date,kind:c.kind,shiftTypeId:c.shiftTypeId??null,leaveTypeId:c.leaveTypeId??null,hours:c.hours??null})),approved:granted,notesChanged:notes!==b.notes,rulesChanged:rules!==b.rules}}));
+   stmts.push(new AuditService(this.db).prepareRecord({entityType:"hr_roster",entityKey:storeId+"|"+month,action:"hr_roster.updated",actorEmployeeId:ctx.actor,requestId:ctx.requestId,after:{days:changed.map(c=>({employeeId:c.employeeId,date:c.date,kind:c.kind,shiftTypeId:c.shiftTypeId??null,leaveTypeId:c.leaveTypeId??null,hours:c.hours??null})),approved:granted,notesChanged}}));
    await this.db.batch(stmts);
   }
   return {saved:true,changedDays:changed.length,violations,roster:await this.get(storeId,month)};

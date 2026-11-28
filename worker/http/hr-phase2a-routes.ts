@@ -9,19 +9,28 @@ import {success,failure,json} from "./response";
 export async function handleHrPhase2aRoute(request:Request,db:D1Database,ctx:HrContext):Promise<Response|null>{
  const url=new URL(request.url),pathname=url.pathname,id=ctx.requestId;
  const setting=/^\/api\/business\/hr\/settings\/(stores|job-titles|shift-types)$/.exec(pathname);
+ const rosterText=pathname==="/api/business/hr/settings/roster-text";
  const holidays=pathname==="/api/business/hr/settings/holidays";
  const roster=/^\/api\/business\/hr\/rosters\/(\d+)\/(20\d\d-\d\d)$/.exec(pathname);
  const staff=/^\/api\/business\/hr\/rosters\/(\d+)\/(20\d\d-\d\d)\/staff$/.exec(pathname);
  const attendance=/^\/api\/business\/hr\/employees\/(\d+)\/attendance$/.exec(pathname);
  const anomalies=pathname==="/api/business/hr/attendance/anomalies";
- if(!setting&&!holidays&&!roster&&!staff&&!attendance&&!anomalies)return null;
+ if(!setting&&!rosterText&&!holidays&&!roster&&!staff&&!attendance&&!anomalies)return null;
  const body=async()=>object(await request.json().catch(()=>null));
  try{
   if(setting){
    const svc=new HrSettingsService(db),name=setting[1] as HrSettingName;
    if(request.method==="GET")return success(await svc.list(name),id);
    if(request.method==="POST")return success(await svc.write(name,await body(),ctx),id);
+   if(request.method==="PUT")return success(await svc.reorder(name,await body(),ctx),id);
    if(request.method==="PATCH"){const v=await body();return success(await svc.write(name,v,ctx,integer(v.id,"id",true)),id)}
+  }
+  if(rosterText){
+   const svc=new HrSettingsService(db);
+   if(request.method==="GET")return success(await svc.rosterTextDefaults(),id);
+   if(request.method==="POST")return success(await svc.saveRosterText(await body(),ctx),id);
+   if(request.method==="PATCH"){const v=await body();return success(await svc.saveRosterText(v,ctx,integer(v.id,"id",true)),id)}
+   if(request.method==="DELETE")return success(await svc.deleteRosterText(integer(Number(url.searchParams.get("id")),"id",true),ctx),id);
   }
   if(holidays){
    const svc=new HrSettingsService(db);

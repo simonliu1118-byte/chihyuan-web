@@ -89,6 +89,42 @@ export async function acceptHrPhase2a(db:D1Database){
  catch{conflict=true}check(conflict,"ATTENDANCE_REVISION");
  const settings=new HrSettingsService(db);
  check((await settings.list("stores")).length>=1,"SETTINGS_READ");
+ await settings.write("stores",{name:"合成排序門市",cycleAnchorDate:"2026-09-28",sortOrder:999},ctx);
+ for(const kind of ["stores","job-titles","shift-types"] as const){
+  const before=await settings.list(kind);
+  check(before.length>=2,"LOOKUP_REORDER_FIXTURE_"+kind);
+  const ids=before.map(x=>Number(x.id)).reverse();
+  await settings.reorder(kind,{ids},ctx);
+  check((await settings.list(kind)).map(x=>x.id).join()===ids.join(),"LOOKUP_REORDER_"+kind);
+  let rejected=false;
+  try{await settings.reorder(kind,{ids:ids.map(()=>ids[0])},ctx)}catch{rejected=true}
+  check(rejected&&(await settings.list(kind)).map(x=>x.id).join()===ids.join(),"LOOKUP_REORDER_ATOMIC_"+kind);
+  await settings.reorder(kind,{ids:before.map(x=>x.id)},ctx);
+ }
+ const second=Number((await db.prepare("SELECT id FROM hr_stores WHERE name=?").bind("合成排序門市").first<{id:number}>())!.id);
+ await settings.saveRosterText({kind:"note",text:"月會:",storeIds:[store,second]},ctx);
+ await settings.saveRosterText({kind:"note",text:"盤點:",storeIds:[store]},ctx);
+ await settings.saveRosterText({kind:"rule",text:"合成注意事項",storeIds:[store,second]},ctx);
+ const sample=await roster.get(store,"2099-06"),otherSample=await roster.get(second,"2099-06");
+ check(sample.noteItems.length===2&&otherSample.noteItems.length===1,"ROSTER_TEXT_SCOPE");
+ check(sample.rules.includes("合成注意事項")&&otherSample.rules.includes("合成注意事項"),"ROSTER_RULE_SCOPE");
+ const noteItems=[...sample.noteItems.map((x,i)=>({...x,text:i===0?"上午十時":""})),{prefix:null,text:"自訂"}];
+ await roster.put(store,"2099-06",{changes:[],noteItems,employeeNotes:{[id]:"個人備註"}},ctx);
+ const savedText=await roster.get(store,"2099-06");
+ check(savedText.noteItems[0].text==="上午十時"&&savedText.noteItems[2].text==="自訂"&&savedText.employeeNotes[String(id)]==="個人備註","ROSTER_TEXT_SAVE");
+ for(const invalid of [{noteItems:[]},{rules:"違規修改"},{noteItems:[...noteItems,...Array.from({length:4},()=>({prefix:null,text:"超額"}))]},{employeeNotes:{"99999999":"非本門市"}}]){
+  let denied=false;try{await roster.put(store,"2099-06",{changes:[],...invalid},ctx)}catch{denied=true}check(denied,"ROSTER_TEXT_INVALID");
+ }
+ for(const row of (await settings.rosterTextDefaults()).filter(x=>["月會:","盤點:","合成注意事項"].includes(x.text)))await settings.deleteRosterText(row.id,ctx);
+ check((await roster.get(store,"2099-06")).noteItems[0].prefix==="月會:","ROSTER_TEXT_SNAPSHOT");
+ await db.prepare("DELETE FROM hr_stores WHERE name=?").bind("合成排序門市").run();
+ await settings.saveHoliday({date:"2099-12-25",name:"合成假日",note:"合成備註"},ctx);
+ await settings.saveHoliday({date:"2099-01-01",name:"合成假日二"},ctx);
+ const holidays=await settings.holidays(2099);
+ check(holidays[0]?.date==="2099-01-01"&&holidays[1]?.note==="合成備註","HOLIDAY_DATE_ORDER_NOTE");
+ await settings.saveHoliday({date:"2099-12-25",name:"合成假日",note:"已更新"},ctx);
+ check((await settings.holidays(2099))[1]?.note==="已更新","HOLIDAY_NOTE_UPDATE");
+ await settings.deleteHoliday("2099-12-25",ctx);await settings.deleteHoliday("2099-01-01",ctx);
  const env={DB:db,IDENTITY_APPLICATION_ID:"APP_TEST",IDENTITY_WORKSPACE_ID:"workspace-test",IDENTITY:{
   async fetch(){return Response.json({ok:true,principal:{workspaceId:"workspace-test",employeeId:"hr2a-test",employeeNo:"9911",
     displayName:"測試員工乙",workspaceRole:"ADMIN",isIdentityAdmin:false,emailVerified:true,isWorkspaceSuperAdmin:false,

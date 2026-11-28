@@ -88,7 +88,7 @@ jobs:
       - name: Validate deployment template contract
         run: |
           node scripts/validate-deploy-config.mjs
-          node --test scripts/provision-backup-recovery.test.mjs
+          node --test scripts/provision-backup-recovery.test.mjs scripts/check-roster-migration-backup.test.mjs
           node --test scripts/test-deployed-health.mjs scripts/program-schedule-deployment.test.mjs scripts/deployment-source.test.mjs
           node --test scripts/bot-push-secrets.test.mjs
 
@@ -239,6 +239,9 @@ jobs:
 
       - name: Render existing Worker deployment config
         run: node scripts/render-deploy-config.mjs --output wrangler.development.generated.jsonc
+
+      - name: Check verified backup before roster text migrations
+        run: node scripts/check-roster-migration-backup.mjs
 
       - name: Apply development D1 migrations
         run: npx wrangler d1 migrations apply DB --remote --config wrangler.development.generated.jsonc

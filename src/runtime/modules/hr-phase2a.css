@@ -24,7 +24,7 @@
 .hr-roster-table .hr-sixth:after{content:"連六";font-size:10px;color:#a44800;position:absolute;right:1px;top:0}
 .hr-roster-table .hr-staffing th,.hr-roster-table .hr-staffing td{font-weight:700;background:var(--cy-surface-muted)}
 .hr-roster-table .hr-staffing td.hr-holiday{background:var(--cy-roster-holiday)}
-.hr-roster-cell{display:block;background:transparent;color:inherit;border:0;width:100%;min-height:38px;font:inherit;cursor:pointer}
+.hr-roster-cell{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;background:transparent;color:inherit;border:0;width:100%;min-height:38px;font:inherit;cursor:pointer}
 .hr-roster-cell small{display:block;font-size:12px;line-height:1.1}
 .hr-roster-cell:focus-visible{outline:2px solid var(--cy-accent)}
 .hr-cell-choices{display:flex;flex-wrap:wrap;gap:4px;align-items:center}
@@ -38,10 +38,10 @@
 .hr-cell-leave-row .cy-expand-toggle{margin-left:auto}
 .hr-cell-leave-row+.hr-cell-choices{margin-top:6px}
 .hr-cell-actions{display:flex;justify-content:flex-end;align-items:center;gap:8px;width:100%;flex-wrap:wrap}
-.hr-roster-table td.hr-roster-off{background-image:linear-gradient(to bottom right,transparent calc(50% - .5px),var(--cy-text-muted) 50%,transparent calc(50% + .5px));print-color-adjust:exact;-webkit-print-color-adjust:exact}
-.hr-roster-off .hr-roster-cell,.hr-roster-off .print-only{text-align:left;padding:2px 3px;vertical-align:top;line-height:1.15}
-.hr-roster-off .hr-roster-cell{display:flex;align-items:flex-start}
-@media print{.hr-roster-table td.hr-roster-off{background-image:linear-gradient(to bottom right,transparent calc(50% - .5px),#333 50%,transparent calc(50% + .5px))!important;print-color-adjust:exact;-webkit-print-color-adjust:exact}}
+.hr-roster-table td.hr-roster-off{background-image:linear-gradient(to top right,transparent calc(50% - .5px),var(--cy-text-muted) 50%,transparent calc(50% + .5px));print-color-adjust:exact;-webkit-print-color-adjust:exact}
+.hr-roster-table td{vertical-align:middle}
+.hr-roster-off .print-only{text-align:center;vertical-align:middle;line-height:1.15}
+@media print{.hr-roster-table td.hr-roster-off{background-image:linear-gradient(to top right,transparent calc(50% - .5px),#333 50%,transparent calc(50% + .5px))!important;print-color-adjust:exact;-webkit-print-color-adjust:exact}}
 .hr-cell-note .cy-f{display:flex;align-items:center;gap:8px;max-width:none;width:100%}
 .hr-cell-note .cy-f-label{flex:none}
 .hr-cell-note .cy-op-input{flex:1;min-width:0}
@@ -105,3 +105,22 @@ td.hr-sheet-cell>textarea.cy-sheet-input{min-height:64px}
 .hr-roster-table tbody>tr>th[colspan="2"]{border-right:var(--hr-roster-divider)}
 .hr-roster-table tbody>tr.hr-staffing>*{border-top:var(--hr-roster-divider)}
 @media print{.hr-roster-table{--hr-roster-divider:2px solid #333}}
+
+/* National holidays take priority over weekend shading, including the staffing row. */
+.hr-roster-table th.hr-national-holiday,.hr-roster-table td.hr-national-holiday{background-color:color-mix(in srgb,#e879a3 22%,var(--cy-surface));color:var(--cy-text)}
+@media print{.hr-roster-table th.hr-national-holiday,.hr-roster-table td.hr-national-holiday{background-color:#fbe2eb!important;color:#000!important;print-color-adjust:exact;-webkit-print-color-adjust:exact}}
+
+.hr-roster-table .hr-roster-notes-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));grid-auto-rows:minmax(26px,auto);gap:0 14px;padding:4px 8px;text-align:left}
+.hr-roster-note-item{display:flex;align-items:center;gap:4px;min-width:0;white-space:nowrap;overflow:hidden}
+.hr-roster-note-item input{flex:1;min-width:0;width:0;padding:2px 4px;border:0;background:transparent;font:inherit}
+.hr-roster-note-item .print-only{white-space:normal;overflow-wrap:anywhere}
+.hr-note-add{margin:2px 8px;float:left}
+.hr-roster-rules,.hr-legacy-notes{padding:6px 8px;white-space:pre-wrap;text-align:left}
+.hr-person-note input{width:100%;min-width:0;box-sizing:border-box;border:0;background:transparent;font:inherit;padding:3px;text-align:left}
+.hr-person-note .print-only{white-space:pre-wrap;overflow-wrap:anywhere}
+@media print{.hr-roster-note-item{white-space:normal;align-items:flex-start}.hr-roster-note-item input,.hr-person-note input{display:none!important}.hr-roster-notes-grid{gap:0 10px}}
+
+.hr-staffing-line{display:block;white-space:nowrap;line-height:1.25}
+.hr-roster-table .hr-roster-notes-grid{grid-template-rows:repeat(3,minmax(26px,auto))}
+
+.hr-roster-save-status{min-height:1.5em;line-height:1.5;margin:4px 0;color:var(--cy-text-muted);font-size:12px}

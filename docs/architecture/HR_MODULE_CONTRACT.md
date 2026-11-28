@@ -97,10 +97,10 @@ V0.26.0 員工紀錄卡新增獎金，狀態異動移到年資不計左方、寬
 ### API（根路徑 `/api/business/hr`）
 | 方法 | 路徑 | 用途 |
 | --- | --- | --- |
-| GET／POST／PATCH | `/settings/stores` | 門市設定：名稱、排序、啟用、起算週一與注意事項範本 |
-| GET／POST／PATCH | `/settings/job-titles` | 職稱設定：名稱、排序、停用不刪除 |
-| GET／POST／PATCH | `/settings/shift-types` | 班別設定：開始／結束／休息時間驗證及正常工時 |
-| GET／POST／DELETE | `/settings/holidays?year=2026` | 人工維護國定假日，刪除稽核 |
+| GET／POST／PATCH／PUT | `/settings/stores` | 門市設定：名稱、排序、啟用、起算週一與注意事項範本 |
+| GET／POST／PATCH／PUT | `/settings/job-titles` | 職稱設定：名稱、排序、停用不刪除 |
+| GET／POST／PATCH／PUT | `/settings/shift-types` | 班別設定：開始／結束／休息時間驗證及正常工時 |
+| GET／POST／DELETE | `/settings/holidays?year=2026` | 人工維護國定假日：日期、名稱、可選備註（500 字），依日期排序，新增／修改／刪除稽核 |
 | GET | `/rosters/:storeId/:month` | 單月及前後補齊雙週（日期由門市起算週一），員工、格子、標籤、核准、國定假日、每日人力、備註 |
 | PUT | `/rosters/:storeId/:month` | 只傳變動格及備註，`db.batch` + 一筆稽核，違規 409 `HR_ROSTER_VIOLATION`；連六及兼職超 8 小時 409 `HR_ROSTER_CONSECUTIVE`，附 `items[]`，核准再帶 `approve[]` |
 | PATCH | `/rosters/:storeId/:month/staff` | 本門市員工 `rosterSort` 與 `skipRosterChecks`，保留其他個資與子表 |
@@ -157,3 +157,9 @@ V0.26.0 員工紀錄卡新增獎金，狀態異動移到年資不計左方、寬
 ## V0.21.0 第三批每月薪資（待Claude審查／未合併／未部署）
 
 新增每月薪資清冊、計算及版本快照、官方級距每日自動匯入、單次5／6分鐘及全勤規則、結清防重與具名管理員更正能力。Schema0073新增七表及假單法定保護欄；Build2的0074～0076另增法定案件、補充保費版本及差額／唯一套用四表，補月中投保分段、連續產假／公傷與給付日獎金／兼職稅務、公司補充保費及前期差額，沿用主檔與Audit，詳見[正式分支契約](HR_PAYROLL_CONTRACT.md)及[交接](../handoff/CYWEB-HR-PAYROLL-20261115.md)。特殊案例及1440／390目視仍列待補，不能當作全情境薪資驗收或部署授權。
+
+### V0.30.6 設定排序與國定假日備註
+門市、職稱、班別 PUT `{ids:number[]}` 接收全清單唯一 ID 排列（含停用），依序寫入 sort_order 1..N，整批與稽核同一 D1 batch；不改其他設定欄位。國定假日新增 note（0086，既有資料預設空字串）。班表設定捷徑直接開該年國定假日頁；設定事件刷新假日，不清空排班草稿。
+
+### 排班預設文字與月表文字（0087）
+`GET/POST/PATCH/DELETE /settings/roster-text`：kind note/rule、text、storeIds（非空且唯一）；每門市最多六項 note。月表 GET 提供 noteItems（prefix 固定或 null、text 可填）、rules 唯讀、employeeNotes、legacyNotes；PUT noteItems 驗證固定前綴與六項上限，employeeNotes 僅接受本門市成員的變更，禁止直接修改 rules 或舊 notes。第一次月表儲存建立範本快照；既有月表歷史內容保留。原門市 rules_template 遷移為 rule，舊備份同步升級。

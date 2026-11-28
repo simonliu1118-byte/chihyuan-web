@@ -34,3 +34,13 @@
   .cy-hrs-pane-head { flex-wrap: wrap; }
   .cy-hrs-table { min-width: 460px; }
 }
+
+.cy-hrs-table :is(th,td).cy-hrs-grip{width:30px;padding:0 4px;text-align:center}
+.cy-hrs-table :is(th,td).cy-hrs-seq{width:42px;text-align:center;white-space:nowrap}
+.cy-hrs-table :is(th,td).cy-hrs-date{text-align:center;white-space:nowrap}
+.cy-hrs-table :is(th,td).cy-hrs-actions{text-align:center}
+.cy-hrs-table .cy-lookup-handle:disabled{opacity:.4;cursor:default}
+
+.cy-hrs-table col.cy-hrs-grip{width:30px}.cy-hrs-table col.cy-hrs-seq{width:44px}.cy-hrs-code-col{width:44px}.cy-hrs-time-col{width:60px}.cy-hrs-break-col{width:100px}.cy-hrs-minutes-col{width:76px}.cy-hrs-status-col{width:54px}.cy-hrs-operation-col{width:66px}.cy-hrs-anchor-col{width:116px}.cy-hrs-holiday-operation-col{width:118px}
+
+.cy-hrs-text-section+.cy-hrs-text-section{margin-top:20px}.cy-hrs-text-value{white-space:pre-wrap;overflow-wrap:anywhere}.cy-hrs-store-checks{display:flex;flex-wrap:wrap;gap:8px 16px}.cy-hrs-store-checks label{display:flex;align-items:center;gap:6px}

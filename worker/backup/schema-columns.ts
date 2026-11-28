@@ -431,7 +431,8 @@ export const BACKUP_COLUMNS: Record<string, string[]> = {
   ],
   "hr_holidays": [
     "date",
-    "name"
+    "name",
+    "note"
   ],
   "hr_job_titles": [
     "id",
@@ -546,9 +547,12 @@ export const BACKUP_COLUMNS: Record<string, string[]> = {
     "updated_by",
     "work_date"
   ],
+  "hr_roster_text_defaults": ["id","kind","store_ids_json","text","updated_at"],
   "hr_schedule_months": [
+    "employee_notes_json",
     "id",
     "month",
+    "note_items_json",
     "notes",
     "rules",
     "store_id",

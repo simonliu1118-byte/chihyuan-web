@@ -1,5 +1,6 @@
 import { AuditService } from "../audit/audit-service";
 import { HrValidationError,date,integer,object,optional,required } from "./hr-validation";
+import {MAX_ROSTER_NOTES,MAX_ROSTER_NOTE_LENGTH,readRosterJson,type RosterTextDefault,type RosterTextKind} from "../../shared/hr-roster-text";
 import type { HrContext } from "./hr-service";
 export type HrSettingName="stores"|"job-titles"|"shift-types";
 const tables:Record<HrSettingName,string>={"stores":"hr_stores","job-titles":"hr_job_titles","shift-types":"hr_shift_types"};
@@ -58,16 +59,58 @@ export class HrSettingsService {
    this.audit(ctx,type+(id?":"+id:""),previous,Object.fromEntries(v.fields.map((key,i)=>[key,v.args[i]])))]);
   return {saved:true};
  }
+ async reorder(type:HrSettingName,raw:unknown,ctx:HrContext){
+  const table=tables[type];if(!table)throw new HrValidationError("type","設定項目不正確");
+  const v=object(raw);
+  if(!Array.isArray(v.ids)||v.ids.length>100)throw new HrValidationError("ids","排序資料不正確");
+  const ids=v.ids.map(x=>integer(x,"id",true));
+  const rows=(await this.db.prepare("SELECT id,sort_order FROM "+table+" ORDER BY sort_order,id LIMIT 101").all<{id:number;sort_order:number}>()).results??[];
+  const known=new Set(rows.map(x=>x.id));
+  if(ids.length!==rows.length||new Set(ids).size!==ids.length||ids.some(id=>!known.has(id)))throw new HrValidationError("ids","設定清單已變更，請重新讀取",409);
+  if(ids.every((id,i)=>id===rows[i]?.id))return {saved:true};
+  await this.db.batch([...ids.map((id,i)=>this.db.prepare("UPDATE "+table+" SET sort_order=?,updated_at=? WHERE id=?").bind(i+1,ctx.now,id)),this.audit(ctx,type+":order",{ids:rows.map(x=>x.id)},{ids})]);
+  return {saved:true};
+ }
+ async rosterTextDefaults():Promise<RosterTextDefault[]>{
+  const rows=(await this.db.prepare("SELECT id,kind,text,store_ids_json FROM hr_roster_text_defaults ORDER BY id LIMIT 1001").all<{id:number;kind:RosterTextKind;text:string;store_ids_json:string}>()).results??[];
+  if(rows.length>1000)throw new HrValidationError("limit","預設文字超出上限");
+  return rows.map(x=>({id:x.id,kind:x.kind,text:x.text,storeIds:readRosterJson<number[]>(x.store_ids_json,[])}));
+ }
+ async saveRosterText(raw:unknown,ctx:HrContext,id?:number){
+  const v=object(raw),kind=v.kind;
+  if(kind!=="note"&&kind!=="rule")throw new HrValidationError("kind","文字類型錯誤");
+  const text=required(v.text,"text",kind==="note"?MAX_ROSTER_NOTE_LENGTH:3000);
+  if(kind==="note"&&/[\r\n]/.test(text))throw new HrValidationError("text","備註限單列");
+  if(!Array.isArray(v.storeIds)||!v.storeIds.length||v.storeIds.length>100)throw new HrValidationError("storeIds","請選擇適用門市");
+  const storeIds=v.storeIds.map(x=>integer(x,"storeIds",true));
+  const stores=new Set((await this.list("stores")).map(x=>x.id));
+  if(new Set(storeIds).size!==storeIds.length||storeIds.some(x=>!stores.has(x)))throw new HrValidationError("storeIds","門市重複或不存在");
+  const rows=await this.rosterTextDefaults(),before=id?rows.find(x=>x.id===id):undefined;
+  if(id&&(!before||before.kind!==kind))throw new HrValidationError("id","預設文字不存在",404);
+  if(!id&&rows.length>=1000)throw new HrValidationError("limit","預設文字超出上限");
+  if(kind==="note"&&storeIds.some(s=>rows.filter(x=>x.id!==id&&x.kind==="note"&&x.storeIds.includes(s)).length>=MAX_ROSTER_NOTES))throw new HrValidationError("storeIds","每間門市預設備註最多六項");
+  const sql=id?"UPDATE hr_roster_text_defaults SET text=?,store_ids_json=?,updated_at=? WHERE id=?":"INSERT INTO hr_roster_text_defaults(text,store_ids_json,updated_at,kind) VALUES(?,?,?,?)";
+  const guard=kind==="note"?this.db.prepare("SELECT CASE WHEN EXISTS(SELECT 1 FROM json_each(?) s WHERE (SELECT COUNT(*) FROM hr_roster_text_defaults d WHERE d.kind='note' AND d.id<>? AND EXISTS(SELECT 1 FROM json_each(d.store_ids_json) j WHERE j.value=s.value))>=6) THEN json('') ELSE 1 END").bind(JSON.stringify(storeIds),id??0):null;
+  try{await this.db.batch([...(guard?[guard]:[]),this.db.prepare(sql).bind(text,JSON.stringify(storeIds),ctx.now,id??kind),this.audit(ctx,"roster-text:"+(id??"new"),before??null,{kind,text,storeIds})])}
+  catch(e){if(e instanceof Error&&/malformed JSON/i.test(e.message))throw new HrValidationError("storeIds","每間門市預設備註最多六項",409);throw e}
+  return {saved:true};
+ }
+ async deleteRosterText(id:number,ctx:HrContext){
+  const before=(await this.rosterTextDefaults()).find(x=>x.id===id);
+  if(!before)throw new HrValidationError("id","預設文字不存在",404);
+  await this.db.batch([this.db.prepare("DELETE FROM hr_roster_text_defaults WHERE id=?").bind(id),this.audit(ctx,"roster-text:"+id,before,null)]);
+  return {deleted:true};
+ }
  async holidays(year:number) {
   if(!Number.isInteger(year)||year<2000||year>2200)throw new HrValidationError("year","年度超出範圍");
-  return (await this.db.prepare("SELECT date,name FROM hr_holidays WHERE date>=? AND date<? ORDER BY date LIMIT 400")
+  return (await this.db.prepare("SELECT date,name,note FROM hr_holidays WHERE date>=? AND date<? ORDER BY date LIMIT 400")
     .bind(year+"-01-01",(year+1)+"-01-01").all()).results??[];
  }
  async saveHoliday(raw:unknown,ctx:HrContext) {
-  const v=object(raw),day=date(v.date,"date"),name=required(v.name,"name",100);
+  const v=object(raw),day=date(v.date,"date"),name=required(v.name,"name",100),note=optional(v.note,"note",500)??"";
   const before=await this.db.prepare("SELECT * FROM hr_holidays WHERE date=?").bind(day).first<Record<string,unknown>>();
-  await this.db.batch([this.db.prepare("INSERT INTO hr_holidays(date,name) VALUES(?,?) ON CONFLICT(date) DO UPDATE SET name=excluded.name").bind(day,name),
-   this.audit(ctx,"holidays:"+day,before,{date:day,name})]);
+  await this.db.batch([this.db.prepare("INSERT INTO hr_holidays(date,name,note) VALUES(?,?,?) ON CONFLICT(date) DO UPDATE SET name=excluded.name,note=excluded.note").bind(day,name,note),
+   this.audit(ctx,"holidays:"+day,before,{date:day,name,note})]);
   return {saved:true};
  }
  async deleteHoliday(input:string,ctx:HrContext) {

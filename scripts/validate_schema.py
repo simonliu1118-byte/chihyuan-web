@@ -78,6 +78,7 @@ EXPECTED_TABLES = {
     "hr_holidays",
     "hr_schedule_days",
     "hr_schedule_months",
+    "hr_roster_text_defaults",
     "hr_roster_approvals",
     "hr_attendance_days",
     "hr_employees",

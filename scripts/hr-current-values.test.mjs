@@ -217,7 +217,7 @@ test('backup and restore keep records and master columns; a pre-0083 backup rest
  await service.statusChange(id,{reason:'合成',effectiveDate:day(-4),storeId:store2,nextStatus:'leave'},ctx);
  await service.statusChange(id,{reason:'合成',effectiveDate:day(6),employmentType:'casual',scheduleMode:'none'},ctx);
  const bundle=await exportPortableBackup(f.db,{workspaceScope:'synthetic',appVersion:'0.29.0'});
- assert.equal(JSON.parse(new TextDecoder().decode(bundle.manifestBytes)).schemaMigration,'0085_bot_patrol_status');
+ assert.equal(JSON.parse(new TextDecoder().decode(bundle.manifestBytes)).schemaMigration,'0087_hr_roster_text');
  await restoreIntoEmptyDatabase(target.db,bundle,'synthetic');
  for(const table of ['hr_employees','hr_status_changes','hr_assignment_changes'])assert.deepEqual(target.sql.prepare('SELECT * FROM '+table+' ORDER BY id').all(),f.sql.prepare('SELECT * FROM '+table+' ORDER BY id').all(),table);
  // A pre-0083 backup: master columns still hold the baseline (as the 0081 layout did), no 建檔 assignment records.
